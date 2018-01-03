@@ -1,0 +1,27 @@
+# Compiled Sources
+###################
+*.o
+*.a
+*.elf
+#*.bin
+*.map
+*.hex
+*.dis
+#*.exe
+
+# Packages 
+############
+
+# Logs and Databases
+######################
+*.log
+
+# Build directory
+######################
+build/
+
+patches/
+
+sdkconfig
+sdkconfig.old
+_sdkconfig.saved

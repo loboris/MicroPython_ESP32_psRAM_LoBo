@@ -1,0 +1,9 @@
+eclipse.preferences.version=1
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.2062137617/IDF_PATH/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.2062137617/IDF_PATH/operation=replace
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.2062137617/IDF_PATH/value=${PWD}/../Tools/esp-idf
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.2062137617/PATH/delimiter=\:
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.2062137617/PATH/operation=replace
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.2062137617/PATH/value=/home/LoBo2_Razno/ESP32/xtensa-esp32-elf/bin\:/bin\:/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/usr/lib/jvm/java-8-oracle/bin\:/usr/lib/jvm/java-8-oracle/db/bin\:/usr/lib/jvm/java-8-oracle/jre/bin
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.2062137617/append=true
+environment/project/cdt.managedbuild.toolchain.gnu.cross.base.2062137617/appendContributed=true

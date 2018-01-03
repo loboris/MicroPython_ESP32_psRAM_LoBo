@@ -1,0 +1,34 @@
+<html>
+	<head>
+		<title>TEST</title>
+	</head>
+	<body>
+		<h1>BEGIN</h1>
+		{{ py }}
+			def _testFunction(x) :
+				return "IN TEST FUNCTION %s" % x
+		{{ end }}
+		<div style="background-color: black; color: white;">
+			{{ for toto in range(3) }}
+				This is an HTML test...<br />
+				TOTO = {{ toto + 1 }} !<br />
+				{{ for toto2 in range(3) }}
+					TOTO2 = {{ _testFunction(toto2) }}
+				{{ end }}
+				Ok good.<br />
+			{{ end }}
+		</div>
+		{{ _testFunction(100) }}<br />
+		<br />
+		{{ if 2+5 < 3 }}
+			IN IF (1)
+		{{ elif 10+15 != 25 }}
+			IN ELIF (2)
+		{{ elif 10+15 == 25 }}
+			IN ELIF (3)
+		{{ else }}
+			IN ELSE (4)
+		{{ end }}
+		<h1>JC :')</h1>
+	</body>
+</html>

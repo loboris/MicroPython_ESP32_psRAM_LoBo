@@ -1,0 +1,4 @@
+mpy-cross
+mpy-cross.exe
+*.o
+*.a

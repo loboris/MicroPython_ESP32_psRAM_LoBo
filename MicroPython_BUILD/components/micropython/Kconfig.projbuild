@@ -1,0 +1,408 @@
+menu "MicroPython"
+    config MICROPY_HW_BOARD_NAME
+        string "Board name"
+        default "ESP32 board"
+        help
+        Hardware board mame
+
+    config MICROPY_HW_MCU_NAME
+        string "MCU name"
+        default "ESP32"
+        help
+        Hardware MCU mame
+
+    config MICROPY_TIMEZONE
+        string "Time zone"
+        default "GMT0BST"
+        help
+        Set the time zone string used when updating the tome from NTP server
+        You can use 'zones.csv' file to find the time zone string
+        Use the second entry for your Region/city as the value set here
+
+    config MICROPY_USE_OTA
+        bool "Use OTA partition layout"
+        default n
+        help
+        Use OTA partition layout and include OTA module into build
+
+    config GPIO_INPUT_FORCE_FACTORY
+        bool "Use GPIO2 to force boot from Factory partition"
+		depends on MICROPY_USE_OTA
+        default no
+        help
+        If OTA layout is enabled and OTA update has been executed
+        the system will boot from one of the OTA partition
+        To force boot from Factory partition GPIO2 must be high for 3 seconds during boot
+
+    menu "System settings"
+		config MICRO_PY_LOG_LEVEL
+		    int
+		    default 0 if MICRO_PY_LOG_LEVEL0
+		    default 1 if MICRO_PY_LOG_LEVEL1
+		    default 2 if MICRO_PY_LOG_LEVEL2
+		    default 3 if MICRO_PY_LOG_LEVEL3
+		    default 4 if MICRO_PY_LOG_LEVEL4
+		    default 5 if MICRO_PY_LOG_LEVEL5
+		
+			choice
+			    prompt "Set ESP32 log level"
+			    default MICRO_PY_LOG_LEVEL2
+			    help
+			        Select Log (debug) level
+			
+			    config MICRO_PY_LOG_LEVEL0
+			        bool "None"
+			    config MICRO_PY_LOG_LEVEL1
+			        bool "Error"
+			    config MICRO_PY_LOG_LEVEL2
+			        bool "Warning"
+			    config MICRO_PY_LOG_LEVEL3
+			        bool "Info"
+			    config MICRO_PY_LOG_LEVEL4
+			        bool "Debug"
+			    config MICRO_PY_LOG_LEVEL5
+			        bool "Verbose"
+			endchoice
+
+	    config MICROPY_RX_BUFFER_SIZE
+	        int "RX buffer size"
+	        range 256 4096
+	        default 1080
+	        help
+	        Set the size of the stdin RX buffer in bytes
+	        Minimum of 1080 bytes must be set if you want to use YModem module
+	
+	    config MICROPY_USE_TASK_WDT
+	        bool "Enable WatchDog for MicroPython task"
+	        default y
+	        help
+	        Enable system WatchDog to monitor MicroPython task 
+	
+	    config MICROPY_USE_BOTH_CORES
+	        bool "Use both cores for MicroPython tasks"
+	    	depends on !FREERTOS_UNICORE
+	        default n
+	        help
+	        Run MicroPython tasks on both cores, if not selected MicroPython tasks are created pinned to one core 
+	
+	    config MICROPY_TASK_PRIORITY
+	        int "Main task priority"
+	        range 1 20
+	        default 5
+	        help
+	        Set the priority of the main MicroPython task
+	
+	    config MICROPY_STACK_SIZE
+	        int "MicroPython stack size (KB)"
+	        range 8 32 if !SPIRAM_SUPPORT
+	        range 8 64 if SPIRAM_SUPPORT
+	        default 20
+	        help
+	        Set the size of the MicroPython stack in Kbytes.
+	
+	    config MICROPY_HEAP_SIZE
+	        int "MicroPython heap size (KB)"
+	        range 48 96 if !SPIRAM_SUPPORT
+	        range 48 74 if !SPIRAM_SUPPORT && MICROPY_USE_CURL && MICROPY_USE_CURL_TLS
+	        range 512 3584 if SPIRAM_SUPPORT
+	        default 80 if !SPIRAM_SUPPORT
+	        default 72 if !SPIRAM_SUPPORT && MICROPY_USE_CURL && MICROPY_USE_CURL_TLS
+	        default 2048 if SPIRAM_SUPPORT
+	        help
+	        Set the size of the MicroPython heap in Kbytes
+	        If SPIRAM is not used, heap is allocated from DRAM and setting the heap size too large
+	        may result in insuficient heap for C services like mqtt, gsm, curl... 
+	
+	    config MICROPY_THREAD_MAX_THREADS
+	        int "Maximum number of threads"
+	        range 1 16
+	        default 4
+	        help
+	        Set the maximum number of threads that can run simultaneosly
+
+	    config MICROPY_THREAD_STACK_SIZE
+	        int "Threads default stack size (KB)"
+	        range 2 32
+	        default 4
+	        help
+	        Set the default thread stack size.
+	        Different stack size can be set when starting the thread
+	
+	    config MICROPY_USE_TELNET
+	        bool "Enable Telnet server"
+	        default y
+	        help
+	        Enable Telnet server and REPL over telnet
+
+	    config MICROPY_USE_WEBSERVER
+	        bool "Enable Web server (experimental)"
+	        default n
+	        help
+	        Enable Web server (experimental)
+
+	    config MICROPY_USE_FTPSERVER
+	        bool "Enable Ftp server"
+	        default y
+	        help
+	        Enable Ftp server
+
+	    menu "FTP Server Configuration"
+	        depends on MICROPY_USE_FTPSERVER
+
+			config FTPSERVER_LOG_LEVEL
+			    int
+			    default 0 if FTPSERVER_LOG_LEVEL0
+			    default 1 if FTPSERVER_LOG_LEVEL1
+			    default 2 if FTPSERVER_LOG_LEVEL2
+			    default 3 if FTPSERVER_LOG_LEVEL3
+			    default 4 if FTPSERVER_LOG_LEVEL4
+			
+				choice
+				    prompt "Set FTP Server log level"
+				    default FTPSERVER_LOG_LEVEL1
+				    help
+				        Select Log (debug) level
+				
+				    config FTPSERVER_LOG_LEVEL0
+				        bool "None"
+				    config FTPSERVER_LOG_LEVEL1
+				        bool "Error"
+				    config FTPSERVER_LOG_LEVEL2
+				        bool "Warning"
+				    config FTPSERVER_LOG_LEVEL3
+				        bool "Info"
+				    config FTPSERVER_LOG_LEVEL4
+				        bool "Debug"
+				endchoice
+	
+		    config MICROPY_FTPSERVER_TIMEOUT
+		        int "Ftp server connection timeout (seconds)"
+		        range 60 3600
+		        default 300
+		        help
+		        Disconnect ftp client if no activity for more than this timeout value
+
+		    config MICROPY_FTPSERVER_BUFFER_SIZE
+		        int "Transfer buffer size (bytes)"
+		        range 512 10240
+		        default 1024
+		        help
+		        	Transfer buffer size
+		        	Larger buffer enables faster transfer
+		endmenu	
+    endmenu
+
+    menu "Modules"
+	    config MICROPY_PY_FRAMEBUF
+	        bool "Enable framebuffer"
+	        default n
+	        help
+	        Include framebuffer module into build
+	
+	    config MICROPY_PY_USE_BTREE
+	        bool "Include Btree"
+	        default n
+	        help
+	        Include Btree module into build
+	
+	    config MICROPY_USE_WEBSOCKETS
+	        bool "Use Websockets"
+	        default n
+	        help
+	        Include websockets module into build
+	
+	    config MICROPY_USE_GSM
+	        bool "Use GSM module"
+	        depends on PPP_SUPPORT
+	        default n
+	        help
+	        Include GSM module and PPPoS support into build
+	
+	    config MICROPY_USE_ETHERNET
+	        bool "Use Ethernet module"
+	        default n
+	        help
+	        Include Ethernet (network.LAN) module into build
+	
+	    config MICROPY_USE_MDNS
+	        bool "Use mDNS module"
+	        default y
+	        help
+	        Include mDNS module into build
+	
+	    config MICROPY_USE_CURL
+	        bool "Use Curl module"
+	        default n
+	        help
+	        Include CURL module into build
+	        Using CURLmodule will add ~400KB to your code size
+	
+	    config MICROPY_USE_CURL_TLS
+	        bool "Enable TLS in Curl module"
+	        depends on MICROPY_USE_CURL
+	        default y if SPIRAM_SUPPORT
+	        default n if !SPIRAM_SUPPORT
+	        help
+	        Enable SSL/TLS in CURL module
+	        TLS support requires large amount RAM !
+	        If SPIRAM is not used, MicroPython heap size should not be set larger than 74KB !
+	
+	    config MICROPY_USE_CURLFTP
+	        bool "FTP support in Curl module"
+	        depends on MICROPY_USE_CURL
+	        default n
+	        help
+	        Include Ftp support in Curl module, not including it may save some flash space
+	
+	    config MICROPY_USE_SSH
+	        bool "Use SSH module"
+	        default n
+	        help
+	        Include SSH module into build
+	
+	    config MICROPY_USE_MQTT
+	        bool "Use Mqtt module"
+	        default n
+	        help
+	        Include Mqtt module into build
+	
+	    menu "MQTT Configuration"
+	        depends on MICROPY_USE_MQTT
+		    config MQTT_PROTOCOL_311
+		        bool "Use protocol version 3.1.1"
+		        default y
+		        help
+			        Use protocol version 3.1.1
+			        If not set, protocol version 3.1.0 is used
+
+		    config MQTT_PRIORITY
+		        int "MQTT task priority"
+		        default MICROPY_TASK_PRIORITY
+		        range 1 20
+		        help
+			        FreeRTOS task priority of the Mqtt task
+			        Default is MicroPython task priority
+
+		    config MQTT_BUFFER_SIZE_BYTE
+		        int "MQTT send/receive buffer size"
+		        default 256
+		        range 256 2048
+		        help
+			        Send/Receive buffer size in bytes
+			        More than buffer size bytes can be received...
+			        Publish payload size is limited to this size.
+			        Keep in mind that 4*CONFIG_MQTT_BUFFER_SIZE_BYTE queue buffer will also be created.
+
+		    config MQTT_MAX_PAYLOAD_SIZE
+		        int "MQTT max payload size"
+		        default 2048
+		        range MQTT_BUFFER_SIZE_BYTE 16384
+		        help
+			        Maximum payload size which can be received
+			        If the payload size is larger, it will be truncated
+
+			config MQTT_LOG_LEVEL
+			    int
+			    default 0 if MQTT_LOG_LEVEL0
+			    default 1 if MQTT_LOG_LEVEL1
+			    default 2 if MQTT_LOG_LEVEL2
+			    default 3 if MQTT_LOG_LEVEL3
+			    default 4 if MQTT_LOG_LEVEL4
+			
+				choice
+				    prompt "Set Mqtt log level"
+				    default MQTT_LOG_LEVEL1
+				    help
+				        Select Log (debug) level
+				
+				    config MQTT_LOG_LEVEL0
+				        bool "None"
+				    config MQTT_LOG_LEVEL1
+				        bool "Error"
+				    config MQTT_LOG_LEVEL2
+				        bool "Warning"
+				    config MQTT_LOG_LEVEL3
+				        bool "Info"
+				    config MQTT_LOG_LEVEL4
+				        bool "Debug"
+				endchoice
+
+	    endmenu
+	endmenu
+    menu "File systems"
+        config MICROPY_FATFS_MAX_OPEN_FILES
+            int "Maximum number of opened files"
+            range 4 24
+            default 6
+            help
+            Maximum number of opened files
+
+        config MICROPY_USE_SPIFFS
+            bool "Use SPIFFS"
+            default y
+            help
+            Use spiffs on spi Flash instead of FatFS
+
+        config MICROPY_SDMMC_SHOW_INFO
+            bool "Show SDCard/InternalFS info"
+            default y
+            help
+            Show info after initializing SD card or internal FS
+
+    endmenu
+
+    menu "SD Card configuration"
+		config SDCARD_MODE
+		    int
+		    default 1 if SDCARD_MODE1
+		    default 2 if SDCARD_MODE2
+		    default 3 if SDCARD_MODE3
+		
+			choice
+			    prompt "SD Card mode"
+			    default SDCARD_MODE3
+			    help
+			        Select SD Card operating mode
+			
+			    config SDCARD_MODE1
+			        bool "SPI Mode"
+			        depends on !MEMMAP_SPIRAM_ENABLE 
+			    config SDCARD_MODE2
+			        bool "1-line SD Mode" 
+			    config SDCARD_MODE3
+			        bool "4-line SD Mode" 
+			endchoice
+
+        config SDCARD_CLK
+            int "CLK pin"
+            depends on SDCARD_MODE1
+            range 1 32
+            default 14
+            help
+            Pin used as SPI CLK
+
+        config SDCARD_MOSI
+            int "MOSI pin"
+            depends on SDCARD_MODE1
+            range 1 32
+            default 15
+            help
+            Pin used as SPI MOSI
+
+        config SDCARD_MISO
+            int "MISO pin"
+            depends on SDCARD_MODE1
+            range 1 32
+            default 2
+            help
+            Pin used as SPI MISO
+
+        config SDCARD_CS
+            int "CS pin"
+            depends on SDCARD_MODE1
+            range 1 32
+            default 13
+            help
+            Pin used as SPI CS
+    endmenu
+endmenu

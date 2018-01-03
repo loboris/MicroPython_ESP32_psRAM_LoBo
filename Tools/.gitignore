@@ -1,0 +1,5 @@
+esp-idf/
+esp-idf_psram/
+xtensa-esp32-elf/
+xtensa-esp32-elf_psram/
+*.id

@@ -1,0 +1,4 @@
+mkfatfs
+mkfatfs.exe
+*.o
+*.a
