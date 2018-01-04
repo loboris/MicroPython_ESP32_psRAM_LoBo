@@ -172,7 +172,7 @@ export CROSS_COMPILE=xtensa-esp32-elf-
 
 for arg in "${POSITIONAL_ARGS[@]}"
 do
-    if [ "${arg}" == "all" ] || [ "${arg}" == "flash" ] || [ "${arg}" == "makefs" ] || [ "${arg}" == "flashfs" ] || [ "${arg}" == "makefatfs" ] || [ "${arg}" == "flashfatfs" ] || [ "${arg}" == "firmware" ]; then
+    if [ "${arg}" == "all" ] || [ "${arg}" == "flash" ] || [ "${arg}" == "makefs" ] || [ "${arg}" == "flashfs" ] || [ "${arg}" == "makefatfs" ] || [ "${arg}" == "flashfatfs" ]; then
         set_partitions ${APP_SIZE}
         if [ $? -ne 0 ]; then
             exit 1

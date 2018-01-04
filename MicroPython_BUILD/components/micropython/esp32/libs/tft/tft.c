@@ -275,7 +275,7 @@ static void _drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, color_t co
     swap(y0, y1);
   }
 
-  int16_t dx = x1 - x0, dy = abs(y1 - y0);;
+  int16_t dx = x1 - x0, dy = abs(y1 - y0);
   int16_t err = dx >> 1, ystep = -1, xs = x0, dlen = 0;
 
   if (y0 < y1) ystep = 1;
@@ -2438,9 +2438,9 @@ void TFT_jpg_image(int x, int y, uint8_t scale, char *fname, uint8_t *buf, int s
 	dev.linbuf[1] = NULL;
     dev.linbuf_idx = 0;
 
+   	dev.fhndl = NULL;
     if (fname == NULL) {
     	// image from buffer
-    	dev.fhndl = NULL;
         dev.membuff = buf;
         dev.bufsize = size;
         dev.bufptr = 0;

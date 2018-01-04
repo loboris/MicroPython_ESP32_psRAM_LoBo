@@ -74,10 +74,12 @@ typedef struct _machine_hw_spi_obj_t {
     } state;
 } machine_hw_spi_obj_t;
 
+extern uint8_t disp_used_spi_host;
 
 //-----------------------------------------------------------------
 int checkSPIBUS(int8_t bus, int8_t mosi, uint8_t miso, uint8_t sck)
 {
+    if ((disp_used_spi_host > 0) && (MPy_SPIbus[disp_used_spi_host]->mosi_io_num >= 0)) return -3; // bus used by display driver
 	if (MPy_SPIbus[bus] == NULL) return -2;			// bus not available
 	if (MPy_SPIbus[bus]->mosi_io_num < 0) return 1;	// bus not configured, free to use
 
@@ -141,8 +143,11 @@ STATIC void machine_hw_spi_init_internal(
         }
 		#endif
 
-        bus_state = checkSPIBUS(host, mosi, miso,sck);
-        if (bus_state < 0) {
+        bus_state = checkSPIBUS(host, mosi, miso, sck);
+        if (bus_state == -3) {
+            mp_raise_ValueError("SPI host already used by display driver");
+        }
+        else if (bus_state < 0) {
             mp_raise_ValueError("SPI host already used with different configuration");
         }
         self->host = host;

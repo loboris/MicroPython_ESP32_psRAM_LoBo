@@ -100,7 +100,8 @@ Detailed information about using MicroPython file systems are available in the [
 ### Some examples
 
 Using new machine methods and RTC:
-```
+
+```python
 import machine
 
 rtc = machine.RTC()
@@ -110,26 +111,39 @@ rtc.init((2017, 6, 12, 14, 35, 20))
 rtc.now()
 
 rtc.ntp_sync(server="<ntp_server>" [,update_period=])
-  <ntp_server> can be empty string, then the default server is used ("pool.ntp.org")
+  # <ntp_server> can be empty string, then the default server is used ("pool.ntp.org")
 
 rtc.synced()
-  returns True if time synchronized to NTP server
+  # returns True if time synchronized to NTP server
 
 rtc.wake_on_ext0(Pin, level)
 rtc.wake_on_ext1(Pin, level)
-  wake up from deepsleep on pin level
+  # wake up from deepsleep on pin level
 
-machine.deepsleep(time_ms)
+machine.deepsleep(10000)
+ESP32: DEEP SLEEP
+
+# ...
+# ...
+
+Reset reason: Deepsleep wake-up
+Wakeup source: RTC wake-up
+    uPY stack: 19456 bytes
+     uPY heap: 3073664/5664/3068000 bytes (in SPIRAM using malloc)
+
+MicroPython ESP32_LoBo_v3.1.0 - 2017-01-03 on ESP32 board with ESP32
+Type "help()" for more information.
+
 machine.wake_reason()
-  returns tuple with reset & wakeup reasons
+  # returns tuple with reset & wakeup reasons
 machine.wake_description()
-  returns tuple with strings describing reset & wakeup reasons
-
+  # returns tuple with strings describing reset & wakeup reasons
 
 ```
 
 Using sdcard module:
-```
+
+```python
 import uos
 
 uos.mountsd()
@@ -137,7 +151,8 @@ uos.listdir('/sd')
 ```
 
 Working directory can be changed to root of the sd card automatically on mount:
-```
+
+```python
 >>> import uos
 >>> uos.mountsd(True)
 ---------------------
@@ -152,7 +167,6 @@ Speed: default speed (25 MHz)
 >>> uos.listdir()
 ['overlays', 'bcm2708-rpi-0-w.dtb', ......
 >>>
-
 ```
 
 ---
@@ -166,97 +180,77 @@ Tested on **ESP-WROVER-KIT v3**
 
 
 ```
-
-rst:0x1 (POWERON_RESET),boot:0x3e (SPI_FAST_FLASH_BOOT)
-configsip: 0, SPIWP:0xee
-clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
-mode:DIO, clock div:2
-load:0x3fff0010,len:4
-load:0x3fff0014,len:5656
-load:0x40078000,len:0
-ho 12 tail 0 room 4
-load:0x40078000,len:13220
-entry 0x40078fe4
-W (36) rtc_clk: Possibly invalid CONFIG_ESP32_XTAL_FREQ setting (40MHz). Detected 40 MHz.
-I (59) boot: ESP-IDF ESP32_LoBo_v1.9.1-13-gfecf988-dirty 2nd stage bootloader
-I (60) boot: compile time 21:07:29
-I (108) boot: Enabling RNG early entropy source...
-I (108) boot: SPI Speed      : 40MHz
-I (108) boot: SPI Mode       : DIO
-I (115) boot: SPI Flash Size : 4MB
-I (128) boot: Partition Table:
-I (139) boot: ## Label            Usage          Type ST Offset   Length
-I (162) boot:  0 nvs              WiFi data        01 02 00009000 00006000
-I (185) boot:  1 phy_init         RF data          01 01 0000f000 00001000
-I (209) boot:  2 MicroPython      factory app      00 00 00010000 00270000
-I (232) boot:  3 internalfs       Unknown data     01 81 00280000 00140000
-I (255) boot: End of partition table
-I (268) esp_image: segment 0: paddr=0x00010020 vaddr=0x3f400020 size=0x48a74 (297588) map
-I (613) esp_image: segment 1: paddr=0x00058a9c vaddr=0x3ffb0000 size=0x07574 ( 30068) load
-I (650) esp_image: segment 2: paddr=0x00060018 vaddr=0x400d0018 size=0xc83f4 (820212) map
-0x400d0018: _stext at ??:?
-
-I (1525) esp_image: segment 3: paddr=0x00128414 vaddr=0x3ffb7574 size=0x052d0 ( 21200) load
-I (1551) esp_image: segment 4: paddr=0x0012d6ec vaddr=0x40080000 size=0x00400 (  1024) load
-0x40080000: _iram_start at /home/LoBo2_Razno/ESP32/MicroPython/MicroPython_ESP32_psRAM_LoBo/Tools/esp-idf/components/freertos/./xtensa_vectors.S:1675
-
-I (1553) esp_image: segment 5: paddr=0x0012daf4 vaddr=0x40080400 size=0x1a744 (108356) load
-I (1711) esp_image: segment 6: paddr=0x00148240 vaddr=0x400c0000 size=0x0006c (   108) load
-I (1712) esp_image: segment 7: paddr=0x001482b4 vaddr=0x50000000 size=0x00400 (  1024) load
-I (1794) boot: Loaded app from partition at offset 0x10000
-I (1794) boot: Disabling RNG early entropy source...
-I (1800) spiram: SPI RAM mode: flash 40m sram 40m
-I (1812) spiram: PSRAM initialized, cache is in low/high (2-core) mode.
-I (1834) cpu_start: Pro cpu up.
-I (1846) cpu_start: Starting app cpu, entry point is 0x400814e4
-0x400814e4: call_start_cpu1 at /home/LoBo2_Razno/ESP32/MicroPython/MicroPython_ESP32_psRAM_LoBo/Tools/esp-idf/components/esp32/./cpu_start.c:219
-
 I (0) cpu_start: App cpu up.
-I (4612) spiram: SPI SRAM memory test OK
-I (4614) heap_init: Initializing. RAM available for dynamic allocation:
-I (4615) heap_init: At 3FFAE2A0 len 00001D60 (7 KiB): DRAM
-I (4633) heap_init: At 3FFC30C0 len 0001CF40 (115 KiB): DRAM
-I (4653) heap_init: At 3FFE0440 len 00003BC0 (14 KiB): D/IRAM
-I (4672) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM
-I (4692) heap_init: At 4009AB44 len 000054BC (21 KiB): IRAM
-I (4712) cpu_start: Pro cpu start user code
-I (4777) cpu_start: Starting scheduler on PRO CPU.
-I (2920) cpu_start: Starting scheduler on APP CPU.
+I (1569) spiram: SPI SRAM memory test OK
+I (1570) heap_init: Initializing. RAM available for dynamic allocation:
+D (1570) heap_init: New heap initialised at 0x3ffae6e0
+I (1575) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM
+D (1581) heap_init: New heap initialised at 0x3ffc1a00
+I (1586) heap_init: At 3FFC1A00 len 0001E600 (121 KiB): DRAM
+I (1593) heap_init: At 3FFE0440 len 00003BC0 (14 KiB): D/IRAM
+I (1599) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM
+D (1606) heap_init: New heap initialised at 0x4009d70c
+I (1611) heap_init: At 4009D70C len 000028F4 (10 KiB): IRAM
+I (1617) cpu_start: Pro cpu start user code
+I (1622) spiram: Adding pool of 4096K of external SPI memory to heap allocator
+I (1630) spiram: Reserving pool of 32K of internal memory for DMA/internal allocations
+D (1646) clk: RTC_SLOW_CLK calibration value: 3305242
+D (89) intr_alloc: Connected src 46 to int 2 (cpu 0)
+D (90) intr_alloc: Connected src 57 to int 3 (cpu 0)
+D (90) intr_alloc: Connected src 24 to int 9 (cpu 0)
+I (95) cpu_start: Starting scheduler on PRO CPU.
+D (0) intr_alloc: Connected src 25 to int 2 (cpu 1)
+I (4) cpu_start: Starting scheduler on APP CPU.
+D (119) heap_init: New heap initialised at 0x3ffe0440
+D (125) heap_init: New heap initialised at 0x3ffe4350
+D (130) intr_alloc: Connected src 16 to int 12 (cpu 0)
+D (145) nvs: nvs_flash_init_custom partition=nvs start=9 count=4
+D (178) intr_alloc: Connected src 34 to int 3 (cpu 1)
+D (187) intr_alloc: Connected src 22 to int 4 (cpu 1)
 
-FreeRTOS running on BOTH CORES, MicroPython task started on App Core.
+Internal FS (SPIFFS): Mounted on partition 'internalfs' [size: 1048576; Flash address: 0x2D0000]
+----------------
+Filesystem size: 956416 B
+           Used: 512 B
+           Free: 955904 B
+----------------
 
-uPY stack size = 19456 bytes
-uPY  heap size = 2097152 bytes (in SPIRAM using heap_caps_malloc)
+FreeRTOS running on BOTH CORES, MicroPython task running on both cores.
+Running from partition at 10000, type 10 [MicroPython_1].
 
-Reset reason: Power on reset Wakeup: Power on wake
-I (3130) phy: phy_version: 359.0, e79c19d, Aug 31 2017, 17:06:07, 0, 0
+ Reset reason: Power on reset
+    uPY stack: 19456 bytes
+     uPY heap: 3073664/5664/3068000 bytes (in SPIRAM using malloc)
 
-Starting WiFi ...
-WiFi started
-Synchronize time from NTP server ...
-Time set
-
-MicroPython ESP32_LoBo_v2.0.2 - 2017-09-19 on ESP32 board with ESP32
+MicroPython ESP32_LoBo_v3.1.0 - 2017-01-03 on ESP32 board with ESP32
 Type "help()" for more information.
 >>> 
 >>> import micropython, machine
+>>> 
 >>> micropython.mem_info()
-stack: 736 out of 19456
-GC: total: 2049088, used: 6848, free: 2042240
- No. of 1-blocks: 37, 2-blocks: 9, max blk sz: 329, max free sz: 127565
+stack: 752 out of 19456
+GC: total: 3073664, used: 5904, free: 3067760
+ No. of 1-blocks: 19, 2-blocks: 7, max blk sz: 325, max free sz: 191725
+>>> 
 >>> machine.heap_info()
-Free heap outside of MicroPython heap:
- total=2232108, SPISRAM=2097108, DRAM=135000
->>> 
->>> a = ['esp32'] * 200000
->>> 
->>> a[123456]
-'esp32'
->>> 
->>> micropython.mem_info()
-stack: 736 out of 19456
-GC: total: 2049088, used: 807104, free: 1241984
- No. of 1-blocks: 44, 2-blocks: 13, max blk sz: 50000, max free sz: 77565
->>> 
+Heap outside of MicroPython heap:
+---------------------------------
+              Free: 239920
+         Allocated: 52328
+      Minimum free: 233100
+      Total blocks: 85
+Largest free block: 113804
+  Allocated blocks: 79
+       Free blocks: 6
 
+SPIRAM info:
+------------
+              Free: 1048532
+         Allocated: 3145728
+      Minimum free: 1048532
+      Total blocks: 2
+Largest free block: 1048532
+  Allocated blocks: 1
+       Free blocks: 1
+>>>
 ```

@@ -74,8 +74,12 @@ typedef struct _display_tft_obj_t {
     uint32_t tp_caly;
 } display_tft_obj_t;
 
+extern int checkSPIBUS(int8_t bus, int8_t mosi, uint8_t miso, uint8_t sck);
+
 STATIC display_tft_obj_t display_tft_obj;
 const mp_obj_type_t display_tft_type;
+
+uint8_t disp_used_spi_host = 0;
 
 // constructor(id, ...)
 //-----------------------------------------------------------------------------------------------------------------
@@ -198,7 +202,13 @@ STATIC mp_obj_t display_tft_init(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
         mp_raise_msg(&mp_type_OSError, "Unsupported SPI host");
     }
 	#endif
-	if ((args[ARG_type].u_int < 0) || (args[ARG_type].u_int >= DISP_TYPE_MAX)) {
+
+    int bus_state = checkSPIBUS(args[ARG_host].u_int, args[ARG_mosi].u_int, args[ARG_miso].u_int, args[ARG_clk].u_int);
+    if (bus_state != 1) {
+        mp_raise_ValueError("SPI host already used by SPI module with different configuration");
+    }
+
+    if ((args[ARG_type].u_int < 0) || (args[ARG_type].u_int >= DISP_TYPE_MAX)) {
         mp_raise_msg(&mp_type_OSError, "Unsupported display type");
 	}
 
@@ -227,6 +237,7 @@ STATIC mp_obj_t display_tft_init(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
     self->miso = args[ARG_miso].u_int;
     self->mosi = args[ARG_mosi].u_int;
     self->clk = args[ARG_clk].u_int;
+
     self->cs = args[ARG_cs].u_int;
 	self->dc = args[ARG_dc].u_int;
 
@@ -342,6 +353,7 @@ STATIC mp_obj_t display_tft_init(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
 			mp_printf(&mp_plat_print, "Touch panel CS pin not specified, touch not enabled!\n");
     	}
     }
+    disp_used_spi_host = args[ARG_host].u_int;
 
     // ================================
 	// ==== Initialize the Display ====
