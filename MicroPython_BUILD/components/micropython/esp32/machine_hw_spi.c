@@ -174,17 +174,32 @@ STATIC void machine_hw_spi_init_internal(
     }
 
     if (bus_state > 0) {
-    	// SPI bus is free
+        gpio_pad_select_gpio(miso);
+        gpio_pad_select_gpio(mosi);
+        gpio_pad_select_gpio(sck);
+        gpio_set_direction(miso, GPIO_MODE_INPUT);
+        gpio_set_pull_mode(miso, GPIO_PULLUP_ONLY);
+        gpio_set_direction(mosi, GPIO_MODE_OUTPUT);
+        gpio_set_direction(sck, GPIO_MODE_OUTPUT);
+        // SPI bus is free
 		MPy_SPIbus[self->host]->sclk_io_num = sck;
 		MPy_SPIbus[self->host]->mosi_io_num = mosi;
 		MPy_SPIbus[self->host]->miso_io_num = miso;
 		MPy_SPIbus[self->host]->quadwp_io_num = -1;
 		MPy_SPIbus[self->host]->quadhd_io_num = -1;
 		MPy_SPIbus[self->host]->max_transfer_sz = 4096;
+        // Initialize the spi bus
+        ret=spi_bus_initialize(host, MPy_SPIbus[self->host], 1);
+        if (ret != ESP_OK) {
+            mp_raise_msg(&mp_type_OSError, "error initializing spi bus");
+            return;
+        }
     }
 
     if ((cs > -1) && (cs != self->spi.cs)) {
         gpio_pad_select_gpio(cs);
+        gpio_set_direction(cs, GPIO_MODE_OUTPUT);
+        gpio_set_level(cs, 1);
         self->spi.cs = cs;
     	changed |= 0x0400;
     }
@@ -206,9 +221,9 @@ STATIC void machine_hw_spi_init_internal(
     self->devcfg.flags = ((self->firstbit == MICROPY_PY_MACHINE_SPI_LSB) ? SPI_DEVICE_TXBIT_LSBFIRST | SPI_DEVICE_RXBIT_LSBFIRST : 0);
     if (!self->duplex) self->devcfg.flags |= SPI_DEVICE_HALFDUPLEX;
     self->devcfg.pre_cb = NULL;
+    self->devcfg.queue_size = 1;
 
-    // Add device to spi bus
-
+	// Add device to spi bus
 	ret = spi_bus_add_device(self->host, &self->devcfg, &self->spi.handle);
 
 	if (ret == ESP_OK) {
@@ -276,7 +291,7 @@ STATIC mp_obj_t machine_hw_spi_init(mp_uint_t n_args, const mp_obj_t *pos_args, 
         { MP_QSTR_mosi,     MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
         { MP_QSTR_miso,     MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
         { MP_QSTR_cs,       MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
-        { MP_QSTR_duplex,   MP_ARG_KW_ONLY | MP_ARG_INT, {.u_bool = -1} },
+        { MP_QSTR_duplex,   MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
         { MP_QSTR_bits,     MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 8} },
     };
 
@@ -358,7 +373,7 @@ STATIC mp_obj_t mp_machine_spi_read(size_t n_args, const mp_obj_t *args)
 
     t.rxlength = vstr.len * 8;
     t.rx_buffer = vstr.buf;
-    if (n_args == 3) {
+    if ((self->duplex) && (n_args == 3)) {
 		t.length = vstr.len * 8;
 		t.tx_buffer = vstr.buf;
     }
@@ -505,6 +520,30 @@ STATIC mp_obj_t mp_machine_spi_read_from_mem(mp_uint_t n_args, const mp_obj_t *p
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mp_machine_spi_read_from_mem_obj, 0, mp_machine_spi_read_from_mem);
 
+//-----------------------------------------------------
+STATIC mp_obj_t mp_machine_spi_select(mp_obj_t self_in)
+{
+    machine_hw_spi_obj_t *self = self_in;
+
+	esp_err_t ret = spi_device_select(&self->spi, 0);
+
+	if (ret == ESP_OK) return mp_const_true;
+    return mp_const_false;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_machine_spi_select_obj, mp_machine_spi_select);
+
+//-------------------------------------------------------
+STATIC mp_obj_t mp_machine_spi_deselect(mp_obj_t self_in)
+{
+    machine_hw_spi_obj_t *self = self_in;
+
+	esp_err_t ret = spi_device_deselect(&self->spi);
+
+	if (ret == ESP_OK) return mp_const_true;
+    return mp_const_false;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_machine_spi_deselect_obj, mp_machine_spi_deselect);
+
 
 //================================================================
 STATIC const mp_rom_map_elem_t machine_spi_locals_dict_table[] = {
@@ -515,6 +554,8 @@ STATIC const mp_rom_map_elem_t machine_spi_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_readfrom_mem), (mp_obj_t)&mp_machine_spi_read_from_mem_obj },
     { MP_ROM_QSTR(MP_QSTR_write), (mp_obj_t)&mp_machine_spi_write_obj },
     { MP_ROM_QSTR(MP_QSTR_write_readinto), (mp_obj_t)&mp_machine_spi_write_readinto_obj },
+    { MP_ROM_QSTR(MP_QSTR_select), (mp_obj_t)&mp_machine_spi_select_obj },
+    { MP_ROM_QSTR(MP_QSTR_deselect), (mp_obj_t)&mp_machine_spi_deselect_obj },
 
     { MP_ROM_QSTR(MP_QSTR_MSB), MP_ROM_INT(MICROPY_PY_MACHINE_SPI_MSB) },
     { MP_ROM_QSTR(MP_QSTR_LSB), MP_ROM_INT(MICROPY_PY_MACHINE_SPI_LSB) },
