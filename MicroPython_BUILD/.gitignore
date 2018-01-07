@@ -25,3 +25,9 @@ patches/
 sdkconfig
 sdkconfig.old
 _sdkconfig.saved
+sdkconfig.fw_esp32
+sdkconfig.fw_esp32_ota
+sdkconfig.fw_psram
+sdkconfig.fw_psram_ota
+
+makefirmwares.sh

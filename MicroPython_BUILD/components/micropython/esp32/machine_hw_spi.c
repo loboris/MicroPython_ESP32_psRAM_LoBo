@@ -80,34 +80,43 @@ extern uint8_t disp_used_spi_host;
 int checkSPIBUS(int8_t bus, int8_t mosi, uint8_t miso, uint8_t sck)
 {
     if ((disp_used_spi_host > 0) && (MPy_SPIbus[disp_used_spi_host]->mosi_io_num >= 0)) return -3; // bus used by display driver
-	if (MPy_SPIbus[bus] == NULL) return -2;			// bus not available
-	if (MPy_SPIbus[bus]->mosi_io_num < 0) return 1;	// bus not configured, free to use
+
+    if (MPy_SPIbus[bus] == NULL) return -2;					// bus not available
+	if (MPy_SPIbus[bus]->mosi_io_num < 0) return 1;			// bus not configured, free to use
 
 	if ((mosi != MPy_SPIbus[bus]->mosi_io_num) ||
 	    (miso != MPy_SPIbus[bus]->miso_io_num) ||
-	    (sck != MPy_SPIbus[bus]->sclk_io_num)) return -1; // requested pins different than configured
-	return 0; // bus already configured with the same pins
+	    (sck != MPy_SPIbus[bus]->sclk_io_num)) return -1;	// requested pins different than configured
+	return 0;												// bus already configured with the same pins
 }
 
-//--------------------------------------------------------------------
-STATIC void machine_hw_spi_deinit_internal(machine_hw_spi_obj_t *self)
+//---------------------------------------------------------------------------------
+STATIC void machine_hw_spi_deinit_internal(machine_hw_spi_obj_t *self, int freebus)
 {
     spi_device_handle_t handle = self->spi.handle;
     if (spi_bus_remove_device(handle) != ESP_OK) {
-    	mp_raise_msg(&mp_type_OSError, "error at deinitialization");
+    	mp_raise_msg(&mp_type_OSError, "error removing spi device");
     }
-    spi_host_t *host=(spi_host_t*)handle->host;
-    int i;
-	for (i=0; i<NO_CS; i++) {
-		if (host->device[i] != NULL) break;
-	}
+    if (freebus) {
+    	// Check if spi buss can be freed
+		spi_host_t *host=(spi_host_t*)handle->host;
+		int i;
+		for (i=0; i<NO_CS; i++) {
+			if (host->device[i] != NULL) break;
+		}
 
-    if (i == NO_CS) {
-    	// no more devices attached to host, free bus
-    	spi_bus_free(self->host);
-		MPy_SPIbus[self->host]->sclk_io_num = -1;
-		MPy_SPIbus[self->host]->mosi_io_num = -1;
-		MPy_SPIbus[self->host]->miso_io_num = -1;
+		if (i == NO_CS) {
+			// no more devices attached to host, free bus
+			if (spi_bus_free(self->host) != ESP_OK) {
+				mp_raise_msg(&mp_type_OSError, "error freeing spi host");
+			}
+			gpio_pad_select_gpio(MPy_SPIbus[self->host]->miso_io_num);
+			gpio_pad_select_gpio(MPy_SPIbus[self->host]->mosi_io_num);
+			gpio_pad_select_gpio(MPy_SPIbus[self->host]->sclk_io_num);
+			MPy_SPIbus[self->host]->sclk_io_num = -1;
+			MPy_SPIbus[self->host]->mosi_io_num = -1;
+			MPy_SPIbus[self->host]->miso_io_num = -1;
+		}
     }
 }
 
@@ -123,22 +132,38 @@ STATIC void machine_hw_spi_init_internal(
     int8_t                  mosi,
     int8_t                  miso,
     int8_t                  cs,
-    int8_t                  duplex) {
+    int8_t                  duplex,
+	uint8_t					new) {
 
     // if we're not initialized, then we're implicitly 'changed', since this is the init routine
-    uint16_t changed = self->state != MACHINE_HW_SPI_STATE_INIT;
 
     esp_err_t ret;
     int bus_state = 0;
-    machine_hw_spi_obj_t old_self = *self;
+    machine_hw_spi_obj_t old_self;
+    machine_hw_spi_obj_t *pold_self;
 
-    if ((host > -1) && (host != self->host)) {
+    if (new) pold_self = self;
+    else {
+        memcpy(&old_self, self, sizeof(machine_hw_spi_obj_t));
+        pold_self = &old_self;
+    }
+
+	if (((mosi < 0) && (MPy_SPIbus[self->host]->mosi_io_num <0)) ||
+		((miso < 0) && (MPy_SPIbus[self->host]->miso_io_num <0)) ||
+		((sck < 0) && (MPy_SPIbus[self->host]->sclk_io_num <0))) {
+        mp_raise_ValueError("Error, not all spi pins given");
+	}
+
+    uint16_t changed = pold_self->state != MACHINE_HW_SPI_STATE_INIT;
+
+    if (host > -1) {
+    	// Host initialization or host change
 		#if CONFIG_SPIRAM_SPEED_80M
         if (host != HSPI_HOST) {
             mp_raise_ValueError("SPI host must be HSPI(1)");
         }
 		#else
-        if (host != HSPI_HOST && host != VSPI_HOST) {
+        if ((host != HSPI_HOST) && (host != VSPI_HOST)) {
             mp_raise_ValueError("SPI host must be either HSPI(1) or VSPI(2)");
         }
 		#endif
@@ -147,33 +172,70 @@ STATIC void machine_hw_spi_init_internal(
         if (bus_state == -3) {
             mp_raise_ValueError("SPI host already used by display driver");
         }
-        else if (bus_state < 0) {
+        else if (bus_state == -1) {
             mp_raise_ValueError("SPI host already used with different configuration");
         }
-        self->host = host;
-    	changed |= 0x0004;
+        else if (bus_state == -2) {
+            mp_raise_ValueError("SPI host not available");
+        }
+        if ((host != pold_self->host) || (bus_state != 0)) {
+			self->host = host;
+			changed |= 0x0004;
+        }
     }
-    if ((baudrate > 0) && (baudrate != self->devcfg.clock_speed_hz)) {
-    	if (baudrate == 0) {
-            mp_raise_ValueError("SPI baudrate must be >0");
+
+    if ((baudrate > 0) && (baudrate != pold_self->devcfg.clock_speed_hz)) {
+    	// Speed changed
+    	if ((baudrate <= 0) || (baudrate > 80000000)) {
+            mp_raise_ValueError("SPI baudrate must be >0 & <=80000000");
     	}
     	self->devcfg.clock_speed_hz = baudrate;
     	changed |= 0x0008;
     }
-    if ((polarity > -1) && (polarity != self->polarity)) {
+
+    if ((polarity > -1) && (polarity != pold_self->polarity)) {
+    	// Polarity changed
         self->polarity = polarity & 1;
     	changed |= 0x0010;
     }
-    if ((phase > -1) && (phase != self->phase)) {
+
+    if ((phase > -1) && (phase != pold_self->phase)) {
+    	// Phase changed
         self->phase = phase & 1;
     	changed |= 0x0020;
     }
-    if ((firstbit > -1) && (firstbit != self->firstbit)) {
+
+    if ((firstbit > -1) && (firstbit != pold_self->firstbit)) {
         self->firstbit = firstbit & 1;
     	changed |= 0x0040;
     }
 
-    if (bus_state > 0) {
+    if ((cs > -1) && (cs != pold_self->spi.cs)) {
+    	// Initialize CS
+        gpio_pad_select_gpio(cs);
+        gpio_set_direction(cs, GPIO_MODE_OUTPUT);
+        gpio_set_level(cs, 1);
+        self->spi.cs = cs;
+    	changed |= 0x0400;
+    }
+
+    if ((duplex > -1) && (duplex != pold_self->duplex)) {
+    	// Duplex changed
+        self->duplex = duplex & 1;
+    	changed |= 0x0800;
+    }
+
+    if (!changed) return; // no configuration changes, return
+
+    if (pold_self->state == MACHINE_HW_SPI_STATE_INIT) {
+    	// Remove device from spi host
+        self->state = MACHINE_HW_SPI_STATE_DEINIT;
+        machine_hw_spi_deinit_internal(pold_self, 0);
+    }
+
+    // Check if spi bus has to be initialized
+    if (MPy_SPIbus[self->host]->mosi_io_num < 0) {
+    	// SPI bus not initialized
         gpio_pad_select_gpio(miso);
         gpio_pad_select_gpio(mosi);
         gpio_pad_select_gpio(sck);
@@ -181,7 +243,7 @@ STATIC void machine_hw_spi_init_internal(
         gpio_set_pull_mode(miso, GPIO_PULLUP_ONLY);
         gpio_set_direction(mosi, GPIO_MODE_OUTPUT);
         gpio_set_direction(sck, GPIO_MODE_OUTPUT);
-        // SPI bus is free
+
 		MPy_SPIbus[self->host]->sclk_io_num = sck;
 		MPy_SPIbus[self->host]->mosi_io_num = mosi;
 		MPy_SPIbus[self->host]->miso_io_num = miso;
@@ -194,28 +256,11 @@ STATIC void machine_hw_spi_init_internal(
             mp_raise_msg(&mp_type_OSError, "error initializing spi bus");
             return;
         }
+    	changed |= 0x1000;
     }
 
-    if ((cs > -1) && (cs != self->spi.cs)) {
-        gpio_pad_select_gpio(cs);
-        gpio_set_direction(cs, GPIO_MODE_OUTPUT);
-        gpio_set_level(cs, 1);
-        self->spi.cs = cs;
-    	changed |= 0x0400;
-    }
-    if ((duplex > -1) && (duplex != self->duplex)) {
-        self->duplex = duplex & 1;
-    	changed |= 0x0800;
-    }
-
-    if (!changed) return; // no changes
-
-    if (self->state == MACHINE_HW_SPI_STATE_INIT) {
-        self->state = MACHINE_HW_SPI_STATE_DEINIT;
-        machine_hw_spi_deinit_internal(&old_self);
-    }
-
-    self->devcfg.spics_io_num = -1; // No hw CS pin, we use software CS handling
+    // No hw CS pin, we use software CS handling in this module
+    self->devcfg.spics_io_num = -1;
 
     self->devcfg.mode = self->phase | (self->polarity << 1);
     self->devcfg.flags = ((self->firstbit == MICROPY_PY_MACHINE_SPI_LSB) ? SPI_DEVICE_TXBIT_LSBFIRST | SPI_DEVICE_RXBIT_LSBFIRST : 0);
@@ -227,6 +272,14 @@ STATIC void machine_hw_spi_init_internal(
 	ret = spi_bus_add_device(self->host, &self->devcfg, &self->spi.handle);
 
 	if (ret == ESP_OK) {
+		ret = spi_device_select(&self->spi, 1);
+		if (ret != ESP_OK) {
+            mp_raise_msg(&mp_type_OSError, "Error selecting device");
+		}
+		ret = spi_device_deselect(&self->spi);
+		if (ret != ESP_OK) {
+            mp_raise_msg(&mp_type_OSError, "Error deselecting device");
+		}
 	    self->state = MACHINE_HW_SPI_STATE_INIT;
 	    return;
 	}
@@ -255,7 +308,7 @@ STATIC mp_obj_t machine_hw_spi_deinit(mp_obj_t self_in)
     machine_hw_spi_obj_t *self = self_in;
     if (self->state == MACHINE_HW_SPI_STATE_INIT) {
         self->state = MACHINE_HW_SPI_STATE_DEINIT;
-        machine_hw_spi_deinit_internal(self);
+        machine_hw_spi_deinit_internal(self, 1);
     }
     return mp_const_none;
 }
@@ -269,10 +322,11 @@ STATIC void machine_hw_spi_print(const mp_print_t *print, mp_obj_t self_in, mp_p
     if (self->spi.cs < 0) sprintf(scs, "Not used");
     else sprintf(scs, "%d", self->spi.cs);
 
-    mp_printf(print, "SPI([%s] spihost=%u, baudrate=%u, polarity=%u, phase=%u, firstbit=%s, sck=%d, mosi=%d, miso=%d, cs=%s, duplex=%s)",
-    		  	  	  (self->state == MACHINE_HW_SPI_STATE_INIT) ? "init" : "deinit", self->host,
-    				  spi_get_speed(&self->spi), self->polarity, self->phase, (self->firstbit) ? "LSB" : "MSB",
-					  MPy_SPIbus[self->host]->sclk_io_num, MPy_SPIbus[self->host]->mosi_io_num, MPy_SPIbus[self->host]->miso_io_num, scs, (self->duplex) ? "True" : "False");
+    mp_printf(print, "SPI( %s\n     spihost=%s (%s)\n     baudrate=%u, polarity=%u, phase=%u, firstbit=%s, duplex=%s\n     Pins: sck=%d, mosi=%d, miso=%d, cs=%s\n   )",
+    		(self->state == MACHINE_HW_SPI_STATE_INIT) ? "INITIALIZED" : "DEINITIALIZED",
+    		(self->host == HSPI_HOST) ? "HSPI" : "VSPI", (MPy_SPIbus[self->host]->mosi_io_num < 0) ? "free" : "initialized",
+    		spi_get_speed(&self->spi), self->polarity, self->phase, (self->firstbit) ? "LSB" : "MSB", (self->duplex) ? "True" : "False",
+			MPy_SPIbus[self->host]->sclk_io_num, MPy_SPIbus[self->host]->mosi_io_num, MPy_SPIbus[self->host]->miso_io_num, scs);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -307,7 +361,7 @@ STATIC mp_obj_t machine_hw_spi_init(mp_uint_t n_args, const mp_obj_t *pos_args, 
 
     machine_hw_spi_init_internal(self, args[ARG_spihost].u_int, args[ARG_baudrate].u_int,
                                  args[ARG_polarity].u_int, args[ARG_phase].u_int,
-                                 args[ARG_firstbit].u_int, sck, mosi, miso, cs, args[ARG_duplex].u_bool);
+                                 args[ARG_firstbit].u_int, sck, mosi, miso, cs, args[ARG_duplex].u_bool, 0);
    return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(machine_hw_spi_init_obj, 0, machine_hw_spi_init);
@@ -340,6 +394,7 @@ mp_obj_t machine_hw_spi_make_new(const mp_obj_type_t *type, size_t n_args, size_
     memset(&self->devcfg, 0, sizeof(spi_device_interface_config_t));
 
     self->spi.cs = -1;
+    self->spi.handle = NULL;
     int8_t cs = -1;
     if (args[ARG_cs].u_obj != MP_OBJ_NULL) cs = machine_pin_get_gpio(args[ARG_cs].u_obj);
 
@@ -354,7 +409,8 @@ mp_obj_t machine_hw_spi_make_new(const mp_obj_type_t *type, size_t n_args, size_
         machine_pin_get_gpio(args[ARG_mosi].u_obj),
         machine_pin_get_gpio(args[ARG_miso].u_obj),
     	cs,
-        args[ARG_duplex].u_bool);
+        args[ARG_duplex].u_bool,
+		1);
 
     return MP_OBJ_FROM_PTR(self);
 }

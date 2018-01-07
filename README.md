@@ -14,16 +14,16 @@
 
 MicroPython works great on ESP32, but the most serious issue is still (as on most other MicroPython boards) limited amount of free memory.
 
-ESP32 can use external **SPI RAM (psRAM)** to expand available RAM up to 16MB. 
-Currently, there are several modules & development boards which incorporates **4MB** of psRAM:
+ESP32 can use external **SPIRAM** (psRAM) to expand available RAM up to 16MB.
 
-**ESP-WROVER-KIT boards** from Espressif or [AnalogLamb](https://www.analoglamb.com/product/esp-wrover-kit-esp32-wrover-module/).
+Currently, there are several modules & development boards which incorporates **4MB** of psRAM:<br>
 
-**ESP-WROVER** from Espressif or [AnalogLamb](https://www.analoglamb.com/product/esp32-wrover/).
-
-**ALB32-WROVER** from [AnalogLamb](https://www.analoglamb.com/product/alb32-wrover-esp32-module-with-64mb-flash-and-32mb-psram/).
-
-**S01** and **L01** OEM modules from [Pycom](https://www.pycom.io/webshop).
+* **ESP-WROVER-KIT boards** from Espressif or [AnalogLamb](https://www.analoglamb.com/product/esp-wrover-kit-esp32-wrover-module/).
+* **Lolin32 Pro board** from [Wemos](https://wiki.wemos.cc/products:lolin32:lolin32_pro) - **recommended**.
+* **WiPy 3.0 board** from [Pycom](https://pycom.io/product/wipy-3/).
+* **ESP-WROVER** from Espressif or [ElecrtoDragon](http://www.electrodragon.com/product/esp32-wrover-v4-module-based-esp32/).
+* **ALB32-WROVER** (4 MB SPIRAM & 4/8/16 MB Flash) from [AnalogLamb](https://www.analoglamb.com/product/alb32-wrover-esp32-module-with-64mb-flash-and-32mb-psram/).
+* **S01**, **L01** and G01 OEM modules from [Pycom](https://pycom.io/webshop#oem-products).
 
 ---
 
@@ -49,8 +49,8 @@ This way many features not available in standard ESP32 MicroPython are enabled, 
 
 ### Features
 
-* MicroPython build is based on latest build (1.9.2) from [main Micropython repository](https://github.com/micropython/micropython)
-* ESP32 build is based on [MicroPython's ESP32 build](https://github.com/micropython/micropython-esp32/tree/esp32/esp32) with added changes needed to build on ESP32 with psRAM
+* MicroPython core based on latest build from [main Micropython repository](https://github.com/micropython/micropython)
+* added changes needed to build on ESP32 with psRAM
 * Default configuration has **2MB** of MicroPython heap, **20KB** of MicroPython stack, **~200KB** of free DRAM heap for C modules and functions
 * MicroPython can be built in **unicore** (FreeRTOS & MicroPython task running only on the first ESP32 core, or **dualcore** configuration (MicroPython task running on ESP32 **App** core)
 * ESP32 Flash can be configured in any mode, **QIO**, **QOUT**, **DIO**, **DOUT**
@@ -67,15 +67,20 @@ This way many features not available in standard ESP32 MicroPython are enabled, 
 * **Btree** module included, can be Enabled/Disabled via **menuconfig**
 * **_threads** module greatly improved, inter-thread **notifications** and **messaging** included
 * **Neopixel** module using ESP32 **RMT** peripheral with many new features
+* **DHT** module implemented using ESP32 RMT peripheral
+* **1-wire** module implemented using ESP32 RMT peripheral
 * **i2c** module uses ESP32 hardware i2c driver
 * **spi** module uses ESP32 hardware spi driver
+* **adc** module improved, new functions added
 * **curl** module added, many client protocols including FTP and eMAIL
 * **ssh** module added with sftp support
 * **display** module added with full support for spi TFT displays
-* **DHT** module implemented using ESP32 RMT peripheral
 * **mqtt** module added, implemented in C, runs in separate task
+* **mDNS** module added, implemented in C, runs in separate task
 * **telnet** module added, connect to **REPL via WiFi** using telnet protocol
 * **ftp** server module added, runs as separate ESP32 task
+* **GSM/PPPoS** support, connect to the Internet via GSM module
+* **OTA Update** supported
 * **Eclipse** project files included. To include it into Eclipse goto File->Import->Existing Projects into Workspace->Select root directory->[select *MicroPython_BUILD* directory]->Finish. **Rebuild index**.
 
 ---
