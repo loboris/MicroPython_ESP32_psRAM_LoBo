@@ -225,6 +225,23 @@ STATIC mp_obj_t mach_rtc_now (mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mach_rtc_now_obj, mach_rtc_now);
 
+//---------------------------------
+void sntp_task (void *pvParameters)
+{
+    struct timeval tv;
+    int synced = 0;
+
+    while (!synced) {
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+		gettimeofday(&tv, NULL);
+		// check if date > 2017/01/01
+		if (tv.tv_sec > 1483228800) synced = true;
+    }
+    mach_rtc_obj.synced = true;
+    mp_hal_ticks_base = tv.tv_sec;
+    vTaskDelete(NULL);
+}
+
 //---------------------------------------------------------------------------------------------
 STATIC mp_obj_t mach_rtc_ntp_sync(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     static const mp_arg_t allowed_args[] = {
@@ -266,8 +283,12 @@ STATIC mp_obj_t mach_rtc_ntp_sync(size_t n_args, const mp_obj_t *pos_args, mp_ma
     now.tv_sec = 0;
     now.tv_usec = 0;
     settimeofday(&now, NULL);
+    mp_hal_ticks_base = 0;
 
     sntp_init();
+
+    TaskHandle_t sntp_handle;
+    xTaskCreate(&sntp_task, "SNTP", 512, NULL, CONFIG_MICROPY_TASK_PRIORITY+1, &sntp_handle);
 
     return mp_const_none;
 }
@@ -275,17 +296,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mach_rtc_ntp_sync_obj, 1, mach_rtc_ntp_sync);
 
 //------------------------------------------------------
 STATIC mp_obj_t mach_rtc_has_synced (mp_obj_t self_in) {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-
-    // check if date > 2017/01/01
-    if (tv.tv_sec > 1483228800) {
-        mach_rtc_obj.synced = true;
-    }
-    else {
-        mach_rtc_obj.synced = false;
-    }
-
     if (mach_rtc_obj.synced) {
         return mp_const_true;
     } else {

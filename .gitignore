@@ -7,7 +7,7 @@
 *.map
 *.hex
 *.dis
-*.exe
+#*.exe
 
 # Packages 
 ############

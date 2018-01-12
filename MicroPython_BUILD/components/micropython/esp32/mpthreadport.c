@@ -85,6 +85,7 @@ typedef struct _thread_t {
     QueueHandle_t threadQueue;			// queue used for inter thread communication
     int allow_suspend;
     int suspended;
+    int waiting;
     int deleted;
     uint32_t type;
     struct _thread_t *next;
@@ -135,6 +136,7 @@ void mp_thread_preinit(void *stack, uint32_t stack_len) {
     thread->threadQueue = xQueueCreate( THREAD_QUEUE_MAX_ITEMS, sizeof(thread_msg_t) );
     thread->allow_suspend = 0;
     thread->suspended = 0;
+    thread->waiting = 0;
     thread->deleted = 0;
     thread->type = THREAD_TYPE_MAIN;
     thread->next = NULL;
@@ -264,6 +266,7 @@ TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack
     th->threadQueue = xQueueCreate( THREAD_QUEUE_MAX_ITEMS, sizeof(thread_msg_t) );
     th->allow_suspend = 0;
     th->suspended = 0;
+    th->waiting = 0;
     th->deleted = 0;
     th->type = THREAD_TYPE_PYTHON;
     thread = th;
@@ -296,6 +299,7 @@ STATIC void mp_clean_thread(thread_t *th)
     th->ready = 0;
 	th->deleted = 1;
 }
+
 //---------------------------
 void mp_thread_finish(void) {
     mp_thread_mutex_lock(&thread_mutex, 1);
@@ -323,6 +327,8 @@ void mp_thread_mutex_unlock(mp_thread_mutex_t *mutex) {
     xSemaphoreGive(mutex->handle);
 }
 
+// Terminate all Python threads
+// used before entering sleep/reset
 //---------------------------
 void mp_thread_deinit(void) {
     mp_thread_mutex_lock(&thread_mutex, 1);
@@ -362,7 +368,7 @@ int mp_thread_suspend(TaskHandle_t id) {
             continue;
         }
         if (th->id == id) {
-        	if ((th->allow_suspend) && (th->suspended == 0)) {
+        	if ((th->allow_suspend) && (th->suspended == 0) && (th->waiting == 0)) {
         		th->suspended = 1;
         		vTaskSuspend(th->id);
         		res = 1;
@@ -384,7 +390,7 @@ int mp_thread_resume(TaskHandle_t id) {
             continue;
         }
         if (th->id == id) {
-        	if ((th->allow_suspend) && (th->suspended)) {
+        	if ((th->allow_suspend) && (th->suspended) && (th->waiting == 0)) {
         		th->suspended = 0;
         		vTaskResume(th->id);
         		res = 1;
@@ -396,43 +402,49 @@ int mp_thread_resume(TaskHandle_t id) {
     return res;
 }
 
-//-----------------------------------
-int mp_thread_stop(TaskHandle_t id) {
+//--------------------------
+int mp_thread_setblocked() {
 	int res = 0;
     mp_thread_mutex_lock(&thread_mutex, 1);
     for (thread_t *th = thread; th != NULL; th = th->next) {
-        // don't stop the current task
         if (th->id == xTaskGetCurrentTaskHandle()) {
-            continue;
-        }
-        if (th->id == id) {
-        	mp_clean_thread(th);
-            vTaskDelete(th->id);
-            res = 1;
+			th->waiting = 1;
+			res = 1;
             break;
         }
     }
     mp_thread_mutex_unlock(&thread_mutex);
-    // allow FreeRTOS to clean-up the threads
-    vTaskDelay(2);
     return res;
 }
 
+//-----------------------------
+int mp_thread_setnotblocked() {
+	int res = 0;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+        if (th->id == xTaskGetCurrentTaskHandle()) {
+        	th->waiting = 0;
+        	res = 1;
+            break;
+        }
+    }
+    mp_thread_mutex_unlock(&thread_mutex);
+    return res;
+}
+
+// Send notification to thread 'id'
+// or to all threads if id=0
 //-----------------------------------------------------
 int mp_thread_notify(TaskHandle_t id, uint32_t value) {
 	int res = 0;
     mp_thread_mutex_lock(&thread_mutex, 1);
     for (thread_t *th = thread; th != NULL; th = th->next) {
-        // don't notify the sending task
-        if (th->id == xTaskGetCurrentTaskHandle()) {
-            continue;
-        }
         if ((id == 0) || (th->id == id)) {
-        	xTaskNotify(th->id, value, eSetBits);
-            res = 1;
+        	res = xTaskNotify(th->id, value, eSetValueWithoutOverwrite);
             if (id != 0) break;
         }
     }
+    if (id == 0) res = 1;
     mp_thread_mutex_unlock(&thread_mutex);
     return res;
 }
@@ -446,6 +458,20 @@ uint32_t mp_thread_getnotify() {
         	if (xTaskNotifyWait(0, 0xffffffffUL, &value, 1) != pdPASS) {
         		value = 0;
         	}
+			break;
+        }
+    }
+    mp_thread_mutex_unlock(&thread_mutex);
+    return value;
+}
+
+//--------------------------------
+uint32_t mp_thread_checknotify() {
+	uint32_t value = 0;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+        if (th->id == xTaskGetCurrentTaskHandle()) {
+        	value = xTaskNotifyWait(0, 0, &value, 0);
 			break;
         }
     }
@@ -584,7 +610,11 @@ int mp_thread_status(TaskHandle_t id) {
             continue;
         }
         if (th->id == id) {
-			if (!th->deleted) res = th->suspended;
+			if (!th->deleted) {
+				if (th->suspended) res = 1;
+				else if (th->waiting) res = 2;
+				else res = 0;
+			}
 			break;
         }
     }
@@ -621,6 +651,7 @@ int mp_thread_list(thread_list_t *list) {
 			thr->id = (uint32_t)th->id;
 			sprintf(thr->name, "%s", th->name);
 			thr->suspended = th->suspended;
+			thr->waiting = th->waiting;
 			thr->type = th->type;
 			thr->stack_len = th->stack_len;
 			thr->stack_max = th->stack_len - min_stack;

@@ -3,9 +3,7 @@
 # -------------------------------------------------------
 # Name,         Type, SubType, Offset,  Size,       Flags
 # -------------------------------------------------------
-nvs,            data, nvs,     0x9000,  16K,
-otadata,        data, ota,     0xd000,  8K,
+nvs,            data, nvs,     0x9000,  24K,
 phy_init,       data, phy,     0xf000,  4K,
-MicroPython_1,  app,  ota_0,   0x10000, 1408K,
-MicroPython_2,  app,  ota_1,   ,        1408K,
+MicroPython,    app,  factory, 0x10000, 1920K,
 internalfs,     data, spiffs,  ,        1024K,

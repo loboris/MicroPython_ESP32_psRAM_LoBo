@@ -36,6 +36,7 @@
 #define MICROPY_REPL_EMACS_KEYS             (1)
 #define MICROPY_REPL_AUTO_INDENT            (1)
 #define MICROPY_LONGINT_IMPL                (MICROPY_LONGINT_IMPL_MPZ)
+//#define MICROPY_LONGINT_IMPL                (MICROPY_LONGINT_IMPL_LONGLONG)
 #define MICROPY_ENABLE_SOURCE_LINE          (1)
 #define MICROPY_ERROR_REPORTING             (MICROPY_ERROR_REPORTING_NORMAL)
 #define MICROPY_WARNINGS                    (1)

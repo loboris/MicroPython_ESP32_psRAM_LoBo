@@ -36,6 +36,7 @@ MP_DECLARE_CONST_FUN_OBJ_0(mp_utime_ticks_ms_obj);
 MP_DECLARE_CONST_FUN_OBJ_0(mp_utime_ticks_us_obj);
 MP_DECLARE_CONST_FUN_OBJ_0(mp_utime_ticks_cpu_obj);
 MP_DECLARE_CONST_FUN_OBJ_2(mp_utime_ticks_diff_obj);
+MP_DECLARE_CONST_FUN_OBJ_2(mp_utime_tickscpu_diff_obj);
 MP_DECLARE_CONST_FUN_OBJ_2(mp_utime_ticks_add_obj);
 
 #endif // MICROPY_INCLUDED_EXTMOD_UTIME_MPHAL_H

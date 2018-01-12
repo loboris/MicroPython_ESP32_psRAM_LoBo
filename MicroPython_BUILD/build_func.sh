@@ -637,13 +637,16 @@ executeCommand() {
         make ${arg} 2>/dev/null
 
     # -----------------------------------
-    elif [ "${arg}" == "firmware" ]; then
+    elif [ "${arg}" == "firmware" ] || [ "${arg}" == "firmwareall" ]; then
         echo "======================="
         echo "Saving the firmware ..."
         echo "======================="
         local esp32dir="esp32"
         if [ "${BUILD_TYPE}" != "" ]; then
             esp32dir="esp32_psram"
+        fi
+        if [ "${arg}" == "firmwareall" ]; then
+            esp32dir="esp32_psram_all"
         fi
         local useota=$(grep -e CONFIG_MICROPY_USE_OTA=y sdkconfig)
         if [ "${useota}" == "CONFIG_MICROPY_USE_OTA=y" ]; then

@@ -47,11 +47,17 @@
 #define THREAD_TYPE_SERVICE		3
 
 // Reserved thread notification constants
-#define THREAD_NOTIFY_PAUSE		70001
-#define THREAD_NOTIFY_RESUME	70002
-#define THREAD_NOTIFY_EXIT		70003
-#define THREAD_NOTIFY_STATUS	70004
-#define THREAD_NOTIFY_RESET		70005
+#define THREAD_NOTIFY_PAUSE		0x01000000
+#define THREAD_NOTIFY_RESUME	0x02000000
+#define THREAD_NOTIFY_EXIT		0x04000000
+#define THREAD_NOTIFY_STATUS	0x08000000
+#define THREAD_NOTIFY_RESET		0x10000000
+#define THREAD_WAIT_TIMEOUT		0x20000000
+
+#define THREAD_STATUS_RUNNING		0
+#define THREAD_STATUS_SUSPENDED		1
+#define THREAD_STATUS_WAITING		2
+#define THREAD_STATUS_TERMINATED	-1
 
 #ifdef CONFIG_MICROPY_USE_TELNET
 #define TELNET_STACK_SIZE	(1580)
@@ -101,6 +107,7 @@ typedef struct _thread_listitem_t {
     uint32_t id;						// thread id
     char name[THREAD_NAME_MAX_SIZE];	// thread name
     uint8_t suspended;
+    uint8_t waiting;
     uint8_t type;
     uint32_t stack_len;
     uint32_t stack_max;
@@ -123,12 +130,15 @@ void mp_thread_deinit(void);
 void mp_thread_allowsuspend(int allow);
 int mp_thread_suspend(TaskHandle_t id);
 int mp_thread_resume(TaskHandle_t id);
-int mp_thread_stop(TaskHandle_t id);
 int mp_thread_notify(TaskHandle_t id, uint32_t value);
 uint32_t mp_thread_getnotify();
+uint32_t mp_thread_checknotify();
 int mp_thread_semdmsg(TaskHandle_t id, int type, uint32_t msg_int, uint8_t *buf, uint32_t buflen);
 int mp_thread_getmsg(uint32_t *msg_int, uint8_t **buf, uint32_t *buflen, uint32_t *sender);
 int mp_thread_status(TaskHandle_t id);
+
+int mp_thread_setblocked();
+int mp_thread_setnotblocked();
 
 uint32_t mp_thread_getSelfID();
 int mp_thread_getSelfname(char *name);

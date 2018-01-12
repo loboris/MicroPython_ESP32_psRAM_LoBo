@@ -50,6 +50,7 @@
 #endif
 
 uint32_t mp_hal_wdg_rst_tmo = 0;
+long mp_hal_ticks_base = 0;
 
 //---------------------
 void mp_hal_reset_wdt()
@@ -236,54 +237,84 @@ void mp_hal_stdout_tx_strn_cooked(const char *str, uint32_t len) {
 uint64_t mp_hal_ticks_ms(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return tv.tv_sec * 1000 + (tv.tv_usec / 1000);
+    long sec = tv.tv_sec - mp_hal_ticks_base;
+    return ((uint64_t)sec * 1000) + ((uint64_t)tv.tv_usec / 1000);
 }
 
 //------------------------------
 uint64_t mp_hal_ticks_us(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return tv.tv_sec * 1000000 + tv.tv_usec;
+    long sec = tv.tv_sec - mp_hal_ticks_base;
+    return ((uint64_t)sec * 1000000) + (uint64_t)tv.tv_usec;
 }
 
-//---------------------------------
-void mp_hal_delay_ms(uint32_t ms) {
-	if (ms == 0) return;
+/*
+ * Delay specified number of milli seconds
+ * For the delay time up to 10 ms the function is blocking
+ * For delay times greater than 10 ms, the function
+ * does not block the execution of the other threads.
+ * Waiting can be interrupted if the thread receives the notification
+ *
+ * Returns the actual delay time.
+ *
+ */
+//------------------------------
+int mp_hal_delay_ms(uint32_t ms)
+{
+	if (ms == 0) return 0;
 
-	uint32_t wait_ticks = ms / portTICK_PERIOD_MS;	// number of ticks in delay time
-	uint32_t dticks = ms % portTICK_PERIOD_MS;		// remaining milli seconds
-
-	if (wait_ticks == 0) {
-	    if (dticks) ets_delay_us(dticks * 1000);
-	    return;
+	if (ms <= 10) {
+		// For delays up to 10 ms we use blocking delay
+	    ets_delay_us(ms * 1000);
+	    return ms;
 	}
 
-	uint32_t w_ms = ms / (CONFIG_TASK_WDT_TIMEOUT_S*1000/2);	// number of half wdt periods
+	long tticks_base = mp_hal_ticks_base;
+	struct timeval tv;
+    gettimeofday(&tv, NULL);
+    uint32_t tstart = ((uint32_t)tv.tv_sec * 1000) + ((uint32_t)tv.tv_usec / 1000);
+	uint32_t tend = tstart;
+	uint32_t nres = tstart;
+
 	#ifdef CONFIG_MICROPY_USE_TASK_WDT
 	esp_task_wdt_reset();
 	#endif
-	while (w_ms) {
-        vTaskDelay((CONFIG_TASK_WDT_TIMEOUT_S*1000/2) / portTICK_PERIOD_MS);
-		#ifdef CONFIG_MICROPY_USE_TASK_WDT
-		esp_task_wdt_reset();
-		#endif
-		w_ms--;
-	}
-	wait_ticks = (ms % (CONFIG_TASK_WDT_TIMEOUT_S*1000/2)) / portTICK_PERIOD_MS;	// remaining ms
-	dticks = (ms % (CONFIG_TASK_WDT_TIMEOUT_S*1000/2)) % portTICK_PERIOD_MS;		// remaining milli seconds
 
-	if (wait_ticks > 0) {
-	   	MP_THREAD_GIL_EXIT();
-        vTaskDelay(wait_ticks);
-       	MP_THREAD_GIL_ENTER();
+	MP_THREAD_GIL_EXIT();
+
+	int ncheck = 0;
+	while (1) {
+		if (tticks_base != mp_hal_ticks_base) break;
+        gettimeofday(&tv, NULL);
+        tend = ((uint32_t)tv.tv_sec * 1000) + ((uint32_t)tv.tv_usec / 1000);
+        if ((tend-tstart) >= ms) break;
+
+        vTaskDelay(2);
+
+        #ifdef CONFIG_MICROPY_USE_TASK_WDT
+        if ((tend-nres) > (CONFIG_TASK_WDT_TIMEOUT_S*500)) {
+        	esp_task_wdt_reset();
+        	nres = tend;
+        }
+		#endif
+		// Break if notification received
+        ncheck++;
+        if (ncheck >= 50) {
+        	ncheck = 0;
+        	if (mp_thread_checknotify()) break;
+        }
 	}
-    // do the remaining delay accurately
-    if (dticks) ets_delay_us(dticks * 1000);
+
+    MP_THREAD_GIL_ENTER();
+    return (tend - tstart);
 }
 
 //---------------------------------
 void mp_hal_delay_us(uint32_t us) {
+	if (us == 0) return;
 	if (us > 10000) {
+		// Delay greater then 10 ms, use ms delay function
 		uint32_t dus = us % 10000;	// remaining micro seconds
 		mp_hal_delay_ms(us/1000);
 	    if (dus) ets_delay_us(dus);
