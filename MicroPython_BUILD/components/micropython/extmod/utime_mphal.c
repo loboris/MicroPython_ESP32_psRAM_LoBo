@@ -36,24 +36,34 @@
 #include "py/runtime.h"
 #include "extmod/utime_mphal.h"
 
-//----------------------------------------------
-STATIC mp_obj_t time_sleep(mp_obj_t seconds_o) {
+//------------------------------------------------------------------
+STATIC mp_obj_t time_sleep(mp_uint_t n_args, const mp_obj_t *args) {
     #if MICROPY_PY_BUILTINS_FLOAT
-    uint32_t t = mp_hal_delay_ms((mp_uint_t)(1000 * mp_obj_get_float(seconds_o)));
+    uint32_t t = mp_hal_delay_ms((mp_uint_t)(1000 * mp_obj_get_float(args[0])));
     #else
-    uint32_t t = mp_hal_delay_ms(1000 * mp_obj_get_int(seconds_o));
+    uint32_t t = mp_hal_delay_ms(1000 * mp_obj_get_int(args[0]));
     #endif
-    return MP_OBJ_NEW_SMALL_INT(t);
+    if ((n_args > 1) && (mp_obj_is_true(args[1]))) {
+		#if MICROPY_PY_BUILTINS_FLOAT
+        return mp_obj_new_float((float)t / 1000.0);
+		#else
+    	return MP_OBJ_NEW_SMALL_INT(t);
+		#endif
+    }
+    return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_1(mp_utime_sleep_obj, time_sleep);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_utime_sleep_obj, 1, 2, time_sleep);
 
-//-------------------------------------------
-STATIC mp_obj_t time_sleep_ms(mp_obj_t arg) {
-    mp_int_t ms = mp_obj_get_int(arg);
+//---------------------------------------------------------------------
+STATIC mp_obj_t time_sleep_ms(mp_uint_t n_args, const mp_obj_t *args) {
+    mp_int_t ms = mp_obj_get_int(args[0]);
    	uint32_t t = mp_hal_delay_ms(ms);
-    return MP_OBJ_NEW_SMALL_INT(t);
+    if ((n_args > 1) && (mp_obj_is_true(args[1]))) {
+    	return MP_OBJ_NEW_SMALL_INT(t);
+    }
+    return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_1(mp_utime_sleep_ms_obj, time_sleep_ms);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_utime_sleep_ms_obj, 1, 2, time_sleep_ms);
 
 //-------------------------------------------
 STATIC mp_obj_t time_sleep_us(mp_obj_t arg) {

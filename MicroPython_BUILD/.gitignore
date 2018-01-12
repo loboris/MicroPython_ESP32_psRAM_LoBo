@@ -22,6 +22,7 @@ build/
 
 patches/
 
+partitions_mpy.csv
 sdkconfig
 sdkconfig.old
 _sdkconfig.saved
