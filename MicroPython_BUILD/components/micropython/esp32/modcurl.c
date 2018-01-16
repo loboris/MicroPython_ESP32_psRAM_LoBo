@@ -415,9 +415,7 @@ STATIC mp_obj_t curl_sendmail(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
 	else quickmail_set_debug_log(mailobj, NULL);
 
 	const char* errmsg = NULL;
-   	MP_THREAD_GIL_EXIT();
 	errmsg = quickmail_protocol_send(mailobj, mail_server, mail_port, mail_protocol, user, pass);
-   	MP_THREAD_GIL_ENTER();
 
 	// Cleanup
 	quickmail_destroy(mailobj);

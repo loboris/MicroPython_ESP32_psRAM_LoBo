@@ -881,6 +881,39 @@ STATIC mp_obj_t native_vfs_umount(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(native_vfs_umount_obj, native_vfs_umount);
 
+//------------------
+int internalUmount()
+{
+	int res = 0;
+    if (native_vfs_mounted[VFS_NATIVE_TYPE_SPIFLASH]) {
+		#if MICROPY_USE_SPIFFS
+    	res = esp_vfs_spiffs_unregister("internalfs");
+    	if (res) res = 0;
+		#else
+    	if (s_wl_handle != WL_INVALID_HANDLE) res = wl_unmount(s_wl_handle);
+    	if (res) res = 0;
+		#endif
+    	native_vfs_mounted[VFS_NATIVE_TYPE_SPIFLASH] = false;
+    }
+    return res;
+}
+
+//-----------------
+int externalUmount()
+{
+	int res = 0;
+    if (native_vfs_mounted[VFS_NATIVE_TYPE_SDCARD]) {
+    	esp_vfs_fat_sdmmc_unmount();
+    	if (res) res = 0;
+		#if defined(CONFIG_SDCARD_MODE1)
+		sdspi_host_deinit();
+		#endif
+		native_vfs_mounted[VFS_NATIVE_TYPE_SDCARD] = false;
+    }
+
+    return res;
+}
+
 
 //-------------------------------------
 int mount_vfs(int type, char *chdir_to)
@@ -912,38 +945,6 @@ int mount_vfs(int type, char *chdir_to)
 
     return 0;
 }
-
-//------------------
-int internalUmount()
-{
-	int res = 0;
-    if (native_vfs_mounted[VFS_NATIVE_TYPE_SPIFLASH]) {
-		#if MICROPY_USE_SPIFFS
-    	res = esp_vfs_spiffs_unregister(NULL);
-    	if (res) res = 0;
-		#else
-    	if (s_wl_handle != WL_INVALID_HANDLE) res = wl_unmount(s_wl_handle);
-    	if (res) res = 0;
-		#endif
-    }
-    return res;
-}
-
-//-----------------
-int externalUmount()
-{
-	int res = 0;
-    if (native_vfs_mounted[VFS_NATIVE_TYPE_SDCARD]) {
-    	esp_vfs_fat_sdmmc_unmount();
-    	if (res) res = 0;
-		#if defined(CONFIG_SDCARD_MODE1)
-		sdspi_host_deinit();
-		#endif
-    }
-
-    return res;
-}
-
 
 //===============================================================
 STATIC const mp_rom_map_elem_t native_vfs_locals_dict_table[] = {
