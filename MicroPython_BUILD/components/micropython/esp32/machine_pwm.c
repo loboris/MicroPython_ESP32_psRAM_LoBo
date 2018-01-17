@@ -54,16 +54,16 @@ STATIC ledc_timer_config_t pwm_timers[LEDC_CHANNEL_MAX/2];
 STATIC uint8_t pwm_is_init = 0;
 
 
-//---------------------------------------------------
-STATIC int duty2perc(esp32_pwm_obj_t *self, int duty)
+//-----------------------------------------------------
+STATIC float duty2perc(esp32_pwm_obj_t *self, int duty)
 {
-	return (duty * 100) / (1 << pwm_timers[self->timer].duty_resolution);
+	return (float)((duty * 10000) / (1 << pwm_timers[self->timer].duty_resolution)) / 100.0;
 }
 
-//---------------------------------------------------
-STATIC int perc2duty(esp32_pwm_obj_t *self, int dperc)
+//------------------------------------------------------
+STATIC int perc2duty(esp32_pwm_obj_t *self, float dperc)
 {
-	return (dperc * (1 << pwm_timers[self->timer].duty_resolution)) / 100;
+	return ((int)(dperc * 100.0) * (1 << pwm_timers[self->timer].duty_resolution)) / 10000;
 }
 
 //----------------------------------------------------
@@ -80,7 +80,7 @@ STATIC int set_freq(esp32_pwm_obj_t *self, int newval)
     if (dres == 0) return 0; // can't set duty resolution for the requested frequency
 
 	int n;
-	int dperc[LEDC_CHANNEL_MAX];
+	float dperc[LEDC_CHANNEL_MAX];
 	// get duty percentage for all channels using the same timer
 	for (n=0; n<LEDC_CHANNEL_MAX; n++) {
 		dperc[n] = -1;
@@ -128,7 +128,7 @@ STATIC void pwm_initChannel(esp32_pwm_obj_t *self)
 
 	ledc_channel_config_t cfg = {
 		.channel = self->channel,
-		.duty = perc2duty(self, 50),
+		.duty = perc2duty(self, 50.0),
 		.gpio_num = self->pin,
 		.intr_type = LEDC_INTR_DISABLE,
 		.speed_mode = PWMODE,
@@ -150,8 +150,8 @@ STATIC void esp32_pwm_print(const mp_print_t *print, mp_obj_t self_in, mp_print_
     mp_printf(print, "PWM(pin: %u", self->pin);
     if (self->active) {
         int duty = ledc_get_duty(PWMODE, self->channel);
-        int dperc = duty2perc(self, duty);
-        mp_printf(print, ", freq=%u Hz, duty=%u%% [%d], duty resolution=%d bits, channel=%d, timer=%d",
+        float dperc = duty2perc(self, duty);
+        mp_printf(print, ", freq=%u Hz, duty=%.2f%% [%d], duty resolution=%d bits, channel=%d, timer=%d",
         		ledc_get_freq(PWMODE, pwm_timers[self->timer].timer_num), dperc, duty,
 				pwm_timers[self->timer].duty_resolution, self->channel, pwm_timers[self->timer].timer_num);
     }
@@ -165,7 +165,7 @@ STATIC void esp32_pwm_init_helper(esp32_pwm_obj_t *self, size_t n_args, const mp
     enum { ARG_freq, ARG_duty, ARG_timer };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_freq, MP_ARG_INT, {.u_int = -1} },
-        { MP_QSTR_duty, MP_ARG_INT, {.u_int = -1} },
+        { MP_QSTR_duty, MP_ARG_OBJ, {.u_obj = mp_const_none} },
         { MP_QSTR_timer, MP_ARG_INT, {.u_int = -1} },
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -209,7 +209,7 @@ STATIC void esp32_pwm_init_helper(esp32_pwm_obj_t *self, size_t n_args, const mp
     if ((timer >= 0) && (timer < 4)) {
         if (timer != pwm_timers[self->timer].timer_num) {
             int old_duty = ledc_get_duty(PWMODE, self->channel);
-            int old_dperc = duty2perc(self, old_duty);
+            float old_dperc = duty2perc(self, old_duty);
             int old_freq = pwm_timers[self->timer].freq_hz;
 
             ledc_stop(PWMODE, self->channel, 0);
@@ -241,10 +241,10 @@ STATIC void esp32_pwm_init_helper(esp32_pwm_obj_t *self, size_t n_args, const mp
     }
 
     // Check if the duty cycle has to be changed
-    int dperc = args[ARG_duty].u_int;
-    if (dperc != -1) {
-    	if ((dperc < 0) || (dperc > 100)) {
-            nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "Bad duty %d, use 0 ~ 100 (%%)", dperc));
+    if (args[ARG_duty].u_obj != mp_const_none) {
+    	float dperc = mp_obj_get_float(args[ARG_duty].u_obj);
+    	if ((dperc < 0) || (dperc > 100-0)) {
+            nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "Bad duty %.2f, use 0 ~ 100 (%%)", dperc));
     	}
     	// Calculate duty value
         ledc_set_duty(PWMODE, self->channel, perc2duty(self, dperc));
@@ -344,12 +344,12 @@ STATIC mp_obj_t esp32_pwm_duty(size_t n_args, const mp_obj_t *args)
     if (n_args == 1) {
         // get and return duty cycle
         int duty = ledc_get_duty(PWMODE, self->channel);
-        return MP_OBJ_NEW_SMALL_INT(duty2perc(self, duty));
+        return mp_obj_new_float(duty2perc(self, duty));
     }
 
     // set the new duty cycle
-    int dperc = mp_obj_get_int(args[1]);
-	if ((dperc < 0) || (dperc > 100)) {
+    float dperc = mp_obj_get_float(args[1]);
+	if ((dperc < 0) || (dperc > 100.0)) {
 		nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "Bad duty %d, use 0 ~ 100 (%%)", dperc));
 	}
 	ledc_set_duty(PWMODE, self->channel, perc2duty(self, dperc));

@@ -33,6 +33,8 @@
 
 #include "extmod/utime_mphal.h"
 #include "py/runtime.h"
+#include "mphalport.h"
+#include "machine_rtc.h"
 
 //-------------------------------
 STATIC mp_obj_t time_time(void) {
@@ -172,13 +174,19 @@ STATIC mp_obj_t time_mktime(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(time_mktime_obj, 1, time_mktime);
 
-//-------------------------------------------------------------------
-STATIC mp_obj_t time_ticks_diff(mp_obj_t start_in, mp_obj_t end_in) {
-   uint32_t start = mp_obj_get_int(start_in);
-   uint32_t end = mp_obj_get_int(end_in);
-   return mp_obj_new_int_from_uint((end - start));
+//-------------------------------------
+STATIC mp_obj_t time_ticks_base(void) {
+	long ticks_base = 0;
+	if (sntp_mutex) {
+		if (xSemaphoreTake(sntp_mutex, 1000 / portTICK_PERIOD_MS) == pdTRUE) {
+			ticks_base = mp_hal_ticks_base;
+			xSemaphoreGive(sntp_mutex);
+		}
+	}
+	else ticks_base = mp_hal_ticks_base;
+    return mp_obj_new_int(ticks_base);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(time_ticks_diff_obj, time_ticks_diff);
+MP_DEFINE_CONST_FUN_OBJ_0(time_ticks_base_obj, time_ticks_base);
 
 
 //============================================================
@@ -200,7 +208,7 @@ STATIC const mp_rom_map_elem_t time_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_ticks_add),      MP_ROM_PTR(&mp_utime_ticks_add_obj) },
     { MP_ROM_QSTR(MP_QSTR_ticks_diff),     MP_ROM_PTR(&mp_utime_ticks_diff_obj) },
     { MP_ROM_QSTR(MP_QSTR_tickscpu_diff),  MP_ROM_PTR(&mp_utime_tickscpu_diff_obj) },
-    //{ MP_OBJ_NEW_QSTR(MP_QSTR_ticks_diff), MP_ROM_PTR(&time_ticks_diff_obj) },
+    { MP_ROM_QSTR(MP_QSTR_ticks_base),     MP_ROM_PTR(&time_ticks_base_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(time_module_globals, time_module_globals_table);
 

@@ -43,6 +43,7 @@
 #include "extmod/misc.h"
 #include "lib/utils/pyexec.h"
 #include "uart.h"
+#include "machine_rtc.h"
 #include "sdkconfig.h"
 
 #ifdef CONFIG_MICROPY_USE_TELNET
@@ -233,11 +234,25 @@ void mp_hal_stdout_tx_strn_cooked(const char *str, uint32_t len) {
 	#endif
 }
 
+//------------------
+long getTicks_base()
+{
+	long ticks_base = 0;
+	if (sntp_mutex) {
+		if (xSemaphoreTake(sntp_mutex, 1000 / portTICK_PERIOD_MS) == pdTRUE) {
+			ticks_base = mp_hal_ticks_base;
+			xSemaphoreGive(sntp_mutex);
+		}
+	}
+	else ticks_base = mp_hal_ticks_base;
+	return ticks_base;
+}
+
 //------------------------------
 uint64_t mp_hal_ticks_ms(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    long sec = tv.tv_sec - mp_hal_ticks_base;
+    long sec = tv.tv_sec - getTicks_base();
     return ((uint64_t)sec * 1000) + ((uint64_t)tv.tv_usec / 1000);
 }
 
@@ -245,7 +260,7 @@ uint64_t mp_hal_ticks_ms(void) {
 uint64_t mp_hal_ticks_us(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    long sec = tv.tv_sec - mp_hal_ticks_base;
+    long sec = tv.tv_sec - getTicks_base();
     return ((uint64_t)sec * 1000000) + (uint64_t)tv.tv_usec;
 }
 
@@ -270,7 +285,7 @@ int mp_hal_delay_ms(uint32_t ms)
 	    return ms;
 	}
 
-	long tticks_base = mp_hal_ticks_base;
+	long tticks_base = getTicks_base();
 	struct timeval tv;
     gettimeofday(&tv, NULL);
     uint32_t tstart = ((uint32_t)tv.tv_sec * 1000) + ((uint32_t)tv.tv_usec / 1000);
@@ -285,7 +300,7 @@ int mp_hal_delay_ms(uint32_t ms)
 
 	int ncheck = 0;
 	while (1) {
-		if (tticks_base != mp_hal_ticks_base) break;
+		if (tticks_base != getTicks_base()) break;
         gettimeofday(&tv, NULL);
         tend = ((uint32_t)tv.tv_sec * 1000) + ((uint32_t)tv.tv_usec / 1000);
         if ((tend-tstart) >= ms) break;

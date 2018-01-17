@@ -40,7 +40,8 @@ typedef struct {
 } machine_rtc_config_t;
 
 
+extern xSemaphoreHandle sntp_mutex;
+
 void rtc_init0(void);
-void mach_rtc_synced (void);
 
 #endif // MACHRTC_H_

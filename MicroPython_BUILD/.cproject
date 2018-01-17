@@ -48,6 +48,7 @@
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/mbedtls/port/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/app_update/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/mdns/include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/ethernet/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/MicroPython_BUILD}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/MicroPython_BUILD/build/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/MicroPython_BUILD/components/micropython/genhdr}&quot;"/>

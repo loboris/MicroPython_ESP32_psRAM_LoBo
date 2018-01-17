@@ -1,6 +1,7 @@
 
 fs_type_fat="no"
 fs_fat_sect=4096
+linplatform=""
 
 #----------------
 get_arguments() {
@@ -258,6 +259,9 @@ check_OS() {
         MK_SPIFFS_BIN="mkspiffs.exe"
         MK_FATFS_BIN="mkfatfs.exe"
     else
+	    if [ "${machine}" == "Linux" ]; then
+		    linplatform="$(uname -i)"
+		fi
         MK_SPIFFS_BIN="mkspiffs"
         MK_FATFS_BIN="mkfatfs"
     fi
@@ -349,8 +353,18 @@ check_Environment() {
         fi
     fi
     if [ ! -d "xtensa-esp32-elf" ]; then
-        echo "unpacking ${machine}/xtensa-esp32-elf"
-        tar -xf ${machine}/xtensa-esp32-elf.tar.xz > /dev/null 2>&1
+		if [ "${machine}" == "Linux" ]; then
+			if [ "${linplatform}" == "i686" ]; then
+				echo "unpacking ${machine}/xtensa-esp32-elf (32bit)"
+				tar -xf ${machine}/xtensa-esp32-elf_32bit.tar.xz > /dev/null 2>&1
+			else
+				echo "unpacking ${machine}/xtensa-esp32-elf"
+				tar -xf ${machine}/xtensa-esp32-elf.tar.xz > /dev/null 2>&1
+			fi
+		else
+		    echo "unpacking ${machine}/xtensa-esp32-elf"
+		    tar -xf ${machine}/xtensa-esp32-elf.tar.xz > /dev/null 2>&1
+		fi
         if [ $? -ne 0 ]; then
             echo "unpacking 'xtensa-esp32-elf' FAILED"
             return 1

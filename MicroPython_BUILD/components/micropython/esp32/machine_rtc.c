@@ -86,25 +86,29 @@ static uint16_t RTC_DATA_ATTR rtc_mem_int_crc;
 static uint16_t RTC_DATA_ATTR rtc_mem_str_crc;
 
 machine_rtc_config_t machine_rtc_config = { 0, -1, 0, 0, 0 };
-uint32_t sntp_update_period = 3600000; // in ms
 
+static TaskHandle_t sntp_handle = NULL;
+xSemaphoreHandle sntp_mutex = NULL;
+
+static bool mach_rtc_isinit = false;
 
 #define DEFAULT_SNTP_SERVER	"pool.ntp.org"
 
 //------------------------------
 typedef struct _mach_rtc_obj_t {
     mp_obj_base_t base;
-    mp_obj_t sntp_server_name;
     bool   synced;
+    uint32_t sntp_update_period;
+    char sntp_server_name[64];
 } mach_rtc_obj_t;
 
 static RTC_DATA_ATTR uint64_t seconds_at_boot;
 
-STATIC mach_rtc_obj_t mach_rtc_obj;
+static mach_rtc_obj_t mach_rtc_obj;
 const mp_obj_type_t mach_rtc_type;
 
 //------------------------------------------------------------
-STATIC void mach_rtc_set_seconds_since_epoch(uint64_t nowus) {
+static void mach_rtc_set_seconds_since_epoch(uint64_t nowus) {
     struct timeval tv;
 
     // store the packet timestamp
@@ -125,11 +129,6 @@ static void rtc_init_mem()
 void rtc_init0(void) {
     mach_rtc_set_seconds_since_epoch(0);
     rtc_init_mem();
-}
-
-//---------------------------
-void mach_rtc_synced (void) {
-    mach_rtc_obj.synced = true;
 }
 
 // Set system datetime
@@ -173,6 +172,7 @@ STATIC mp_obj_t mach_rtc_datetime(const mp_obj_t *args) {
     now.tv_sec = seconds;
     now.tv_usec = 0;
     settimeofday(&now, NULL);
+	mp_hal_ticks_base = now.tv_sec;
 
     mach_rtc_set_seconds_since_epoch(seconds);
 
@@ -185,10 +185,14 @@ STATIC mp_obj_t mach_rtc_make_new(const mp_obj_type_t *type, size_t n_args, size
     // check arguments
     mp_arg_check_num(n_args, n_kw, 0, 0, false);
 
+    if (mach_rtc_isinit) {
+    	mp_raise_msg(&mp_type_OSError, "RTC instance already created, only one can be used.");
+    }
      // setup the object
     mach_rtc_obj_t *self = &mach_rtc_obj;
     self->base.type = &mach_rtc_type;
 
+    mach_rtc_isinit = true;
     // return constant object
     return (mp_obj_t)&mach_rtc_obj;
 }
@@ -225,20 +229,61 @@ STATIC mp_obj_t mach_rtc_now (mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mach_rtc_now_obj, mach_rtc_now);
 
+//------------------------------------
+static void start_sntp(char *srv_name)
+{
+    if (sntp_enabled()) sntp_stop();
+
+    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    sntp_setservername(0, srv_name);
+    sntp_is_synced = false;
+    sntp_init();
+}
+
 //---------------------------------
 void sntp_task (void *pvParameters)
 {
+	mach_rtc_obj_t *rtc = (mach_rtc_obj_t *)pvParameters;
     struct timeval tv;
-    int synced = 0;
+    uint32_t ellapsed=0, start_time;
 
-    while (!synced) {
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-		gettimeofday(&tv, NULL);
-		// check if date > 2017/01/01
-		if (tv.tv_sec > 1483228800) synced = true;
+	gettimeofday(&tv, NULL);
+	start_time = tv.tv_sec;
+
+	start_sntp(rtc->sntp_server_name);
+
+    while (1) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    	gettimeofday(&tv, NULL);
+
+    	if (sntp_is_synced) {
+			sntp_stop();
+			if (xSemaphoreTake(sntp_mutex, 1000 / portTICK_PERIOD_MS) == pdTRUE) {
+				rtc->synced = true;
+				// Update the tick base
+				mp_hal_ticks_base = tv.tv_sec;
+				seconds_at_boot = tv.tv_sec;
+				xSemaphoreGive(sntp_mutex);
+			}
+			start_time = tv.tv_sec;
+			ellapsed = 0;
+			// Terminate the task if periodic update is not requested
+			if (rtc->sntp_update_period == 0) break;
+		}
+		else {
+			if (xSemaphoreTake(sntp_mutex, 1000 / portTICK_PERIOD_MS) == pdTRUE) {
+				if (!rtc->synced) start_time = 0;
+				xSemaphoreGive(sntp_mutex);
+			}
+			ellapsed = tv.tv_sec - start_time;
+			if (ellapsed >= rtc->sntp_update_period) {
+				// Update period expired, update time from server
+				start_time = tv.tv_sec;
+			    start_sntp(rtc->sntp_server_name);
+			}
+		}
     }
-    mach_rtc_obj.synced = true;
-    mp_hal_ticks_base = tv.tv_sec;
+    sntp_handle = NULL;
     vTaskDelete(NULL);
 }
 
@@ -246,49 +291,67 @@ void sntp_task (void *pvParameters)
 STATIC mp_obj_t mach_rtc_ntp_sync(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_server,           MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = mp_const_none} },
-        { MP_QSTR_update_period,                      MP_ARG_INT, {.u_int = 3600} },
+        { MP_QSTR_update_period,                      MP_ARG_INT, {.u_int = 0} },
+        { MP_QSTR_tz,                                 MP_ARG_OBJ, {.u_obj = mp_const_none} },
     };
 
     mach_rtc_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    sntp_update_period = args[1].u_int * 1000;
-    if (sntp_update_period < 60000) {
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "update period cannot be shorter than 60 s"));
-    }
 
-    mach_rtc_obj.synced = false;
-    if (sntp_enabled()) {
-        sntp_stop();
-    }
+    int period = args[1].u_int;
+    if (period < 600) period = 0;
 
+    char srv_name[64];
+	sprintf(srv_name, "%s", DEFAULT_SNTP_SERVER);
+	if (args[0].u_obj != mp_const_none) {
+		const char *srvn = mp_obj_str_get_str(args[0].u_obj);
+		if ((strlen(srvn) > 3) && (strlen(srvn) < 64)) sprintf(srv_name, "%s", srvn);
+	}
+
+    char tz[64];
     #ifdef MICROPY_TIMEZONE
     // ===== Set time zone ======
-    setenv("TZ", MICROPY_TIMEZONE, 0);
+    sprintf(tz, "%s", MICROPY_TIMEZONE);
+    if (args[2].u_obj != mp_const_none) {
+    	const char *tzs = mp_obj_str_get_str(args[2].u_obj);
+    	if (strlen(tzs) < 64) {
+    	    sprintf(tz, "%s", tzs);
+    	}
+    }
+    setenv("TZ", tz, 0);
     tzset();
     // ==========================
+	#else
+    tz[0] = '\0';
     #endif
 
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    self->sntp_server_name = args[0].u_obj;
-    sntp_setservername(0, (char *)mp_obj_str_get_str(self->sntp_server_name));
-    if (strlen(sntp_getservername(0)) == 0) {
-        sntp_setservername(0, DEFAULT_SNTP_SERVER);
-    }
 
-    // set datetime to 1970/01/01 (epoch=0)
-    // for 'synced' method to corectly detect synchronization
-    struct timeval now;
-    now.tv_sec = 0;
-    now.tv_usec = 0;
-    settimeofday(&now, NULL);
-    mp_hal_ticks_base = 0;
+	if (sntp_mutex == NULL) {
+		// Create sntp mutex
+		sntp_mutex = xSemaphoreCreateMutex();
+		if (sntp_mutex == NULL) {
+	    	mp_raise_msg(&mp_type_OSError, "Error creating SNTP mutex");
+		}
+	}
 
-    sntp_init();
+	if (xSemaphoreTake(sntp_mutex, 1000 / portTICK_PERIOD_MS) == pdTRUE) {
+		sprintf(self->sntp_server_name, "%s", srv_name);
+		self->sntp_update_period = period;
+		self->synced = false;
+		xSemaphoreGive(sntp_mutex);
+	}
+	else {
+    	mp_raise_msg(&mp_type_OSError, "Error acquiring SNTP mutex");
+	}
 
-    TaskHandle_t sntp_handle;
-    xTaskCreate(&sntp_task, "SNTP", 512, NULL, CONFIG_MICROPY_TASK_PRIORITY+1, &sntp_handle);
+	if (sntp_handle == NULL) {
+		// Create and start sntp task
+		if (xTaskCreate(&sntp_task, "SNTP", 2048, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+1, &sntp_handle) != pdPASS) {
+	    	mp_raise_msg(&mp_type_OSError, "Error creating SNTP task");
+		}
+	}
 
     return mp_const_none;
 }
@@ -296,13 +359,37 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mach_rtc_ntp_sync_obj, 1, mach_rtc_ntp_sync);
 
 //------------------------------------------------------
 STATIC mp_obj_t mach_rtc_has_synced (mp_obj_t self_in) {
-    if (mach_rtc_obj.synced) {
-        return mp_const_true;
-    } else {
-        return mp_const_false;
-    }
+	if (sntp_mutex == NULL) return mp_const_false;
+
+	mach_rtc_obj_t *self = MP_OBJ_TO_PTR(self_in);
+
+	bool snc = false;
+	if (xSemaphoreTake(sntp_mutex, 5000 / portTICK_PERIOD_MS) == pdTRUE) {
+		snc = self->synced;
+		xSemaphoreGive(sntp_mutex);
+	}
+	if (snc) return mp_const_true;
+    else return mp_const_false;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mach_rtc_has_synced_obj, mach_rtc_has_synced);
+
+//------------------------------------------------------
+STATIC mp_obj_t mach_rtc_sntp_state (mp_obj_t self_in) {
+	if (sntp_mutex == NULL) return mp_const_false;
+
+	mach_rtc_obj_t *self = MP_OBJ_TO_PTR(self_in);
+
+	int period = 0;
+	if (sntp_handle == NULL) return mp_const_false;
+
+	if (xSemaphoreTake(sntp_mutex, 5000 / portTICK_PERIOD_MS) == pdTRUE) {
+		period = self->sntp_update_period;
+		xSemaphoreGive(sntp_mutex);
+	}
+	if (period == 0) return mp_const_false;
+    else return mp_obj_new_int(period);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mach_rtc_sntp_state_obj, mach_rtc_sntp_state);
 
 //----------------------------------------------------------------------------------------------------
 STATIC mp_obj_t machine_rtc_wake_on_ext0(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
@@ -450,6 +537,7 @@ STATIC const mp_map_elem_t mach_rtc_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_init),			MP_ROM_PTR(&mach_rtc_init_obj) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_now),				MP_ROM_PTR(&mach_rtc_now_obj) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_ntp_sync),		MP_ROM_PTR(&mach_rtc_ntp_sync_obj) },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_ntp_state),		MP_ROM_PTR(&mach_rtc_sntp_state_obj) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_synced),			MP_ROM_PTR(&mach_rtc_has_synced_obj) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_wake_on_ext0),	MP_ROM_PTR(&machine_rtc_wake_on_ext0_obj) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_wake_on_ext1),	MP_ROM_PTR(&machine_rtc_wake_on_ext1_obj) },
