@@ -73,8 +73,8 @@ typedef struct _machine_timer_obj_t {
 
 const mp_obj_type_t machine_timer_type;
 
-static machine_timer_obj_t *timers_used[4] = {NULL};
-static machine_timer_obj_t *ext_timers[TIMER_EXT_NUM] = {NULL};
+static machine_timer_obj_t * timers_used[4] = {NULL};
+static machine_timer_obj_t * ext_timers[TIMER_EXT_NUM] = {NULL};
 
 
 //----------------------------------------------
@@ -128,6 +128,17 @@ STATIC void machine_timer_print(const mp_print_t *print, mp_obj_t self_in, mp_pr
     if (self->debug_pin >= 0) {
         mp_printf(print, "\n         Debug output on gpio %d, ", self->debug_pin);
     }
+    if (self->type == TIMER_TYPE_EXTBASE) {
+        machine_timer_obj_t *extmr;
+        mp_printf(print, "  Handled extended timers:\n");
+		for (int i=0; i < TIMER_EXT_NUM; i++) {
+			extmr = ext_timers[i];
+			if (extmr) {
+				mp_printf(print, "    %2d: Period: %d ms, %s", i+4, extmr->period, (extmr->state == TIMER_RUNNING) ? "Running" : "Paused");
+			}
+		}
+    }
+
 }
 
 //-----------------------------------------------------------------------------------------------------------------
@@ -224,14 +235,21 @@ STATIC void machine_ext_timer_isr(void *self_in)
     self->event_num++;
     // test extended timers
     for (int i=0; i < TIMER_EXT_NUM; i++) {
-    	if (ext_timers[i] != NULL) {
-			extmr = ext_timers[i];
+		extmr = ext_timers[i];
+    	if (extmr) {
+    		// Extended timer exists
     		if (extmr->state == TIMER_RUNNING) {
+    			// Timer is running, increment extended timer's counter
 				extmr->counter++;
 				if ((extmr->counter % extmr->period) == 0) {
+					// Extended timer's period elapsed, increment events number
 				    extmr->event_num++;
 					if (extmr->counter == extmr->alarm) {
-						if ((extmr->callback) && (mp_sched_schedule(extmr->callback, extmr))) extmr->cb_num++;
+						// Schedule the callback execution
+						if ((extmr->callback) && (mp_sched_schedule(extmr->callback, extmr))) {
+							extmr->cb_num++;
+							self->cb_num++;
+						}
 						if (extmr->repeat) extmr->counter = 0x00000000ULL;
 					}
 				}
@@ -243,8 +261,12 @@ STATIC void machine_ext_timer_isr(void *self_in)
 //---------------------------------------------------------
 STATIC void machine_timer_enable(machine_timer_obj_t *self)
 {
-	if (self->id >= 4) return;
-    timer_config_t config;
+	if (self->id >= 4) {
+		ext_timers[(self->id-4)] = self;
+		return;
+	}
+
+	timer_config_t config;
     config.counter_dir = TIMER_COUNT_UP;
     config.intr_type = TIMER_INTR_LEVEL;
     config.counter_en = TIMER_PAUSE;
@@ -281,6 +303,7 @@ STATIC void machine_timer_enable(machine_timer_obj_t *self)
 		}
     	check_esp_err(timer_start((self->id >> 1) & 1, self->id & 1));
     }
+    timers_used[self->id] = self;
 }
 
 //---------------------------------------------------------------------------------------------------------------------------------
@@ -340,6 +363,7 @@ STATIC mp_obj_t machine_timer_init_helper(machine_timer_obj_t *self, mp_uint_t n
 		}
 		// enable and start the timer
 		machine_timer_enable(self);
+
 		if (self->type != TIMER_TYPE_CHRONO) self->state = TIMER_RUNNING;
 		else self->state = TIMER_PAUSED;
     }
@@ -357,6 +381,8 @@ STATIC mp_obj_t machine_timer_init_helper(machine_timer_obj_t *self, mp_uint_t n
 		self->counter = 0x00000000ULL;
 		self->alarm = self->period;
 		self->state = TIMER_RUNNING;
+
+		machine_timer_enable(self);
     }
 
     return mp_const_none;
@@ -400,7 +426,7 @@ STATIC mp_obj_t machine_timer_value(mp_obj_t self_in)
 		if (self->type == TIMER_TYPE_EXTBASE) result = self->event_num;  // value in ms
 		else {
 			timer_get_counter_value((self->id >> 1) & 1, self->id & 1, &result);
-			if (self->type != TIMER_TYPE_CHRONO) result *= (self->period / 2);  // value in ms
+			if (self->type != TIMER_TYPE_CHRONO) result *= (self->period / 2);  // value in us
 		}
     }
     else {
@@ -645,7 +671,6 @@ STATIC const mp_map_elem_t machine_timer_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_pause),		(mp_obj_t)&machine_timer_pause_obj },
     { MP_ROM_QSTR(MP_QSTR_resume),		(mp_obj_t)&machine_timer_resume_obj },
     { MP_ROM_QSTR(MP_QSTR_timernum),	(mp_obj_t)&machine_timer_id_obj },
-    { MP_ROM_QSTR(MP_QSTR_period),		(mp_obj_t)&machine_timer_period_obj },
     { MP_ROM_QSTR(MP_QSTR_period),		(mp_obj_t)&machine_timer_period_obj },
     { MP_ROM_QSTR(MP_QSTR_callback),	(mp_obj_t)&machine_timer_callback_obj },
     { MP_ROM_QSTR(MP_QSTR_isrunning),	(mp_obj_t)&machine_timer_isrunning_obj },
