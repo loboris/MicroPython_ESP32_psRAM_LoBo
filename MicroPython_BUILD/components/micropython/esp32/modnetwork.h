@@ -35,7 +35,7 @@ typedef struct _wlan_if_obj_t {
 
 extern const mp_obj_type_t wlan_if_type;
 
-#ifdef MICROPY_USE_ETHERNET
+#ifdef CONFIG_MICROPY_USE_ETHERNET
 MP_DECLARE_CONST_FUN_OBJ_KW(get_lan_obj);
 #endif
 
