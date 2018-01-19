@@ -124,11 +124,10 @@ set_partitions() {
             fi
         fi
 
-        if [ ${size} -le 0 ]; then size=1024; fi
+        if [ ${size} -le 64 ]; then size=1024; fi
         if [ ${fbin_size} -gt ${size} ]; then
             size=$(( (($fbin_size / 64) + 1) * 64 ));
         fi
-
         if [ ${part_lay3} == "yes" ]; then
             fs_size=$(( $flash_sz - $size - $size - $size - 64))
             fs_start=$(( (64 + $size + $size + $size) * 1024 ))
@@ -172,7 +171,7 @@ set_partitions() {
         echo "internalfs,     data, ${PART_SUB_TYPE}  ,        ${fs_size}K," >> partitions_mpy.csv
     else
         # --- Single partition layout is used ---
-        if [ ${size} -le 0 ]; then size=1024; fi
+        if [ ${size} -le 64 ]; then size=1024; fi
         if [ ${fbin_size} -gt ${size} ]; then
             size=$(( (($fbin_size / 64) + 1) * 64 ));
         fi

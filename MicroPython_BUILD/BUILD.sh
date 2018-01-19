@@ -179,6 +179,15 @@ do
         fi
     fi
 
+    if [ "${arg}" == "flash" ]; then
+        if [ ! -f "build/MicroPython.bin" ]; then
+            echo "'build/MicroPython.bin' not found"
+            echo "The firmware must be built before flashing!"
+            echo ""
+            exit 1
+        fi
+    fi
+
     executeCommand
     result=$?
 

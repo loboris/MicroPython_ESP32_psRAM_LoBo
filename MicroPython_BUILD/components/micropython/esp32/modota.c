@@ -620,19 +620,39 @@ STATIC mp_obj_t mod_ota_set_boot(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
 
     part_name = (char *)mp_obj_str_get_str(args[0].u_obj);
 
-    const esp_partition_t *boot_part = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, part_name);
-    if (boot_part == NULL) {
-        ESP_LOGE(TAG, "Partition not found !");
-        return mp_const_false;
+    const esp_partition_t *boot_part1 = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, part_name);
+    const esp_partition_t *boot_part2 = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_0, part_name);
+    const esp_partition_t *boot_part3 = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_1, part_name);
+    if ((boot_part1 == NULL) && (boot_part2 == NULL) && (boot_part3 == NULL)) {
+		ESP_LOGE(TAG, "Partition not found !");
+		return mp_const_false;
     }
 
     // === Set boot partition ===
-    esp_err_t err = esp_ota_set_boot_partition(boot_part);
+    char sptype[16] = {'\0'};
+    char splabel[16] = {'\0'};
+    esp_err_t err = ESP_FAIL;
+
+    if (boot_part1 != NULL) {
+    	sprintf(sptype,"Factory");
+    	sprintf(splabel, boot_part1->label);
+    	err = esp_ota_set_boot_partition(boot_part1);
+    }
+    else if (boot_part2 != NULL) {
+    	sprintf(sptype,"OTA_1");
+    	sprintf(splabel, boot_part2->label);
+    	err = esp_ota_set_boot_partition(boot_part2);
+    }
+    else if (boot_part3 != NULL) {
+    	sprintf(sptype,"OTA_2");
+    	sprintf(splabel, boot_part3->label);
+    	err = esp_ota_set_boot_partition(boot_part3);
+    }
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "OTA set_boot_partition failed! err=0x%x", err);
         return mp_const_false;
     }
-    ESP_LOGW(TAG, "On next reboot the system will be started from '%s' partition", boot_part->label);
+    ESP_LOGW(TAG, "On next reboot the system will be started from '%s' partition (%s)", splabel, sptype);
 
     return mp_const_true;
 }
