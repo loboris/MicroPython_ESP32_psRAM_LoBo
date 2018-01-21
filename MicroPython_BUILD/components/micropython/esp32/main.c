@@ -154,6 +154,7 @@ soft_reset:
     else printf("Error mounting Flash file system\n");
 
     // === Print some info ===
+    char sbuff[24] = { 0 };
     gc_info_t info;
     gc_info(&info);
     // set gc.threshold to 87.5% of usable heap
@@ -172,17 +173,20 @@ soft_reset:
     // Print partition info
 	const esp_partition_t *running_partition = esp_ota_get_running_partition();
 	if (running_partition != NULL) {
-		printf("Running from %spartition at %X, type %X [%s].\n",
-				((running_partition->encrypted) ? "encrypted " : ""), running_partition->address, running_partition->subtype, running_partition->label);
+		if (running_partition->subtype == ESP_PARTITION_SUBTYPE_APP_FACTORY) sprintf(sbuff, "Factory ");
+		else if (running_partition->subtype == ESP_PARTITION_SUBTYPE_APP_OTA_0) sprintf(sbuff, "OTA_0 ");
+		else if (running_partition->subtype == ESP_PARTITION_SUBTYPE_APP_OTA_1) sprintf(sbuff, "OTA_1 ");
+		else sbuff[0] = '\0';
+		printf("Running from %s%spartition starting at 0x%X, [%s].\n",
+				((running_partition->encrypted) ? "encrypted " : ""), sbuff, running_partition->address, running_partition->label);
 	}
 
-    char rst_reason[24] = { 0 };
-	mpsleep_get_reset_desc(rst_reason);
+	mpsleep_get_reset_desc(sbuff);
 	if (mpsleep_get_wake_reason() != MPSLEEP_NONE_WAKE) printf(" ");
-	printf("\n Reset reason: %s\n", rst_reason);
+	printf("\n Reset reason: %s\n", sbuff);
 	if (mpsleep_get_wake_reason() != MPSLEEP_NONE_WAKE) {
-		mpsleep_get_wake_desc(rst_reason);
-		printf("Wakeup source: %s\n", rst_reason);
+		mpsleep_get_wake_desc(sbuff);
+		printf("Wakeup source: %s\n", sbuff);
 	}
 
 	printf("    uPY stack: %d bytes\n", MP_TASK_STACK_LEN-1024);

@@ -1,3 +1,28 @@
+/*
+ * This file is part of the LoBo MicroPython project
+ *
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2017-2018 LoBo (https://gihub.com/loboris)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 
 
 #include "sdkconfig.h"
@@ -9,13 +34,13 @@
 #include "libs/espcurl.h"
 #include "libs/libGSM.h"
 
-#include "libssh2.h"
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
 #include "esp_log.h"
+#include "esp_task_wdt.h"
 #include "mphalport.h"
 
 #include "esp_wifi_types.h"
@@ -23,25 +48,6 @@
 
 #include "py/mpthread.h"
 #include "py/nlr.h"
-
-// Set default values for configuration variables
-uint8_t curl_verbose = 1;        // show detailed info of what curl functions are doing
-uint8_t curl_progress = 1;       // show progress during transfers
-uint16_t curl_timeout = 60;      // curl operations timeout in seconds
-uint32_t curl_maxbytes = 300000; // limit download length
-uint8_t curl_initialized = 0;
-uint8_t curl_nodecode = 1;
-
-#if CONFIG_SPIRAM_SUPPORT
-int hdr_maxlen = 1024;
-int body_maxlen = 4096;
-#else
-int hdr_maxlen = 512;
-int body_maxlen = 1024;
-#endif
-
-const char *CURL_TAG = "[Curl]";
-
 
 //--------------------
 void checkConnection()
@@ -60,6 +66,24 @@ void checkConnection()
 }
 
 #ifdef CONFIG_MICROPY_USE_CURL
+
+const char *CURL_TAG = "[Curl]";
+
+// Set default values for configuration variables
+uint8_t curl_verbose = 0;        // show detailed info of what curl functions are doing
+uint8_t curl_progress = 0;       // show progress during curl transfers
+uint16_t curl_timeout = 60;      // curl operations timeout in seconds
+uint32_t curl_maxbytes = 300000; // limit download length
+uint8_t curl_initialized = 0;
+uint8_t curl_nodecode = 1;
+
+#if CONFIG_SPIRAM_SUPPORT
+int hdr_maxlen = 1024;
+int body_maxlen = 4096;
+#else
+int hdr_maxlen = 512;
+int body_maxlen = 1024;
+#endif
 
 static uint8_t curl_sim_fs = 0;
 
@@ -101,6 +125,8 @@ static size_t curlWrite(void *buffer, size_t size, size_t nmemb, void *userdata)
 	CURL *curl = s->curl;
 	double curtime = 0;
 	curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &curtime);
+
+	mp_hal_reset_wdt();
 
 	if (!s->tofile) {
 		// === Downloading to buffer ===
@@ -159,6 +185,8 @@ static size_t curlRead(void *ptr, size_t size, size_t nmemb, void *userdata)
 	double curtime = 0;
 	curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &curtime);
 	size_t nread;
+
+	mp_hal_reset_wdt();
 
 	if (curl_sim_fs) {
 		if (s->len < 1024) {
@@ -264,11 +292,11 @@ int Curl_GET(char *url, char *fname, char *hdr, char *body, int hdrlen, int body
 	FILE* file = NULL;
     int err = 0;
 
-    if ((hdr) && (hdrlen < MIN_HDR_BODY_BUF_LEN)) {
+    if ((hdr) && (hdrlen < MIN_HDR_BUF_LEN)) {
         err = -1;
         goto exit;
     }
-    if ((body) && (bodylen < MIN_HDR_BODY_BUF_LEN)) {
+    if ((body) && (bodylen < MIN_BODY_BUF_LEN)) {
         err = -2;
         goto exit;
     }
@@ -369,11 +397,11 @@ int Curl_POST(char *url , char *hdr, char *body, int hdrlen, int bodylen)
 	struct curl_slist *headerlist=NULL;
 	const char hl_buf[] = "Expect:";
 
-    if ((hdr) && (hdrlen < MIN_HDR_BODY_BUF_LEN)) {
+    if ((hdr) && (hdrlen < MIN_HDR_BUF_LEN)) {
         err = -1;
         goto exit;
     }
-    if ((body) && (bodylen < MIN_HDR_BODY_BUF_LEN)) {
+    if ((body) && (bodylen < MIN_BODY_BUF_LEN)) {
         err = -2;
         goto exit;
     }
@@ -457,11 +485,11 @@ int Curl_FTP(uint8_t upload, char *url, char *user_pass, char *fname, char *hdr,
 	FILE* file = NULL;
 	int fsize = 0;
 
-    if ((hdr) && (hdrlen < MIN_HDR_BODY_BUF_LEN)) {
+    if ((hdr) && (hdrlen < MIN_HDR_BUF_LEN)) {
         err = -1;
         goto exit;
     }
-    if ((body) && (bodylen < MIN_HDR_BODY_BUF_LEN)) {
+    if ((body) && (bodylen < MIN_BODY_BUF_LEN)) {
         err = -2;
         goto exit;
     }
@@ -608,11 +636,28 @@ void Curl_cleanup() {
 	}
 }
 
-#endif
+#endif // CONFIG_MICROPY_USE_CURL
 
 #ifdef CONFIG_MICROPY_USE_SSH
 
+#include "libssh2.h"
 #include "libssh2_sftp.h"
+
+const char *SSH_TAG = "[SSH]";
+
+uint8_t ssh2_verbose = 0;        // show detailed info of what ssh2 functions are doing
+uint8_t ssh2_progress = 0;       // show progress during ssh2 transfers
+uint16_t ssh2_session_trace = 0;
+uint8_t ssh2_session_timeout = 8;
+uint32_t ssh2_maxbytes = 300000; // limit download length
+
+#if CONFIG_SPIRAM_SUPPORT
+int ssh2_hdr_maxlen = 1024;
+int ssh2_body_maxlen = 4096;
+#else
+int ssh2_hdr_maxlen = 512;
+int ssh2_body_maxlen = 1024;
+#endif
 
 // ==== LIBSSH2 functions ====
 
@@ -626,7 +671,7 @@ static int waitsocket(int socket_fd, LIBSSH2_SESSION *session)
     fd_set *readfd = NULL;
     int dir;
 
-    timeout.tv_sec = 10;
+    timeout.tv_sec = 5;
     timeout.tv_usec = 0;
 
     FD_ZERO(&fd);
@@ -652,15 +697,15 @@ static void _append_msg(char *messages, char *msg, int msglen, uint8_t type)
     	strcat(messages, msg);
     	strcat(messages, "\n");
     }
-	if (curl_verbose) {
+	if (ssh2_verbose) {
 		if (type == ESP_LOG_ERROR) {
-			ESP_LOGE(CURL_TAG, "%s", msg);
+			ESP_LOGE(SSH_TAG, "%s", msg);
 		}
 		else if (type == ESP_LOG_WARN) {
-			ESP_LOGW(CURL_TAG, "%s", msg);
+			ESP_LOGW(SSH_TAG, "%s", msg);
 		}
 		else if (type == ESP_LOG_INFO) {
-			ESP_LOGI(CURL_TAG, "%s", msg);
+			ESP_LOGI(SSH_TAG, "%s", msg);
 		}
 	}
 }
@@ -714,8 +759,8 @@ static int sock_connect(char *server, char *port, char *messages, int msglen)
     return sock;
 }
 
-//----------------------------------------------------------------------------------------------------------------------
-static LIBSSH2_SESSION *getSSHSession(int sock, char *username, char *password, int auth_pw, char *messages, int msglen)
+//---------------------------------------------------------------------------------------------------------------------------------------------------
+static LIBSSH2_SESSION *getSSHSession(int sock, char *username, char *password, char* privkey, char *pubkey, int auth_pw, char *messages, int msglen)
 {
     int rc;
     const char *fingerprint;
@@ -732,9 +777,27 @@ static LIBSSH2_SESSION *getSSHSession(int sock, char *username, char *password, 
     sprintf(msg, "* SSH session created");
 	_append_msg(messages, msg, msglen, ESP_LOG_INFO);
 
+	// Set trace level
+    libssh2_trace(session, ssh2_session_trace);
+
+    // Set timeout, reset wdt first
+	mp_hal_set_wdt_tmo();
+	#ifdef CONFIG_MICROPY_USE_TASK_WDT
+	esp_task_wdt_reset();
+	#endif
+	#if CONFIG_TASK_WDT_CHECK_IDLE_TASK_CPU0 || CONFIG_TASK_WDT_CHECK_IDLE_TASK_CPU1
+	vTaskDelay(1); // allow other core idle task to reset the watchdog
+	#endif
+    libssh2_session_set_timeout(session, ssh2_session_timeout*1000);
+
+    // Set preferred key exchange methods
+    //libssh2_session_method_pref(session, LIBSSH2_METHOD_KEX, "diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha256,diffie-hellman-group-exchange-sha1,diffie-hellman-group1-sha1");
+
     // ... start it up. This will trade welcome banners, exchange keys, and setup crypto, compression, and MAC layers
     rc = libssh2_session_handshake(session, sock);
     if (rc) {
+    	libssh2_session_disconnect(session, "Error Shutdown.");
+    	libssh2_session_free(session);
         sprintf(msg, "* Failure establishing SSH session: %d", rc);
     	_append_msg(messages, msg, msglen, ESP_LOG_ERROR);
     	return NULL;
@@ -747,17 +810,42 @@ static LIBSSH2_SESSION *getSSHSession(int sock, char *username, char *password, 
      * may have it hard coded, may go to a file, may present it to the
      * user, that's your call
      */
-    fingerprint = libssh2_hostkey_hash(session, LIBSSH2_HOSTKEY_HASH_SHA1);
-    sprintf(msg, "* Fingerprint: [");
-    for(int i = 0; i < 20; i++) {
-        sprintf(msg+15+(i*3), "%02X ", (unsigned char)fingerprint[i]);
+	int fplen = 0, fpofst = 0;
+	fingerprint = libssh2_hostkey_hash(session, LIBSSH2_HOSTKEY_HASH_SHA256);
+	if (fingerprint) {
+		fplen = 32;
+		fpofst = 25;
+		sprintf(msg, "* Fingerprint (SHA256): [");
+	}
+	else {
+		fingerprint = libssh2_hostkey_hash(session, LIBSSH2_HOSTKEY_HASH_SHA1);
+		if (fingerprint) {
+			fplen = 20;
+			fpofst = 23;
+			sprintf(msg, "* Fingerprint (SHA1): [");
+		}
+		else {
+			fingerprint = libssh2_hostkey_hash(session, LIBSSH2_HOSTKEY_HASH_MD5);
+			if (fingerprint) {
+				fplen = 16;
+				fpofst = 22;
+				sprintf(msg, "* Fingerprint (MD5): [");
+			}
+		}
+	}
+    if (fplen > 0) {
+		for(int i = 0; i < fplen; i++) {
+			sprintf(msg+fpofst+(i*2), "%02X", (unsigned char)fingerprint[i]);
+		}
+		strcat(msg, "]");
+		_append_msg(messages, msg, msglen, ESP_LOG_INFO);
     }
-    strcat(msg, "]");
-	_append_msg(messages, msg, msglen, ESP_LOG_INFO);
 
     if (auth_pw) {
         // We could authenticate via password
         if (libssh2_userauth_password(session, username, password)) {
+        	libssh2_session_disconnect(session, "Error Shutdown.");
+        	libssh2_session_free(session);
             sprintf(msg, "* Authentication by password failed.");
         	_append_msg(messages, msg, msglen, ESP_LOG_ERROR);
         	return NULL;
@@ -767,7 +855,9 @@ static LIBSSH2_SESSION *getSSHSession(int sock, char *username, char *password, 
     }
     else {
         // Or by public key
-        if (libssh2_userauth_publickey_fromfile(session, username, ".ssh/id_rsa.pub", ".ssh/id_rsa", password)) {
+        if (libssh2_userauth_publickey_fromfile(session, username, pubkey, privkey, password)) {
+        	libssh2_session_disconnect(session, "Error Shutdown.");
+        	libssh2_session_free(session);
             sprintf(msg, "* Authentication by public key failed");
         	_append_msg(messages, msg, msglen, ESP_LOG_ERROR);
         	return NULL;
@@ -800,7 +890,7 @@ static int sshDownload(LIBSSH2_CHANNEL *channel, libssh2_struct_stat *fileinfo, 
         	if (fdd != NULL) {
 				// === Downloading to file ===
         		if (err == 0) {
-        			if ((got + amount) < curl_maxbytes) {
+        			if ((got + amount) < ssh2_maxbytes) {
 						size_t nwrite = fwrite(mem, 1, amount, fdd);
 						if (nwrite <= 0) {
 							sprintf(msg, "* Download: Error writing to file at %u", (uint32_t)got);
@@ -838,19 +928,19 @@ static int sshDownload(LIBSSH2_CHANNEL *channel, libssh2_struct_stat *fileinfo, 
             break;
         }
         got += rc;
-    	if (curl_progress) {
+    	if (ssh2_progress) {
 			if (tlatest == 0) {
 				printf("\n");
 				tlatest = mp_hal_ticks_ms();
 			}
-			if ((tlatest + (curl_progress*1000)) >= mp_hal_ticks_ms()) {
+			if ((tlatest + (ssh2_progress*1000)) >= mp_hal_ticks_ms()) {
 				tlatest = mp_hal_ticks_ms();
 				printf("Download: %u\r", (uint32_t)got);
 			}
     	}
     }
     tstart = mp_hal_ticks_ms() - tstart;
-	if (curl_progress) {
+	if (ssh2_progress) {
 		printf("                          \r");
 	}
     sprintf(msg, "* Received: %u bytes in %0.1f sec (%0.3f KB/s)", (uint32_t)got, (float)(tstart / 1000.0), (float)((float)(got)/1024.0/((float)(tstart) / 1000.0)));
@@ -883,6 +973,7 @@ static int sshUpload(LIBSSH2_CHANNEL *channel, FILE *fdd, char *hdr, int hdrlen)
             if (rc < 0) {
 				sprintf(msg, "* Upload: Error sending: %d at %u", rc, sent);
 		    	_append_msg(hdr, msg, hdrlen, ESP_LOG_ERROR);
+		    	err = -10;
                 break;
             }
             else {
@@ -891,12 +982,12 @@ static int sshUpload(LIBSSH2_CHANNEL *channel, FILE *fdd, char *hdr, int hdrlen)
                 nread -= rc;
                 sent += rc;
             }
-        	if (curl_progress) {
+        	if (ssh2_progress) {
     			if (tlatest == 0) {
     				printf("\n");
     				tlatest = mp_hal_ticks_ms();
     			}
-    			if ((tlatest + (curl_progress*1000)) >= mp_hal_ticks_ms()) {
+    			if ((tlatest + (ssh2_progress*1000)) >= mp_hal_ticks_ms()) {
     				tlatest = mp_hal_ticks_ms();
     				printf("Upload: %u\r", sent);
     			}
@@ -905,7 +996,7 @@ static int sshUpload(LIBSSH2_CHANNEL *channel, FILE *fdd, char *hdr, int hdrlen)
 
     } while (1);
     tstart = mp_hal_ticks_ms() - tstart;
-	if (curl_progress) {
+	if (ssh2_progress) {
 		printf("                          \r");
 	}
     sprintf(msg, "* Sent: %u bytes in %0.1f sec (%0.3f KB/s)", sent, (float)(tstart / 1000.0), (float)((float)(sent)/1024.0/((float)(tstart) / 1000.0)));
@@ -918,8 +1009,8 @@ static int sshUpload(LIBSSH2_CHANNEL *channel, FILE *fdd, char *hdr, int hdrlen)
     return err;
 }
 
-//------------------------------------------------------------------------------------------------------------------------------------------------------
-int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, char *pass, char *fname, char *hdr, char *body, int hdrlen, int bodylen)
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, char *pass, char *key, char *fname, char *hdr, char *body, int hdrlen, int bodylen)
 {
 
     char msg[80];
@@ -929,8 +1020,31 @@ int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, 
     int fsize = 0;
     hdrlen -=1;
     bodylen -=1;
+    int auth = 1;
+	char pub_key[128];
+    char *privkey = NULL;
+    char *pubkey = NULL;
+    if (key) {
+    	// Check the authentication keys
+		struct stat sb_key;
+		if ((stat(key, &sb_key) != 0) || (sb_key.st_size = 0)) {
+	        sprintf(msg, "* Error opening private key file");
+	    	_append_msg(hdr, msg, hdrlen, ESP_LOG_ERROR);
+            return -5;
+		}
+    	sprintf(pub_key, key);
+    	strcat(pub_key, ".pub");
+		if ((stat(pub_key, &sb_key) != 0) || (sb_key.st_size = 0)) {
+	        sprintf(msg, "* Error opening public key file");
+	    	_append_msg(hdr, msg, hdrlen, ESP_LOG_ERROR);
+            return -5;
+		}
+		privkey = key;
+		pubkey = pub_key;
+		auth = 0;
+    }
 
-	if ((fname) && ((type == 0) || (type == 1))){
+    if ((fname) && ((type == 0) || (type == 1))){
 		if (strcmp(fname, "simulate") != 0) {
 			if (type == 1) {
 				// Uploading the file
@@ -967,20 +1081,22 @@ int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, 
     	libssh2_exit();
     	return -2;
     }
+    vTaskDelay(50 / portTICK_RATE_MS);
 
     // ** Create session
-    session = getSSHSession(sock, user, pass, 1, hdr, hdrlen);
+    session = getSSHSession(sock, user, pass, privkey, pubkey, auth, hdr, hdrlen);
     if (session == NULL) {
         if (fdd) fclose(fdd);
     	close(sock);
     	libssh2_exit();
     	return -3;
     }
+    vTaskDelay(100 / portTICK_RATE_MS);
 
     LIBSSH2_CHANNEL *channel = NULL;
     // ** Open session
     if (type == 1) {
-    	// SCP File upload
+    	// === SCP File upload ===
         channel = libssh2_scp_send(session, scppath, 0555, (unsigned long)fsize);
         if (!channel) {
             char *errmsg;
@@ -993,9 +1109,13 @@ int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, 
         }
 		// ** Upload a file via SCP
 		rc = sshUpload(channel, fdd, hdr, hdrlen);
+		if (fdd != NULL) {
+			if (rc) sprintf(body, "Uploaded file %s", fname);
+			else sprintf(body, "Error uploading file %s", fname);
+		}
     }
     else if (type == 0) {
-    	// SCP File download
+    	// === SCP File download ===
 		channel = libssh2_scp_recv2(session, scppath, &fileinfo);
 		if (!channel) {
 			sprintf(msg, "* Unable to open a session: %d", libssh2_session_last_errno(session));
@@ -1004,15 +1124,19 @@ int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, 
 			goto shutdown;
 		}
 
-		if (fileinfo.st_size > curl_maxbytes) {
-			sprintf(msg, "* Warning: file size (%u) > max allowed (%u) !", (uint32_t)fileinfo.st_size, curl_maxbytes);
+		if (fileinfo.st_size > ssh2_maxbytes) {
+			sprintf(msg, "* Warning: file size (%u) > max allowed (%u) !", (uint32_t)fileinfo.st_size, ssh2_maxbytes);
 	    	_append_msg(hdr, msg, hdrlen, ESP_LOG_ERROR);
 		}
 		// ** Download a file via SCP
 		rc = sshDownload(channel, &fileinfo, fdd, hdr, body, hdrlen, bodylen);
+		if (fdd != NULL) {
+			if (rc) sprintf(body, "Downloaded file %s", fname);
+			else sprintf(body, "Error downloading file %s", fname);
+		}
     }
     else if (type == 5) {
-    	// SSH exec, Exec non-blocking on the remove host
+    	// === SSH exec, Execute non-blocking on the remove host ===
     	int bytecount = 0;
         char *exitsignal=(char *)"none";
 
@@ -1029,6 +1153,7 @@ int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, 
     	_append_msg(hdr, msg, hdrlen, ESP_LOG_INFO);
 
 		while( (rc = libssh2_channel_exec(channel, scppath)) == LIBSSH2_ERROR_EAGAIN ) {
+	        vTaskDelay(2 / portTICK_RATE_MS);
             waitsocket(sock, session);
         }
         if ( rc != 0 ) {
@@ -1077,7 +1202,7 @@ int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, 
         }
     }
     else if (type == 4) {
-    	// SFTP mkdir
+    	// === SFTP mkdir ===
         LIBSSH2_SFTP *sftp_session;
 
         sftp_session = libssh2_sftp_init(session);
@@ -1086,6 +1211,7 @@ int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, 
 	    	_append_msg(hdr, msg, hdrlen, ESP_LOG_ERROR);
             goto shutdown;
         }
+        vTaskDelay(20 / portTICK_RATE_MS);
         // Since we have not set non-blocking, tell libssh2 we are blocking
         libssh2_session_set_blocking(session, 1);
         // Make a directory via SFTP
@@ -1101,11 +1227,12 @@ int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, 
         libssh2_sftp_shutdown(sftp_session);
     }
     else if ((type == 2) || (type == 3)) {
-    	// SFTP List
+    	// === SFTP List ===
         LIBSSH2_SFTP *sftp_session;
         LIBSSH2_SFTP_HANDLE *sftp_handle;
 
         sftp_session = libssh2_sftp_init(session);
+        vTaskDelay(20 / portTICK_RATE_MS);
         if (!sftp_session) {
             sprintf(msg, "Unable to init SFTP session\n");
 	    	_append_msg(hdr, msg, hdrlen, ESP_LOG_ERROR);
@@ -1177,13 +1304,13 @@ shutdown:
 	libssh2_session_free(session);
 	close(sock);
 	libssh2_exit();
-	if (curl_verbose) {
-		ESP_LOGI(CURL_TAG, "All done");
+	if (ssh2_verbose) {
+		ESP_LOGI(SSH_TAG, "All done");
 	}
 
 	return rc;
 }
 
-#endif
+#endif // CONFIG_MICROPY_USE_SSH
 
-#endif
+#endif // defined(CONFIG_MICROPY_USE_CURL) || defined(CONFIG_MICROPY_USE_SSH)

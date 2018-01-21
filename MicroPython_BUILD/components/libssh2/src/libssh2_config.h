@@ -34,6 +34,10 @@
  * OF SUCH DAMAGE.
  */
 
+#define LIBSSH2DEBUG
+#define HAVE_GETTIMEOFDAY
+#define LIBSSH2_DH_GEX_NEW
+
 /* Headers */
 #define LIBSSH2_MBEDTLS
 #define HAVE_O_NONBLOCK

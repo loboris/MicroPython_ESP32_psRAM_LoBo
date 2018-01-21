@@ -129,8 +129,8 @@ STATIC mp_obj_t curl_Options(size_t n_args, const mp_obj_t *pos_args, mp_map_t *
     if (args[ARG_progress].u_int >= 0) curl_progress = args[ARG_progress].u_int;
     if (args[ARG_timeout].u_int >= 10) curl_timeout = args[ARG_timeout].u_int;
     if (args[ARG_maxfsize].u_int > 1000) curl_maxbytes = args[ARG_maxfsize].u_int;
-    if (args[ARG_hdrlen].u_int > 128) hdr_maxlen = args[ARG_hdrlen].u_int;
-    if (args[ARG_bodylen].u_int > MIN_HDR_BODY_BUF_LEN) body_maxlen = args[ARG_bodylen].u_int;
+    if (args[ARG_hdrlen].u_int > MIN_HDR_BUF_LEN) hdr_maxlen = args[ARG_hdrlen].u_int;
+    if (args[ARG_bodylen].u_int > MIN_BODY_BUF_LEN) body_maxlen = args[ARG_bodylen].u_int;
     if (args[ARG_nodecode].u_int >= 0) curl_nodecode = args[ARG_nodecode].u_int & 1;
 
     if (args[ARG_print].u_bool) {
@@ -176,7 +176,7 @@ STATIC mp_obj_t curl_GET(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_a
 			}
 		    fname = fullname;
 		}
-		body_len = MIN_HDR_BODY_BUF_LEN;
+		body_len = MIN_BODY_BUF_LEN;
     }
 
     vstr_init_len(&header, hdr_len);
@@ -476,7 +476,7 @@ STATIC mp_obj_t curl_FTP_helper(size_t n_args, const mp_obj_t *pos_args, mp_map_
 				}
 				fname = fullname;
 			}
-			body_len = MIN_HDR_BODY_BUF_LEN;
+			body_len = MIN_BODY_BUF_LEN;
 		}
 		else if (type == 1) {
 			nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Expected file name for PUT command"));
@@ -489,7 +489,7 @@ STATIC mp_obj_t curl_FTP_helper(size_t n_args, const mp_obj_t *pos_args, mp_map_
     body.buf[0] = '\0';
 
    	MP_THREAD_GIL_EXIT();
-   	res = Curl_FTP(type&1, url, user, fname, header.buf, body.buf, header.len, body.len);
+   	res = Curl_FTP(type&1, url, userpass, fname, header.buf, body.buf, header.len, body.len);
    	MP_THREAD_GIL_ENTER();
 
    	mp_obj_t tuple[3];
@@ -530,19 +530,20 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(curl_FTP_LIST_obj, 3, curl_FTP_LIST);
 STATIC const mp_rom_map_elem_t curl_module_globals_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_curl) },
 
-    { MP_ROM_QSTR(MP_QSTR_info), MP_ROM_PTR(&curl_info_obj) },
-    { MP_ROM_QSTR(MP_QSTR_options), MP_ROM_PTR(&curl_Options_obj) },
-    { MP_ROM_QSTR(MP_QSTR_get), MP_ROM_PTR(&curl_GET_obj) },
-    { MP_ROM_QSTR(MP_QSTR_post), MP_ROM_PTR(&curl_POST_obj) },
-    { MP_ROM_QSTR(MP_QSTR_sendmail), MP_ROM_PTR(&curl_sendmail_obj) },
+    { MP_ROM_QSTR(MP_QSTR_info),		MP_ROM_PTR(&curl_info_obj) },
+    { MP_ROM_QSTR(MP_QSTR_options),		MP_ROM_PTR(&curl_Options_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get),			MP_ROM_PTR(&curl_GET_obj) },
+    { MP_ROM_QSTR(MP_QSTR_post),		MP_ROM_PTR(&curl_POST_obj) },
+    { MP_ROM_QSTR(MP_QSTR_sendmail),	MP_ROM_PTR(&curl_sendmail_obj) },
 	#ifdef CONFIG_MICROPY_USE_CURLFTP
-    { MP_ROM_QSTR(MP_QSTR_ftp_get), MP_ROM_PTR(&curl_FTP_GET_obj) },
-    { MP_ROM_QSTR(MP_QSTR_ftp_put), MP_ROM_PTR(&curl_FTP_PUT_obj) },
-    { MP_ROM_QSTR(MP_QSTR_ftp_list), MP_ROM_PTR(&curl_FTP_LIST_obj) },
+    { MP_ROM_QSTR(MP_QSTR_ftp_get),		MP_ROM_PTR(&curl_FTP_GET_obj) },
+    { MP_ROM_QSTR(MP_QSTR_ftp_put),		MP_ROM_PTR(&curl_FTP_PUT_obj) },
+    { MP_ROM_QSTR(MP_QSTR_ftp_list),	MP_ROM_PTR(&curl_FTP_LIST_obj) },
 	#endif
 
-	{ MP_ROM_QSTR(MP_QSTR_SMTP), MP_ROM_INT(QUICKMAIL_PROT_SMTP) },
-    { MP_ROM_QSTR(MP_QSTR_SMTPS), MP_ROM_INT(QUICKMAIL_PROT_SMTPS) },
+	// Constants
+	{ MP_ROM_QSTR(MP_QSTR_SMTP),		MP_ROM_INT(QUICKMAIL_PROT_SMTP) },
+    { MP_ROM_QSTR(MP_QSTR_SMTPS),		MP_ROM_INT(QUICKMAIL_PROT_SMTPS) },
 };
 STATIC MP_DEFINE_CONST_DICT(curl_module_globals, curl_module_globals_table);
 

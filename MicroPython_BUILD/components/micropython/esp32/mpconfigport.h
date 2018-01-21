@@ -230,7 +230,7 @@ extern const struct _mp_obj_module_t mp_module_curl;
 
 #ifdef CONFIG_MICROPY_USE_SSH
 extern const struct _mp_obj_module_t mp_module_ssh;
-#define BUILTIN_MODULE_SSH { MP_OBJ_NEW_QSTR(MP_QSTR_curl), (mp_obj_t)&mp_module_ssh },
+#define BUILTIN_MODULE_SSH { MP_OBJ_NEW_QSTR(MP_QSTR_ssh), (mp_obj_t)&mp_module_ssh },
 #else
 #define BUILTIN_MODULE_SSH
 #endif

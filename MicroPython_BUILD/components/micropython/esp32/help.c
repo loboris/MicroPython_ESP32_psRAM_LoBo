@@ -27,11 +27,16 @@
  */
 
 #include "py/builtin.h"
+#include "sdkconfig.h"
 
 const char esp32_help_text[] =
-"Welcome to MicroPython on the ESP32!\n"
+#if CONFIG_SPIRAM_SUPPORT
+"Welcome to LoBo MicroPython on the ESP32 with psRAM!\n"
+#else
+"Welcome to LoBo MicroPython on the ESP32!\n"
+#endif
 "\n"
-"For generic online docs please visit http://docs.micropython.org/\n"
+"For online documentation please visit:\nhttps://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki\n"
 "\n"
 "For access to the hardware use the 'machine' module:\n"
 "\n"

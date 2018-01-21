@@ -33,9 +33,9 @@
 #if MICROPY_PY_BUILTINS_HELP
 
 const char mp_help_default_text[] =
-"Welcome to MicroPython!\n"
+"Welcome to LoBo MicroPython\n"
 "\n"
-"For online docs please visit http://docs.micropython.org/\n"
+"For online documentation please visit\nhttps://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki\n"
 "\n"
 "Control commands:\n"
 "  CTRL-A        -- on a blank line, enter raw REPL mode\n"

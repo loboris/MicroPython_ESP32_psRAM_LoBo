@@ -1,3 +1,28 @@
+/*
+ * This file is part of the LoBo MicroPython project
+ *
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2017-2018 LoBo (https://gihub.com/loboris)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 
 
 #ifndef _ESPCURL_H_
@@ -8,12 +33,23 @@
 #if defined(CONFIG_MICROPY_USE_CURL) || defined(CONFIG_MICROPY_USE_SSH)
 
 #include <stdint.h>
+
+#define MIN_HDR_BUF_LEN		128
+#define MIN_BODY_BUF_LEN	256
+
+// ================
+// Public functions
+// ================
+
+#ifdef CONFIG_MICROPY_USE_CURL
+
 #include "curl/curl.h"
 
-#define MIN_HDR_BODY_BUF_LEN  256
-#define GMAIL_SMTP  "smtp.gmail.com"
-#define GMAIL_PORT  465
+#define GMAIL_SMTP			"smtp.gmail.com"
+#define GMAIL_PORT			465
 
+struct curl_httppost *formpost;
+struct curl_httppost *lastptr;
 
 // Some configuration variables
 extern uint8_t curl_verbose;   // show detailed info of what curl functions are doing
@@ -22,19 +58,8 @@ extern uint16_t curl_timeout;  // curl operations timeout in seconds
 extern uint32_t curl_maxbytes; // limit download length
 extern uint8_t curl_initialized;
 extern uint8_t curl_nodecode;
-
 extern int hdr_maxlen;
 extern int body_maxlen;
-
-struct curl_httppost *formpost;
-struct curl_httppost *lastptr;
-
-
-// ================
-// Public functions
-// ================
-
-#ifdef CONFIG_MICROPY_USE_CURL
 
 /*
  * ----------------------------------------------------------
@@ -117,21 +142,29 @@ int Curl_FTP(uint8_t upload, char *url, char *user_pass, char *fname, char *hdr,
 
 #endif
 
-#endif
+#endif //CONFIG_MICROPY_USE_CURL
 
 //==================
 void Curl_cleanup();
 
 #ifdef CONFIG_MICROPY_USE_SSH
 
-//=======================================================================================================================================================
-int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, char *pass, char *fname, char *hdr, char *body, int hdrlen, int bodylen);
+extern uint8_t ssh2_verbose;
+extern uint8_t ssh2_progress;
+extern uint16_t ssh2_session_trace;
+extern uint8_t ssh2_session_timeout;
+extern int ssh2_hdr_maxlen;
+extern int ssh2_body_maxlen;
+extern uint32_t ssh2_maxbytes;
 
-#endif
+//==================================================================================================================================================================
+int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, char *pass, char *key, char *fname, char *hdr, char *body, int hdrlen, int bodylen);
+
+#endif  // CONFIG_MICROPY_USE_SSH
 
 //=====================
 void checkConnection();
 
-#endif
+#endif // defined(CONFIG_MICROPY_USE_CURL) || defined(CONFIG_MICROPY_USE_SSH)
 
 #endif
