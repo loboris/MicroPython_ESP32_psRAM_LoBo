@@ -1110,7 +1110,7 @@ int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, 
 		// ** Upload a file via SCP
 		rc = sshUpload(channel, fdd, hdr, hdrlen);
 		if (fdd != NULL) {
-			if (rc) sprintf(body, "Uploaded file %s", fname);
+			if (rc == 0) sprintf(body, "Uploaded file %s", fname);
 			else sprintf(body, "Error uploading file %s", fname);
 		}
     }
@@ -1131,7 +1131,7 @@ int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, 
 		// ** Download a file via SCP
 		rc = sshDownload(channel, &fileinfo, fdd, hdr, body, hdrlen, bodylen);
 		if (fdd != NULL) {
-			if (rc) sprintf(body, "Downloaded file %s", fname);
+			if (rc == 0) sprintf(body, "Downloaded file %s", fname);
 			else sprintf(body, "Error downloading file %s", fname);
 		}
     }
