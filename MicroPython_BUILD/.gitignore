@@ -30,5 +30,7 @@ sdkconfig.fw_esp32
 sdkconfig.fw_esp32_ota
 sdkconfig.fw_psram
 sdkconfig.fw_psram_ota
+sdkconfig.fw_esp32_all
+sdkconfig.fw_esp32_all_psram
 
-makefirmwares.sh
+make_firmwares.sh

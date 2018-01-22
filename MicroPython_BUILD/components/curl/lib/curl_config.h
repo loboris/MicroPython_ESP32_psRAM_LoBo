@@ -1,5 +1,7 @@
-/* lib/curl_config.h.  Generated from curl_config.h.in by configure.  */
-/* lib/curl_config.h.in.  Generated from configure.ac by autoheader.  */
+/*
+ * libcurl configuration file for ESP32 MicroPython
+ */
+
 
 /* to disable NTLM authentication */
 #define CURL_DISABLE_NTLM 1
@@ -20,16 +22,16 @@
 /* #undef CURL_DISABLE_CRYPTO_AUTH */
 
 /* to disable DICT */
-/* #undef CURL_DISABLE_DICT */
+#define CURL_DISABLE_DICT
 
 /* to disable FILE */
-/* #undef CURL_DISABLE_FILE */
+#define CURL_DISABLE_FILE
 
 /* to disable FTP */
 /* #undef CURL_DISABLE_FTP */
 
 /* to disable Gopher */
-/* #undef CURL_DISABLE_GOPHER */
+#define CURL_DISABLE_GOPHER
 
 /* to disable HTTP */
 /* #undef CURL_DISABLE_HTTP */
@@ -47,25 +49,25 @@
 /* #undef CURL_DISABLE_LIBCURL_OPTION */
 
 /* to disable POP3 */
-/* #undef CURL_DISABLE_POP3 */
+#define CURL_DISABLE_POP3
 
 /* to disable proxies */
 /* #undef CURL_DISABLE_PROXY */
 
 /* to disable RTSP */
-/* #undef CURL_DISABLE_RTSP */
+#define CURL_DISABLE_RTSP */
 
 /* to disable SMB/CIFS */
-/* #undef CURL_DISABLE_SMB */
+#define CURL_DISABLE_SMB
 
 /* to disable SMTP */
 /* #undef CURL_DISABLE_SMTP */
 
 /* to disable TELNET */
-/* #undef CURL_DISABLE_TELNET */
+#define CURL_DISABLE_TELNET
 
 /* to disable TFTP */
-/* #undef CURL_DISABLE_TFTP */
+#define CURL_DISABLE_TFTP
 
 /* to disable TLS-SRP authentication */
 /* #undef CURL_DISABLE_TLS_SRP */
@@ -805,7 +807,7 @@
 //#define NTLM_WB_FILE "/usr/bin/ntlm_auth"
 
 /* cpu-machine-OS */
-#define OS "ESP32"
+#define OS "MicroPython-ESP32"
 
 /* Name of package */
 #define PACKAGE "curl"

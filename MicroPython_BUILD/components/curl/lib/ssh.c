@@ -26,9 +26,7 @@
 
 #ifdef USE_LIBSSH2
 
-#ifdef HAVE_LIMITS_H
-#  include <limits.h>
-#endif
+#include <limits.h>
 
 #include <libssh2.h>
 #include <libssh2_sftp.h>
@@ -396,6 +394,7 @@ static void state(struct connectdata *conn, sshstate nowstate)
 
   sshc->state = nowstate;
 }
+
 
 // ==== LoBo ===============================================
 
@@ -1008,11 +1007,11 @@ static CURLcode ssh_statemach_act(struct connectdata *conn, bool *block)
                                     sshc->sshagent_identity);
 
         if(rc < 0) {
-          if(rc != LIBSSH2_ERROR_EAGAIN)
+          if(rc != LIBSSH2_ERROR_EAGAIN) {
             /* tried and failed? go to next identity */
             sshc->sshagent_prev_identity = sshc->sshagent_identity;
-          else
-            break;
+          }
+          break;
         }
       }
 

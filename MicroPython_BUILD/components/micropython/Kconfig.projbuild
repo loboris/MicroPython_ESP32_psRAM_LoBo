@@ -235,7 +235,7 @@ menu "MicroPython"
 	        default n
 	        help
 	        Include CURL module into build
-	        Using CURLmodule will add ~400KB to your code size
+	        Using CURLmodule will add ~230 KB to your flash code size
 	
 	    config MICROPY_USE_CURL_TLS
 	        bool "Enable TLS in Curl module"
@@ -245,20 +245,22 @@ menu "MicroPython"
 	        help
 	        Enable SSL/TLS in CURL module
 	        TLS support requires large amount RAM !
-	        If SPIRAM is not used, MicroPython heap size should not be set larger than 74KB !
+	        If SPIRAM is not used, MicroPython heap size should not be set larger than 72KB !
 	
 	    config MICROPY_USE_CURLFTP
 	        bool "FTP support in Curl module"
 	        depends on MICROPY_USE_CURL
 	        default n
 	        help
-	        Include Ftp support in Curl module, not including it may save some flash space
+	        Include Ftp support in Curl module
+	        Not including it may save ~24 KB of flash code space
 	
 	    config MICROPY_USE_SSH
 	        bool "Use SSH module"
 	        default n
 	        help
 	        Include SSH module into build
+	        Using SSH module will add ~86 KB to your flash code size
 	
 	    config MICROPY_USE_MQTT
 	        bool "Use Mqtt module"

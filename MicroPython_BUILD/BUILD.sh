@@ -21,7 +21,8 @@
 #   flashfatfs        - create and flash FatFS image to ESP32
 #   copyfatfs         - flash prebuilt FatFS image to ESP32
 #   size              - display static memory footprint of the firmware
-#   size-componets    - display detailed memory footprint of the firmware
+#   size-components   - display detailed memory footprint of the firmware
+#   size-files        - display detailed memory footprint of the firmware
 
 # Options:
 #   -jN                                           - make with multicore option, N should be the number of cores used 

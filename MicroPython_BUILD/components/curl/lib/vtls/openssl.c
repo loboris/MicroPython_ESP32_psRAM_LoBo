@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2018, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -34,9 +34,7 @@
 
 #ifdef USE_OPENSSL
 
-#ifdef HAVE_LIMITS_H
 #include <limits.h>
-#endif
 
 #include "urldata.h"
 #include "sendf.h"
@@ -177,6 +175,8 @@ static unsigned long OpenSSL_version_num(void)
   "ALL:!EXPORT:!EXPORT40:!EXPORT56:!aNULL:!LOW:!RC4:@STRENGTH"
 #endif
 
+#define ENABLE_SSLKEYLOGFILE
+
 #ifdef ENABLE_SSLKEYLOGFILE
 typedef struct ssl_tap_state {
   int master_key_length;
@@ -259,11 +259,11 @@ static void tap_ssl_key(const SSL *ssl, ssl_tap_state_t *state)
   if(!session || !keylog_file_fp)
     return;
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
   /* ssl->s3 is not checked in openssl 1.1.0-pre6, but let's assume that
    * we have a valid SSL context if we have a non-NULL session. */
   SSL_get_client_random(ssl, client_random, SSL3_RANDOM_SIZE);
-  master_key_length =
+  master_key_length = (int)
     SSL_SESSION_get_master_key(session, master_key, SSL_MAX_MASTER_KEY_LENGTH);
 #else
   if(ssl->s3 && session->master_key_length > 0) {
@@ -904,7 +904,7 @@ static int x509_name_oneline(X509_NAME *a, char *buf, size_t size)
 static int Curl_ossl_init(void)
 {
 #ifdef ENABLE_SSLKEYLOGFILE
-  const char *keylog_file_name;
+  char *keylog_file_name;
 #endif
 
   OPENSSL_load_builtin_modules();
@@ -944,18 +944,22 @@ static int Curl_ossl_init(void)
 #endif
 
 #ifdef ENABLE_SSLKEYLOGFILE
-  keylog_file_name = curl_getenv("SSLKEYLOGFILE");
-  if(keylog_file_name && !keylog_file_fp) {
-    keylog_file_fp = fopen(keylog_file_name, FOPEN_APPENDTEXT);
-    if(keylog_file_fp) {
+  if(!keylog_file_fp) {
+    keylog_file_name = curl_getenv("SSLKEYLOGFILE");
+    if(keylog_file_name) {
+      keylog_file_fp = fopen(keylog_file_name, FOPEN_APPENDTEXT);
+      if(keylog_file_fp) {
 #ifdef WIN32
-      if(setvbuf(keylog_file_fp, NULL, _IONBF, 0)) {
+        if(setvbuf(keylog_file_fp, NULL, _IONBF, 0))
 #else
-      if(setvbuf(keylog_file_fp, NULL, _IOLBF, 4096)) {
+        if(setvbuf(keylog_file_fp, NULL, _IOLBF, 4096))
 #endif
-        fclose(keylog_file_fp);
-        keylog_file_fp = NULL;
+        {
+          fclose(keylog_file_fp);
+          keylog_file_fp = NULL;
+        }
       }
+      Curl_safefree(keylog_file_name);
     }
   }
 #endif
@@ -2409,8 +2413,8 @@ static CURLcode ossl_connect_step1(struct connectdata *conn, int sockindex)
 
   /* Enable logging of secrets to the file specified in env SSLKEYLOGFILE. */
 #if defined(ENABLE_SSLKEYLOGFILE) && defined(HAVE_KEYLOG_CALLBACK)
-  if(keylog_file) {
-    SSL_CTX_set_keylog_callback(connssl->ctx, ossl_keylog_callback);
+  if(keylog_file_fp) {
+    SSL_CTX_set_keylog_callback(BACKEND->ctx, ossl_keylog_callback);
   }
 #endif
 

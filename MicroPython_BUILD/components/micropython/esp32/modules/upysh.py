@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 
 class LS:
 
@@ -12,10 +13,11 @@ class LS:
         l.sort()
         for f in l:
             st = os.stat("%s/%s" % (path, f))
+            ftime = time.strftime("%Y/%m/%d %X", time.localtime(st[8]))
             if st[0] & 0x4000:  # stat.S_IFDIR
-                print("   <dir> %s" % f)
+                print("   <dir>  %s  %s" % (ftime, f))
             else:
-                print("% 8d %s" % (st[6], f))
+                print("% 8d  %s  %s" % (st[6], ftime, f))
 
 class PWD:
 

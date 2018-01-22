@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2018, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -65,6 +65,7 @@
 #include "sendf.h" /* for failf function prototype */
 #include "connect.h" /* for Curl_getconnectinfo */
 #include "slist.h"
+#include "mime.h"
 #include "amigaos.h"
 #include "non-ascii.h"
 #include "warnless.h"
@@ -855,6 +856,7 @@ static CURLcode dupset(struct Curl_easy *dst, struct Curl_easy *src)
   /* Copy src->set into dst->set first, then deal with the strings
      afterwards */
   dst->set = src->set;
+  Curl_mime_initpart(&dst->set.mimepost, dst);
 
   /* clear all string pointers first */
   memset(dst->set.str, 0, STRING_LAST * sizeof(char *));
@@ -878,7 +880,10 @@ static CURLcode dupset(struct Curl_easy *dst, struct Curl_easy *src)
     dst->set.postfields = dst->set.str[i];
   }
 
-  return CURLE_OK;
+  /* Duplicate mime data. */
+  result = Curl_mime_duppart(&dst->set.mimepost, &src->set.mimepost);
+
+  return result;
 }
 
 /*
@@ -1045,6 +1050,8 @@ CURLcode curl_easy_pause(struct Curl_easy *data, int action)
     unsigned int i;
     unsigned int count = data->state.tempcount;
     struct tempbuf writebuf[3]; /* there can only be three */
+    struct connectdata *conn = data->easy_conn;
+    struct Curl_easy *saved_data = NULL;
 
     /* copy the structs to allow for immediate re-pausing */
     for(i = 0; i < data->state.tempcount; i++) {
@@ -1053,16 +1060,27 @@ CURLcode curl_easy_pause(struct Curl_easy *data, int action)
     }
     data->state.tempcount = 0;
 
+    /* set the connection's current owner */
+    if(conn->data != data) {
+      saved_data = conn->data;
+      conn->data = data;
+    }
+
     for(i = 0; i < count; i++) {
       /* even if one function returns error, this loops through and frees all
          buffers */
       if(!result)
-        result = Curl_client_chop_write(data->easy_conn,
+        result = Curl_client_chop_write(conn,
                                         writebuf[i].type,
                                         writebuf[i].buf,
                                         writebuf[i].len);
       free(writebuf[i].buf);
     }
+
+    /* recover previous owner of the connection */
+    if(saved_data)
+      conn->data = saved_data;
+
     if(result)
       return result;
   }

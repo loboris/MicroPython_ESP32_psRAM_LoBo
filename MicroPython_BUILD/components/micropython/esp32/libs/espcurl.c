@@ -70,12 +70,12 @@ void checkConnection()
 const char *CURL_TAG = "[Curl]";
 
 // Set default values for configuration variables
-uint8_t curl_verbose = 0;        // show detailed info of what curl functions are doing
-uint8_t curl_progress = 0;       // show progress during curl transfers
-uint16_t curl_timeout = 60;      // curl operations timeout in seconds
-uint32_t curl_maxbytes = 300000; // limit download length
+uint8_t curl_verbose = 0;			// show detailed info of what curl functions are doing
+uint8_t curl_progress = 0;			// show progress during curl transfers
+uint16_t curl_timeout = 60;			// curl operations timeout in seconds
+uint32_t curl_maxbytes = 300000;	// limit download length
 uint8_t curl_initialized = 0;
-uint8_t curl_nodecode = 1;
+uint8_t curl_nodecode = 0;			// if set to 1, do not use compression in http transfers
 
 #if CONFIG_SPIRAM_SUPPORT
 int hdr_maxlen = 1024;

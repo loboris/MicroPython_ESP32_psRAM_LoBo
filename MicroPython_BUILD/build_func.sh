@@ -487,7 +487,7 @@ checkCommand() {
         fi
     fi
 
-    if [ "${arg}" == "firmware" ] || [ "${arg}" == "size" ] || [ "${arg}" == "size-components" ]; then
+    if [ "${arg}" == "firmware" ] || [ "${arg}" == "size" ] || [ "${arg}" == "size-components" ] || [ "${arg}" == "size-files" ]; then
         if [ ! -f "build/MicroPython.bin" ]; then
             echo ""
             echo "Build firmware first."
@@ -659,7 +659,11 @@ executeCommand() {
             esp32dir="esp32_psram"
         fi
         if [ "${arg}" == "firmwareall" ]; then
-            esp32dir="esp32_psram_all"
+            if [ "${BUILD_TYPE}" != "" ]; then
+                esp32dir="esp32_psram_all"
+            else
+                esp32dir="esp32_all"
+            fi
         fi
         local useota=$(grep -e CONFIG_MICROPY_USE_OTA=y sdkconfig)
         if [ "${useota}" == "CONFIG_MICROPY_USE_OTA=y" ]; then

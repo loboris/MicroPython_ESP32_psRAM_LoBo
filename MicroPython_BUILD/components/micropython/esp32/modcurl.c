@@ -258,11 +258,15 @@ STATIC mp_obj_t curl_POST(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_
 			    	int ival = mp_obj_get_int(table[i].value);
 			    	char sval[64];
 			    	sprintf(sval,"%d", ival);
+				    curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, sval, CURLFORM_END);
+					nparam++;
 			    }
 			    else if (MP_OBJ_IS_TYPE(table[i].value, &mp_type_float)) {
 			    	double fval = mp_obj_get_float(table[i].value);
 			    	char sval[64];
 			    	sprintf(sval,"%f", fval);
+				    curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, sval, CURLFORM_END);
+					nparam++;
 			    }
 			}
         }
