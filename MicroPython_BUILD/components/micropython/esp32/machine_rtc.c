@@ -90,8 +90,6 @@ machine_rtc_config_t machine_rtc_config = { 0, -1, 0, 0, 0 };
 static TaskHandle_t sntp_handle = NULL;
 xSemaphoreHandle sntp_mutex = NULL;
 
-static bool mach_rtc_isinit = false;
-
 #define DEFAULT_SNTP_SERVER	"pool.ntp.org"
 
 //------------------------------
@@ -185,14 +183,10 @@ STATIC mp_obj_t mach_rtc_make_new(const mp_obj_type_t *type, size_t n_args, size
     // check arguments
     mp_arg_check_num(n_args, n_kw, 0, 0, false);
 
-    if (mach_rtc_isinit) {
-    	mp_raise_msg(&mp_type_OSError, "RTC instance already created, only one can be used.");
-    }
      // setup the object
     mach_rtc_obj_t *self = &mach_rtc_obj;
     self->base.type = &mach_rtc_type;
 
-    mach_rtc_isinit = true;
     // return constant object
     return (mp_obj_t)&mach_rtc_obj;
 }

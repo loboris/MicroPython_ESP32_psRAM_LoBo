@@ -2,32 +2,31 @@
 
 # with support for 4MB of psRAM
 
----
+<br>
 
-**This repository can be used to build MicroPython for modules with psRAM as well as for regular ESP32 modules without psRAM.**
+> This repository can be used to build MicroPython for ESP32 boards/modules with **psRAM** as well as for ESP32 boards/modules **without psRAM.**<br><br>
+> *Building on* **Linux**, **MacOS** *and* **Windows** (including **Linux Subsystem on Windows 10**) *is supported*.<br><br>
+> MicroPython works great on ESP32, but the most serious issue is still (as on most other MicroPython boards) limited amount of free memory.<br>
+> This repository contains all the tools and sources necessary to **build working MicroPython firmware** which can fully use the advantages of **4MB** (or more) of **psRAM**.<br>
+> It is **huge difference** between MicroPython running with **less than 100KB** of free memory and running with **4MB** of free memory.
 
-**As of Sep 18, 2017 full support for psRAM is included into esp-idf and xtensa toolchain**
-
-*Building on* **Linux**, **MacOS** *and* **Windows** *is supported*
-
----
-
-MicroPython works great on ESP32, but the most serious issue is still (as on most other MicroPython boards) limited amount of free memory.
+<br>
 
 ESP32 can use external **SPIRAM** (psRAM) to expand available RAM up to 16MB.
 
 Currently, there are several modules & development boards which incorporates **4MB** of psRAM:<br>
 
-* **ESP-WROVER-KIT boards** from Espressif or [AnalogLamb](https://www.analoglamb.com/product/esp-wrover-kit-esp32-wrover-module/).
-* **Lolin32 Pro board** from [Wemos](https://wiki.wemos.cc/products:lolin32:lolin32_pro) - **recommended**.
-* **WiPy 3.0 board** from [Pycom](https://pycom.io/product/wipy-3/).
-* **ESP-WROVER** from Espressif or [ElecrtoDragon](http://www.electrodragon.com/product/esp32-wrover-v4-module-based-esp32/).
-* **ALB32-WROVER** (4 MB SPIRAM & 4/8/16 MB Flash) from [AnalogLamb](https://www.analoglamb.com/product/alb32-wrover-esp32-module-with-64mb-flash-and-32mb-psram/).
-* **S01**, **L01** and G01 OEM modules from [Pycom](https://pycom.io/webshop#oem-products).
+* **Lolin32 Pro** _board_ from [Wemos](https://wiki.wemos.cc/products:lolin32:lolin32_pro) - **`recommended`** ([buy](https://www.aliexpress.com/store/product/LOLIN32-Pro-V1-0-0-wifi-bluetooth-board-based-ESP-32-esp32-Rev1-ESP32-WROVER-MicroPython/1331105_32843682537.html)) ([Schematic](https://wiki.wemos.cc/_media/products:lolin32:sch_lolin32_pro_v1.0.0.pdf)).
+* **ESP-WROVER-KIT** _boards_ from Espressif, available from [ElectroDragon](http://www.electrodragon.com/product/esp32-wrover-kit/), [AnalogLamb](https://www.analoglamb.com/product/esp-wrover-kit-esp32-wrover-module/), ...
+* **WiPy 3.0** _board_ from [Pycom](https://pycom.io/product/wipy-3/).
+* **TTGO TAudio** _board_ ([eBay](https://www.ebay.com/itm/TTGO-TAudio-V1-0-ESP32-WROVER-SD-Card-Slot-Bluetooth-WI-FI-Module-MPU9250/152835010520?hash=item2395ad2fd8:g:Jt8AAOSwR2RaOdEp))
+* **ESP-WROVER** _module_ from Espressif, available from [ElectroDragon](http://www.electrodragon.com/product/esp32-wrover-v4-module-based-esp32/) and many other wendors.
+* **ALB32-WROVER** _module_ (4 MB SPIRAM & 4/8/16 MB Flash) from [AnalogLamb](https://www.analoglamb.com/product/alb32-wrover-esp32-module-with-64mb-flash-and-32mb-psram/).
+* **S01**, **L01** and **G01** _OEM modules_ from [Pycom](https://pycom.io/webshop#oem-products).
 
 ---
 
-Some basic [documentation](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki) specific to this **MicroPython** port is available.
+[Wiki pages](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki) with detailed documentation specific to this **MicroPython** port are available.
 
 Some examples can be found in [modules_examples](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/tree/master/MicroPython_BUILD/components/micropython/esp32/modules_examples) directory.
 
@@ -50,13 +49,14 @@ This way many features not available in standard ESP32 MicroPython are enabled, 
 ### Features
 
 * MicroPython core based on latest build from [main Micropython repository](https://github.com/micropython/micropython)
-* added changes needed to build on ESP32 with psRAM
+* added changes needed to build for ESP32 with psRAM
 * Default configuration has **2MB** of MicroPython heap, **20KB** of MicroPython stack, **~200KB** of free DRAM heap for C modules and functions
 * MicroPython can be built in **unicore** (FreeRTOS & MicroPython task running only on the first ESP32 core, or **dualcore** configuration (MicroPython task running on ESP32 **App** core)
 * ESP32 Flash can be configured in any mode, **QIO**, **QOUT**, **DIO**, **DOUT**
 * **BUILD.sh** script is provided to make **building** MicroPython firmware as **easy** as possible
-* Internal filesystem is built with esp-idf **wear leveling** driver, so there is less danger of damaging the flash with frequent writes. File system parameters (start address, size, ...) can be set via **menuconfig**.
+* Internal Fat filesystem is built with esp-idf **wear leveling** driver, so there is less danger of damaging the flash with frequent writes.
 * **SPIFFS** filesystem is supported and can be used instead of FatFS in SPI Flash. Configurable via **menuconfig**
+* Flexible automatic and/or manual filesystem configuration
 * **sdcard** support is included which uses esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For imformation on how to connect sdcard see the documentation.
 * Files **timestamp** is correctly set to system time both on internal fat filesysten and on sdcard
 * **Native ESP32 VFS** support for spi Flash & sdcard filesystems.
@@ -72,15 +72,17 @@ This way many features not available in standard ESP32 MicroPython are enabled, 
 * **i2c** module uses ESP32 hardware i2c driver
 * **spi** module uses ESP32 hardware spi driver
 * **adc** module improved, new functions added
+* **pwm** module, ESP32 hardware based
+* **timer** module improved, new timer types and features
 * **curl** module added, many client protocols including FTP and eMAIL
-* **ssh** module added with sftp support
+* **ssh** module added with sftp/scp support and _exec_ function to execute program on server
 * **display** module added with full support for spi TFT displays
 * **mqtt** module added, implemented in C, runs in separate task
 * **mDNS** module added, implemented in C, runs in separate task
 * **telnet** module added, connect to **REPL via WiFi** using telnet protocol
 * **ftp** server module added, runs as separate ESP32 task
 * **GSM/PPPoS** support, connect to the Internet via GSM module
-* **OTA Update** supported
+* **OTA Update** supported, various partitions layouts
 * **Eclipse** project files included. To include it into Eclipse goto File->Import->Existing Projects into Workspace->Select root directory->[select *MicroPython_BUILD* directory]->Finish. **Rebuild index**.
 
 ---

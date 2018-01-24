@@ -352,18 +352,21 @@ check_Environment() {
         fi
     fi
     if [ ! -d "xtensa-esp32-elf" ]; then
-		if [ "${machine}" == "Linux" ]; then
-			if [ "${linplatform}" == "i686" ]; then
-				echo "unpacking ${machine}/xtensa-esp32-elf (32bit)"
-				tar -xf ${machine}/xtensa-esp32-elf_32bit.tar.xz > /dev/null 2>&1
-			else
-				echo "unpacking ${machine}/xtensa-esp32-elf"
-				tar -xf ${machine}/xtensa-esp32-elf.tar.xz > /dev/null 2>&1
-			fi
-		else
-		    echo "unpacking ${machine}/xtensa-esp32-elf"
-		    tar -xf ${machine}/xtensa-esp32-elf.tar.xz > /dev/null 2>&1
-		fi
+        if [ "${machine}" == "Linux" ]; then
+            if [ "${linplatform}" == "i686" ]; then
+                echo "unpacking ${machine}/xtensa-esp32-elf (32bit)"
+                tar -xf ${machine}/xtensa-esp32-elf_32bit.tar.xz > /dev/null 2>&1
+            elif [ "${linplatform}" == "armv7l" ]; then
+                echo "unpacking ${machine}/xtensa-esp32-elf (arm)"
+                tar -xf ${machine}/xtensa-esp32-elf_arm.tar.xz > /dev/null 2>&1
+            else
+                echo "unpacking ${machine}/xtensa-esp32-elf"
+                tar -xf ${machine}/xtensa-esp32-elf.tar.xz > /dev/null 2>&1
+            fi
+        else
+            echo "unpacking ${machine}/xtensa-esp32-elf"
+            tar -xf ${machine}/xtensa-esp32-elf.tar.xz > /dev/null 2>&1
+        fi
         if [ $? -ne 0 ]; then
             echo "unpacking 'xtensa-esp32-elf' FAILED"
             return 1
