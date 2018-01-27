@@ -37,62 +37,47 @@
 #include "py/mphal.h"
 
 #include "modnetwork.h"
+#include "netdb.h"
+
 
 #define MDNS_NAME_LEN	32
 
 
 typedef struct _mdns_obj_t {
     mp_obj_base_t base;
-    wlan_if_obj_t *if_obj;
-    mdns_server_t * mdns;
+    uint8_t is_started;
     char hostname[MDNS_NAME_LEN+1];
     char instance[MDNS_NAME_LEN+1];
 } mdns_obj_t;
 
+static const char * if_str[] = {"STA", "AP", "ETH", "MAX"};
+static const char * ip_protocol_str[] = {"V4", "V6", "MAX"};
+
 const mp_obj_type_t mdns_type;
+
+mdns_obj_t mdns_obj = {0};
 
 //-------------------------------------------------------------------------------------
 STATIC void mdns_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     mdns_obj_t *self = self_in;
 
-    if (self->mdns == NULL) {
+    if (!self->is_started) {
     	mp_printf(print, "mDNS( Not started )\n");
     	return;
     }
-    char s_if[8];
-    if (self->if_obj->if_id == TCPIP_ADAPTER_IF_STA) sprintf(s_if, "IF_STA");
-    else if (self->if_obj->if_id == TCPIP_ADAPTER_IF_AP) sprintf(s_if, "IF_AP");
-    else sprintf(s_if, "Unknown");
 
-    mp_printf(print, "mDNS[%s] (Server name: %s, Instance name: %s)\n", s_if, self->hostname, self->instance);
+    mp_printf(print, "mDNS(Server name: %s, Instance name: %s)\n", self->hostname, self->instance);
 }
 
 //------------------------------------------------------------------------------------------------------------
 STATIC mp_obj_t mdns_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args)
 {
-    const mp_arg_t mdns_init_allowed_args[] = {
-			{ MP_QSTR_if,   	MP_ARG_OBJ,  {.u_obj = mp_const_none} },
-	};
-	mp_arg_val_t args[MP_ARRAY_SIZE(mdns_init_allowed_args)];
-	mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(mdns_init_allowed_args), mdns_init_allowed_args, args);
+    // Get the mdns object
+    mdns_obj_t *self = &mdns_obj;
+    self->base.type = &mdns_type;
 
-    // Setup the mqtt object
-    mdns_obj_t *self = m_new_obj(mdns_obj_t );
-    self->mdns = NULL;
-
-    wlan_if_obj_t *if_obj = (wlan_if_obj_t *)args[0].u_obj;
-
-    if (MP_OBJ_IS_TYPE(if_obj, &wlan_if_type)) {
-        self->hostname[0] = '\0';
-        self->instance[0] = '\0';
-        self->if_obj = if_obj;
-        self->base.type = &mdns_type;
-
-        return MP_OBJ_FROM_PTR(self);
-    }
-	mp_raise_msg(&mp_type_OSError, "WLAN STA or AP object expected");
-    return mp_const_none;
+    return MP_OBJ_FROM_PTR(self);
 }
 
 //---------------------------------------------------------------------------------------
@@ -110,27 +95,48 @@ STATIC mp_obj_t mdns_start(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t 
     mdns_obj_t *self = pos_args[0];
     esp_err_t err;
 
-    snprintf(self->hostname, MDNS_NAME_LEN, mp_obj_str_get_str(args[ARG_name].u_obj));
-    snprintf(self->instance, MDNS_NAME_LEN, mp_obj_str_get_str(args[ARG_instance].u_obj));
-    self->base.type = &mdns_type;
-
-    if (!self->mdns) {
-        err = mdns_init(self->if_obj->if_id, &self->mdns);
+    if (!self->is_started) {
+    	// If not initialized, host name and instance are mandatory
+        snprintf(self->hostname, MDNS_NAME_LEN, mp_obj_str_get_str(args[ARG_name].u_obj));
+        snprintf(self->instance, MDNS_NAME_LEN, mp_obj_str_get_str(args[ARG_instance].u_obj));
+        err = mdns_init();
         if (err) mp_raise_msg(&mp_type_OSError, "Error initializing mDNS server.");
+		//set mDNS hostname (required if we want to advertise services)
+		err = mdns_hostname_set(self->hostname);
+		if (err) {
+			mdns_free();
+			mp_raise_ValueError("Error setting server name.");
+		}
+		err = mdns_instance_name_set(self->instance);
+		if (err) {
+			mdns_free();
+			mp_raise_ValueError("Error setting server instance.");
+		}
+        self->is_started = 1;
+        return mp_const_none;
     }
-    else mp_raise_msg(&mp_type_OSError, "mDNS server already started.");
 
-    err = mdns_set_hostname(self->mdns, self->hostname);
-    if (err) {
-    	mdns_free(self->mdns);
-    	self->mdns = NULL;
-    	mp_raise_ValueError("Error setting server name.");
+    if (args[ARG_name].u_obj != mp_const_none) {
+    	const char *hostname = mp_obj_str_get_str(args[ARG_name].u_obj);
+    	if (strcmp(self->hostname, hostname) != 0) {
+			err = mdns_hostname_set(self->hostname);
+			if (err) {
+				mdns_free();
+				self->is_started = 0;
+				mp_raise_ValueError("Error setting server name.");
+			}
+    	}
     }
-    err = mdns_set_instance(self->mdns, self->instance);
-    if (err) {
-    	mdns_free(self->mdns);
-    	self->mdns = NULL;
-    	mp_raise_ValueError("Error setting server instance.");
+    if (args[ARG_instance].u_obj != mp_const_none) {
+    	const char *instance = mp_obj_str_get_str(args[ARG_instance].u_obj);
+    	if (strcmp(self->instance, instance) != 0) {
+			err = mdns_instance_name_set(self->instance);
+			if (err) {
+				mdns_free();
+				self->is_started = 0;
+				mp_raise_ValueError("Error setting server instance.");
+			}
+    	}
     }
 
     return mp_const_none;
@@ -142,8 +148,8 @@ STATIC mp_obj_t mdns_stop(mp_obj_t self_in)
 {
     mdns_obj_t *self = self_in;
 
-	if (self->mdns) mdns_free(self->mdns);
-	self->mdns = NULL;
+	if (self->is_started) mdns_free();
+    self->is_started = 0;
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(mdns_stop_obj, mdns_stop);
@@ -165,45 +171,44 @@ STATIC mp_obj_t mdns_add_service(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
 
     mdns_obj_t *self = pos_args[0];
 
-    if (!self->mdns) mp_raise_msg(&mp_type_OSError, "mDNS server not started.");
+    if (!self->is_started) mp_raise_msg(&mp_type_OSError, "mDNS server not started.");
 
     const char *instance = NULL;
     uint8_t ntxdata = 0;
-    const char *svctxdata[8] = {NULL};
+    mdns_txt_item_t svctxdata[8] = {0};
 
     const char *service = mp_obj_str_get_str(args[ARG_service].u_obj);
+    if (service[0] != '_') {
+		mp_raise_ValueError("Service name must start with '_'");
+    }
     const char *protocol = mp_obj_str_get_str(args[ARG_proto].u_obj);
+    if ((strcmp(protocol, "_tcp") != 0) && (strcmp(protocol, "_udp") != 0)) {
+		mp_raise_ValueError("Protocol must be '_tcp' or '_udp'");
+    }
     int port = args[ARG_port].u_int;
+    if ((port < 1) || (port > 0xFFFF)) {
+		mp_raise_ValueError("Wrong port value");
+    }
     if (MP_OBJ_IS_STR(args[ARG_instance].u_obj)) {
     	instance = mp_obj_str_get_str(args[ARG_instance].u_obj);
     }
-    if (MP_OBJ_IS_STR(args[ARG_txdata].u_obj)) {
-    	svctxdata[0] = mp_obj_str_get_str(args[ARG_txdata].u_obj);
-    	ntxdata = 1;
-    }
-    else if (MP_OBJ_IS_TYPE(args[ARG_txdata].u_obj, &mp_type_tuple)) {
-        mp_obj_t *items;
-        uint len;
-        mp_obj_tuple_get(args[ARG_txdata].u_obj, &len, &items);
-        if (len > 8) len = 8;
-        for (int i = 0; i < len; i++) {
-        	svctxdata[i] = mp_obj_str_get_str(items[i]);
-        	ntxdata++;
+
+    if (MP_OBJ_IS_TYPE(args[ARG_txdata].u_obj, &mp_type_dict)) {
+        mp_obj_dict_t *params = MP_OBJ_TO_PTR(args[ARG_txdata].u_obj);
+        mp_map_t *map = &params->map;
+        mp_map_elem_t *table = map->table;
+        if (map->used > 0) {
+			for (int i=0; i<map->used; i++) {
+				if (i > 7) break;
+				svctxdata[i].key = (char *)mp_obj_str_get_str(table[i].key);
+				svctxdata[i].value = (char *)mp_obj_str_get_str(table[i].value);
+            	ntxdata++;
+			}
         }
     }
 
     //add the services
-    if (mdns_service_add(self->mdns, service, protocol, port) != ESP_OK) return mp_const_false;
-
-    if (instance) {
-		//NOTE: services must be added before their properties can be set
-		if (mdns_service_instance_set(self->mdns, service, protocol, instance) != ESP_OK) return mp_const_false;
-    }
-
-    if (ntxdata) {
-		//set text data for service (will free and replace current data)
-		if (mdns_service_txt_set(self->mdns, service, protocol, ntxdata, svctxdata) != ESP_OK) return mp_const_false;
-    }
+    if (mdns_service_add(instance, service, protocol, port, svctxdata, ntxdata) != ESP_OK) return mp_const_false;
 
     return mp_const_true;
 }
@@ -223,13 +228,13 @@ STATIC mp_obj_t mdns_remove_service(mp_uint_t n_args, const mp_obj_t *pos_args, 
 
     mdns_obj_t *self = pos_args[0];
 
-    if (!self->mdns) mp_raise_msg(&mp_type_OSError, "mDNS server not started.");
+    if (!self->is_started) mp_raise_msg(&mp_type_OSError, "mDNS server not started.");
 
     const char *service = mp_obj_str_get_str(args[ARG_service].u_obj);
     const char *protocol = mp_obj_str_get_str(args[ARG_proto].u_obj);
 
     //remove the services
-    if (mdns_service_remove(self->mdns, service, protocol) != ESP_OK) return mp_const_false;
+    if (mdns_service_remove(service, protocol) != ESP_OK) return mp_const_false;
 
     return mp_const_true;
 }
@@ -240,44 +245,34 @@ STATIC mp_obj_t mdns_host_query(mp_uint_t n_args, const mp_obj_t *pos_args, mp_m
 {
     const mp_arg_t mdns_allowed_args[] = {
 			{ MP_QSTR_hostname,   	MP_ARG_OBJ,  {.u_obj = mp_const_none} },
+			{ MP_QSTR_timeout,   	MP_ARG_INT,  {.u_int = 2000} },
 	};
 	mp_arg_val_t args[MP_ARRAY_SIZE(mdns_allowed_args)];
     mp_arg_parse_all(n_args-1, pos_args+1, kw_args, MP_ARRAY_SIZE(mdns_allowed_args), mdns_allowed_args, args);
 
     mdns_obj_t *self = pos_args[0];
 
-    if (!self->mdns) mp_raise_msg(&mp_type_OSError, "mDNS server not started.");
+    if (!self->is_started) mp_raise_msg(&mp_type_OSError, "mDNS server not started.");
 
     const char *hostname = mp_obj_str_get_str(args[0].u_obj);
+    int tmo = args[1].u_int;
+    if ((tmo < 100) || (tmo > 10000)) tmo = 2000;
+    struct ip4_addr addr;
+    addr.addr = 0;
 
-    mp_obj_t list = mp_obj_new_list(0, NULL);
-    uint32_t res;
-    char tmps[64];
+    esp_err_t res;
+    char tmps[64] = {0};
 
-	mp_obj_tuple_t *t = mp_obj_new_tuple(2, NULL);
 	// Host Lookup
-	res = mdns_query(self->mdns, hostname, 0, 2000);
-	if (res) {
-		size_t i;
-		for(i=0; i<res; i++) {
-			const mdns_result_t * r = mdns_result_get(self->mdns, i);
-			if (r) {
-				sprintf(tmps, IPSTR,  IP2STR(&r->addr));
-				t->items[0] = mp_obj_new_str(tmps, strlen(tmps), false);
+	res = mdns_query_a(hostname, 2000, &addr);
 
-				sprintf(tmps, IPV6STR, IPV62STR(r->addrv6));
-				t->items[1] = mp_obj_new_str(tmps, strlen(tmps), false);
+	if (res == ESP_OK) sprintf(tmps, IPSTR,  IP2STR(&addr));
+	else if (res == ESP_ERR_NOT_FOUND) sprintf(tmps, "Host was not found!");
+	else sprintf(tmps, "Query Failed");
 
-				mp_obj_list_append(list, MP_OBJ_FROM_PTR(t));
-			}
-		}
-		mdns_result_free(self->mdns);
-	}
-
-    return list;
+    return mp_obj_new_str(tmps, strlen(tmps), false);;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mdns_host_query_obj, 2, mdns_host_query);
-
 
 //-----------------------------------------------------------------------------------------------
 STATIC mp_obj_t mdns_service_query(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
@@ -285,56 +280,107 @@ STATIC mp_obj_t mdns_service_query(mp_uint_t n_args, const mp_obj_t *pos_args, m
     const mp_arg_t mdns_allowed_args[] = {
 			{ MP_QSTR_service,   	MP_ARG_OBJ,  {.u_obj = mp_const_none} },
 			{ MP_QSTR_protocol,   	MP_ARG_OBJ,  {.u_obj = mp_const_none} },
+			{ MP_QSTR_timeout,   	MP_ARG_INT,  {.u_int = 2000} },
+			{ MP_QSTR_maxres,   	MP_ARG_INT,  {.u_int = 8} },
 	};
 	mp_arg_val_t args[MP_ARRAY_SIZE(mdns_allowed_args)];
     mp_arg_parse_all(n_args-1, pos_args+1, kw_args, MP_ARRAY_SIZE(mdns_allowed_args), mdns_allowed_args, args);
 
     mdns_obj_t *self = pos_args[0];
 
-    if (!self->mdns) mp_raise_msg(&mp_type_OSError, "mDNS server not started.");
+    if (!self->is_started) mp_raise_msg(&mp_type_OSError, "mDNS server not started.");
 
     const char *service = mp_obj_str_get_str(args[0].u_obj);
     const char *proto = mp_obj_str_get_str(args[1].u_obj);
+    if (service[0] != '_') {
+		mp_raise_ValueError("Service name must start with '_'");
+    }
+    if ((strcmp(proto, "_tcp") != 0) && (strcmp(proto, "_udp") != 0)) {
+		mp_raise_ValueError("Protocol must be '_tcp' or '_udp'");
+    }
+
+    int tmo = args[2].u_int;
+    if ((tmo < 100) || (tmo > 10000)) tmo = 2000;
+
+    int maxres = args[3].u_int;
+    if ((maxres < 1) || (maxres > 30)) maxres = 10;
 
     mp_obj_t list = mp_obj_new_list(0, NULL);
-    uint32_t res;
-    char tmps[128];
+    mdns_result_t * results = NULL;
+    esp_err_t err = mdns_query_ptr(service, proto, tmo, maxres,  &results);
 
-	mp_obj_tuple_t *t = mp_obj_new_tuple(6, NULL);
 	// Service Lookup
-	res = mdns_query(self->mdns, service, proto, 2000);
-	if (res) {
-		size_t i;
-		for(i=0; i<res; i++) {
-			const mdns_result_t * r = mdns_result_get(self->mdns, i);
-			if (r) {
-				sprintf(tmps, "%s",  (r->host) ? r->host : "");
+	if (err == ESP_OK) {
+		if (results) {
+		    mp_obj_tuple_t *t = mp_obj_new_tuple(7, NULL);
+		    char tmps[128];
+		    mdns_result_t * r = results;
+		    mdns_ip_addr_t * a = NULL;
+
+		    while (r) {
+		    	// Interface type
+				sprintf(tmps, "%s",  if_str[r->tcpip_if]);
 				t->items[0] = mp_obj_new_str(tmps, strlen(tmps), false);
 
-				sprintf(tmps, "%s",  (r->instance) ? r->instance : "");
+				// Protocol, V4 or V6
+				sprintf(tmps, "%s",  ip_protocol_str[r->ip_protocol]);
 				t->items[1] = mp_obj_new_str(tmps, strlen(tmps), false);
 
-				sprintf(tmps, IPSTR,  IP2STR(&r->addr));
+				// Instance name
+				if (r->instance_name) sprintf(tmps, "%s", r->instance_name);
+				else sprintf(tmps, "?");
 				t->items[2] = mp_obj_new_str(tmps, strlen(tmps), false);
 
-				sprintf(tmps, IPV6STR, IPV62STR(r->addrv6));
-				t->items[3] = mp_obj_new_str(tmps, strlen(tmps), false);
+				// Host name & port
+				if(r->hostname) {
+					sprintf(tmps, "%s.local", r->hostname);
+					t->items[3] = mp_obj_new_str(tmps, strlen(tmps), false);
+					t->items[4] = mp_obj_new_int(r->port);
+				}
+				else {
+					t->items[3] = mp_const_none;
+					t->items[4] = mp_const_none;
+				}
 
-				t->items[4] = mp_obj_new_int(r->port);
+				// IP addresses
+		        a = r->addr;
+		        if (a) {
+		            mp_obj_t addrlist = mp_obj_new_list(0, NULL);
+					while (a) {
+						if (a->addr.type == MDNS_IP_PROTOCOL_V6) {
+							sprintf(tmps, IPV6STR, IPV62STR(a->addr.u_addr.ip6));
+						}
+						else {
+							sprintf(tmps, IPSTR, IP2STR(&(a->addr.u_addr.ip4)));
+						}
+						mp_obj_list_append(addrlist, mp_obj_new_str(tmps, strlen(tmps), false));
+			            a = a->next;
+					}
+					t->items[5] = addrlist;
+		        }
+		        else t->items[5] = mp_const_none;
 
-				sprintf(tmps, "%s",  (r->txt) ? r->txt : "");
-				t->items[5] = mp_obj_new_str(tmps, strlen(tmps), false);
+		        // Text records
+		        if(r->txt_count){
+		            mp_obj_dict_t *dct = mp_obj_new_dict(0);
+		            for(int i=0; i<r->txt_count; i++){
+		            	mp_obj_dict_store(dct,  mp_obj_new_str(r->txt[i].key, strlen(r->txt[i].key), false), mp_obj_new_str(r->txt[i].value, strlen(r->txt[i].key), false));
+		            }
+					t->items[6] = dct;
+		        }
+		        else t->items[6] = mp_const_none;
 
-				mp_obj_list_append(list, MP_OBJ_FROM_PTR(t));
+		        mp_obj_list_append(list, MP_OBJ_FROM_PTR(t));
+
+				r = r->next;
 			}
+			mdns_query_results_free(results);
 		}
-		mdns_result_free(self->mdns);
 	}
 
     return list;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mdns_service_query_obj, 3, mdns_service_query);
-
 
 //=========================================================
 STATIC const mp_rom_map_elem_t mdns_locals_dict_table[] = {

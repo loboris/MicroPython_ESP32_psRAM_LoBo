@@ -83,11 +83,12 @@ typedef struct _thread_t {
     size_t stack_len;      				// number of words in the stack
     char name[THREAD_NAME_MAX_SIZE];	// thread name
     QueueHandle_t threadQueue;			// queue used for inter thread communication
-    int allow_suspend;
-    int suspended;
-    int waiting;
-    int deleted;
-    uint32_t type;
+    int8_t allow_suspend;
+    int8_t suspended;
+    int8_t waiting;
+    int8_t deleted;
+    int16_t notifyed;
+    uint16_t type;
     struct _thread_t *next;
 } thread_t;
 
@@ -138,6 +139,7 @@ void mp_thread_preinit(void *stack, uint32_t stack_len) {
     thread->suspended = 0;
     thread->waiting = 0;
     thread->deleted = 0;
+    thread->notifyed = 0;
     thread->type = THREAD_TYPE_MAIN;
     thread->next = NULL;
     MainTaskHandle = thread->id;
@@ -268,6 +270,7 @@ TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack
     th->suspended = 0;
     th->waiting = 0;
     th->deleted = 0;
+    th->notifyed = 0;
     th->type = THREAD_TYPE_PYTHON;
     thread = th;
 
@@ -439,8 +442,9 @@ int mp_thread_notify(TaskHandle_t id, uint32_t value) {
 	int res = 0;
     mp_thread_mutex_lock(&thread_mutex, 1);
     for (thread_t *th = thread; th != NULL; th = th->next) {
-        if ((id == 0) || (th->id == id)) {
-        	res = xTaskNotify(th->id, value, eSetValueWithoutOverwrite);
+        if ( (th->id != xTaskGetCurrentTaskHandle()) && ( (id == 0) || (th->id == id) ) ) {
+        	res = xTaskNotify(th->id, value, eSetValueWithOverwrite); //eSetValueWithoutOverwrite
+        	th->notifyed = 1;
             if (id != 0) break;
         }
     }
@@ -449,15 +453,17 @@ int mp_thread_notify(TaskHandle_t id, uint32_t value) {
     return res;
 }
 
-//------------------------------
-uint32_t mp_thread_getnotify() {
+//---------------------------------------------
+uint32_t mp_thread_getnotify(bool check_only) {
 	uint32_t value = 0;
     mp_thread_mutex_lock(&thread_mutex, 1);
     for (thread_t *th = thread; th != NULL; th = th->next) {
         if (th->id == xTaskGetCurrentTaskHandle()) {
-        	if (xTaskNotifyWait(0, 0xffffffffUL, &value, 1) != pdPASS) {
-        		value = 0;
-        	}
+        	xTaskNotifyWait(0, 0, &value, 0);
+      		if (!check_only) {
+      			xTaskNotifyWait(ULONG_MAX, ULONG_MAX, NULL, 0);
+          		th->notifyed = 0;
+      		}
 			break;
         }
     }
@@ -465,18 +471,30 @@ uint32_t mp_thread_getnotify() {
     return value;
 }
 
-//--------------------------------
-uint32_t mp_thread_checknotify() {
-	uint32_t value = 0;
+//--------------------------------------------
+int mp_thread_notifyPending(TaskHandle_t id) {
+	int res = -1;
     mp_thread_mutex_lock(&thread_mutex, 1);
     for (thread_t *th = thread; th != NULL; th = th->next) {
-        if (th->id == xTaskGetCurrentTaskHandle()) {
-        	value = xTaskNotifyWait(0, 0, &value, 0);
-			break;
+        if (th->id == id) {
+        	res = th->notifyed;
+            break;
         }
     }
     mp_thread_mutex_unlock(&thread_mutex);
-    return value;
+    return res;
+}
+
+//-----------------------------
+void mp_thread_resetPending() {
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+        if (th->id == xTaskGetCurrentTaskHandle()) {
+        	th->notifyed = 0;
+            break;
+        }
+    }
+    mp_thread_mutex_unlock(&thread_mutex);
 }
 
 //------------------------------
@@ -496,6 +514,8 @@ uint32_t mp_thread_getSelfID() {
 //-------------------------------------
 int mp_thread_getSelfname(char *name) {
 	int res = 0;
+	name[0] = '?';
+	name[1] = '\0';
     mp_thread_mutex_lock(&thread_mutex, 1);
     for (thread_t *th = thread; th != NULL; th = th->next) {
         if (th->id == xTaskGetCurrentTaskHandle()) {
@@ -511,6 +531,8 @@ int mp_thread_getSelfname(char *name) {
 //--------------------------------------------------
 int mp_thread_getname(TaskHandle_t id, char *name) {
 	int res = 0;
+	name[0] = '?';
+	name[1] = '\0';
     mp_thread_mutex_lock(&thread_mutex, 1);
     for (thread_t *th = thread; th != NULL; th = th->next) {
         if (th->id == id) {

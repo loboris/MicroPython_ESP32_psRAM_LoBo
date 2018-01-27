@@ -295,6 +295,16 @@ STATIC mp_obj_t mod_thread_notify(mp_obj_t in_id, mp_obj_t in_value) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(mod_thread_notify_obj, mod_thread_notify);
 
+//-----------------------------------------------------
+STATIC mp_obj_t mod_thread_isnotified(mp_obj_t in_id) {
+	uintptr_t thr_id = mp_obj_get_int(in_id);
+	int notify = mp_thread_notifyPending((void *)thr_id);
+
+	if (notify == 0) return mp_const_true;
+    return mp_const_false;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_thread_isnotified_obj, mod_thread_isnotified);
+
 //--------------------------------------
 STATIC mp_obj_t mod_thread_getREPLId() {
     return mp_obj_new_int_from_uint((uintptr_t)MainTaskHandle);
@@ -304,7 +314,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_thread_getREPLId_obj, mod_thread_getREPLId)
 //--------------------------------------
 STATIC mp_obj_t mod_thread_getnotify() {
 
-	uint32_t not_val = mp_thread_getnotify();
+	uint32_t not_val = mp_thread_getnotify(0);
     return MP_OBJ_NEW_SMALL_INT(not_val);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_thread_getnotify_obj, mod_thread_getnotify);
@@ -483,7 +493,9 @@ STATIC mp_obj_t mod_thread_waitnotify(mp_uint_t n_args, const mp_obj_t *args) {
 
    	if (mp_thread_setblocked()) {
    		MP_THREAD_GIL_EXIT();
-		if (xTaskNotifyWait(0, 0xffffffffUL, &not_val, tmo) == pdPASS) {
+		if (xTaskNotifyWait(0, 0, &not_val, tmo) == pdPASS) {
+			xTaskNotifyWait(ULONG_MAX, ULONG_MAX, NULL, 0);
+			mp_thread_resetPending();
 			ret = MP_OBJ_NEW_SMALL_INT(not_val);
 		}
 		mp_thread_setnotblocked();
@@ -493,6 +505,22 @@ STATIC mp_obj_t mod_thread_waitnotify(mp_uint_t n_args, const mp_obj_t *args) {
 	return ret;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_thread_waitnotify_obj, 0, 1, mod_thread_waitnotify);
+
+//-------------------------------
+STATIC mp_obj_t mod_thread_lock()
+{
+    MP_STATE_VM(thread_lock) = 1;
+	return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_thread_lock_obj, mod_thread_lock);
+
+//------------------------------
+STATIC mp_obj_t mod_thread_unlock()
+{
+    MP_STATE_VM(thread_lock) = 0;
+	return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_thread_unlock_obj, mod_thread_unlock);
 
 
 //=================================================================
@@ -505,9 +533,10 @@ STATIC const mp_rom_map_elem_t mp_module_thread_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_resume),				MP_ROM_PTR(&mod_thread_resume_obj) },
     { MP_ROM_QSTR(MP_QSTR_stop),				MP_ROM_PTR(&mod_thread_stop_obj) },
     { MP_ROM_QSTR(MP_QSTR_notify),				MP_ROM_PTR(&mod_thread_notify_obj) },
+    { MP_ROM_QSTR(MP_QSTR_getnotification),		MP_ROM_PTR(&mod_thread_getnotify_obj) },
+    { MP_ROM_QSTR(MP_QSTR_isnotified),			MP_ROM_PTR(&mod_thread_isnotified_obj) },
     { MP_ROM_QSTR(MP_QSTR_getReplID),			MP_ROM_PTR(&mod_thread_getREPLId_obj) },
     { MP_ROM_QSTR(MP_QSTR_replAcceptMsg),		MP_ROM_PTR(&mod_thread_replAcceptMsg_obj) },
-    { MP_ROM_QSTR(MP_QSTR_getnotification),		MP_ROM_PTR(&mod_thread_getnotify_obj) },
     { MP_ROM_QSTR(MP_QSTR_sendmsg),				MP_ROM_PTR(&mod_thread_sendmsg_obj) },
     { MP_ROM_QSTR(MP_QSTR_getmsg),				MP_ROM_PTR(&mod_thread_getmsg_obj) },
     { MP_ROM_QSTR(MP_QSTR_list),				MP_ROM_PTR(&mod_thread_list_obj) },
@@ -515,6 +544,8 @@ STATIC const mp_rom_map_elem_t mp_module_thread_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_getSelfName),			MP_ROM_PTR(&mod_thread_getSelfname_obj) },
     { MP_ROM_QSTR(MP_QSTR_status),				MP_ROM_PTR(&mod_thread_status_obj) },
     { MP_ROM_QSTR(MP_QSTR_wait),				MP_ROM_PTR(&mod_thread_waitnotify_obj) },
+    { MP_ROM_QSTR(MP_QSTR_lock),				MP_ROM_PTR(&mod_thread_lock_obj) },
+    { MP_ROM_QSTR(MP_QSTR_unlock),				MP_ROM_PTR(&mod_thread_unlock_obj) },
 
 	// Constants
 	{ MP_ROM_QSTR(MP_QSTR_PAUSE),				MP_ROM_INT(THREAD_NOTIFY_PAUSE) },

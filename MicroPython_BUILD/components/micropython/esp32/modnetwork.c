@@ -35,6 +35,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "sdkconfig.h"
 #include "py/nlr.h"
 #include "py/objlist.h"
 #include "py/runtime.h"
@@ -48,6 +49,9 @@
 #include "esp_log.h"
 #include "lwip/dns.h"
 #include "tcpip_adapter.h"
+#ifdef CONFIG_MICROPY_USE_MDNS
+#include "mdns.h"
+#endif
 
 #include "modnetwork.h"
 
@@ -182,6 +186,10 @@ static esp_err_t event_handler(void *ctx, system_event_t *event) {
         ESP_LOGI("network", "event %d", event->event_id);
         break;
     }
+
+    #ifdef CONFIG_MICROPY_USE_MDNS
+    mdns_handle_system_event(ctx, event);
+	#endif
     return ESP_OK;
 }
 

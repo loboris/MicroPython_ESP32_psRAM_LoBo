@@ -206,6 +206,7 @@ typedef struct _mp_state_vm_t {
     #if MICROPY_PY_THREAD_GIL
     // This is a global mutex used to make the VM/runtime thread-safe.
     mp_thread_mutex_t gil_mutex;
+    volatile int16_t thread_lock;
     #endif
 } mp_state_vm_t;
 

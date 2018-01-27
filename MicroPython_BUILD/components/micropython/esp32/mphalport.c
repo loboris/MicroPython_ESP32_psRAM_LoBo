@@ -317,7 +317,7 @@ int mp_hal_delay_ms(uint32_t ms)
         ncheck++;
         if (ncheck >= 50) {
         	ncheck = 0;
-        	if (mp_thread_checknotify()) break;
+        	if (mp_thread_getnotify(1)) break;
         }
 	}
 

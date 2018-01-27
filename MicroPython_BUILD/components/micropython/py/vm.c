@@ -1315,15 +1315,16 @@ pending_exception_check:
                 #endif
                     #if MICROPY_ENABLE_SCHEDULER
                     // can only switch threads if the scheduler is unlocked
-                    if (MP_STATE_VM(sched_state) == MP_SCHED_IDLE)
+                    if ((MP_STATE_VM(sched_state) == MP_SCHED_IDLE) && !MP_STATE_VM(thread_lock))
                     #endif
                     {
                     	mp_hal_reset_wdt();// LoBo
+                    	// *** Switch threads ***
                     	MP_THREAD_GIL_EXIT();
                     	MP_THREAD_GIL_ENTER();
                     }
                 }
-                #endif
+                #endif // MICROPY_PY_THREAD_GIL
 
             } // for loop
 

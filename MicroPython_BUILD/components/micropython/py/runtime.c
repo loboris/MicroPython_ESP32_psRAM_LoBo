@@ -122,6 +122,7 @@ void mp_init(void) {
 
     #if MICROPY_PY_THREAD_GIL
     mp_thread_mutex_init(&MP_STATE_VM(gil_mutex));
+    MP_STATE_VM(thread_lock) = 0;
     #endif
 
     MP_THREAD_GIL_ENTER();

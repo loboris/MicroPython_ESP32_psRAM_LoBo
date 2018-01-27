@@ -430,7 +430,7 @@ STATIC void check_notifications(const char *prompt)
     uint32_t from_th;
     char th_name[THREAD_NAME_MAX_SIZE];
 
-    uint32_t notify_val = mp_thread_getnotify();
+    uint32_t notify_val = mp_thread_getnotify(0);
 	if (notify_val > 0) {
 		mp_printf(&mp_plat_print,"\n[Notification] %u\n", notify_val);
 		//mp_hal_stdout_tx_str(prompt);
