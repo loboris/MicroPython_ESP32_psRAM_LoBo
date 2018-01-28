@@ -198,7 +198,7 @@ def ftpserver(timeout = 300, inthread = False, prnip = True):
                     elif command == "NOOP":
                         cl.sendall("200 OK\r\n")
                     elif command == "FEAT":
-                        cl.sendall("211 no-features\r\n")
+                        cl.sendall("502 no-features\r\n")
                     elif command == "PWD":
                         cl.sendall('257 "{}"\r\n'.format(cwd))
                     elif command == "CWD":
