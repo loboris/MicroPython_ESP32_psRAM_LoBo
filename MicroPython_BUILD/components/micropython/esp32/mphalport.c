@@ -76,6 +76,9 @@ void mp_hal_set_wdt_tmo()
     struct timeval tv;
     gettimeofday(&tv, NULL);
     mp_hal_wdg_rst_tmo = (tv.tv_sec * 1000 + (tv.tv_usec / 1000))  + (CONFIG_TASK_WDT_TIMEOUT_S * 500);
+	#ifdef CONFIG_MICROPY_USE_TASK_WDT
+	esp_task_wdt_reset();
+	#endif
 }
 
 
@@ -279,6 +282,10 @@ int mp_hal_delay_ms(uint32_t ms)
 {
 	if (ms == 0) return 0;
 
+	#ifdef CONFIG_MICROPY_USE_TASK_WDT
+	esp_task_wdt_reset();
+	#endif
+
 	if (ms <= 10) {
 		// For delays up to 10 ms we use blocking delay
 	    ets_delay_us(ms * 1000);
@@ -291,10 +298,6 @@ int mp_hal_delay_ms(uint32_t ms)
     uint32_t tstart = ((uint32_t)tv.tv_sec * 1000) + ((uint32_t)tv.tv_usec / 1000);
 	uint32_t tend = tstart;
 	uint32_t nres = tstart;
-
-	#ifdef CONFIG_MICROPY_USE_TASK_WDT
-	esp_task_wdt_reset();
-	#endif
 
 	MP_THREAD_GIL_EXIT();
 

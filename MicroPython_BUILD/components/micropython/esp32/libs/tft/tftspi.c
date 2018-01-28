@@ -854,6 +854,23 @@ void _tft_setRotation(uint8_t rot) {
 			break;
 		}
     }
+    else if (_invert_rot == 3) {
+    	// used for M5Stack display
+		switch (rotation) {
+			case PORTRAIT:
+			madctl = (MADCTL_MX | MADCTL_MV | _rgb_bgr);
+			break;
+			case LANDSCAPE:
+			madctl = (_rgb_bgr);
+			break;
+			case PORTRAIT_FLIP:
+			madctl = (MADCTL_MY | MADCTL_MV | _rgb_bgr);
+			break;
+			case LANDSCAPE_FLIP:
+			madctl = (MADCTL_MY | MADCTL_MX | _rgb_bgr);
+			break;
+		}
+    }
     else {
 		switch (rotation) {
 			case PORTRAIT:

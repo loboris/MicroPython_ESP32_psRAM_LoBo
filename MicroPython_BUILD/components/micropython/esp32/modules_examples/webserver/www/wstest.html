@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+
+<html>
+
+    <head>
+        <meta charset="utf-8" />
+        <title>MicroWebSocket Test</title>
+    </head>
+
+    <script language="javascript">
+
+        var output;
+
+        function init()
+        {
+            output = document.getElementById("output");
+            testWebSocket();
+        }
+
+        function testWebSocket()
+        {
+            var wsUri           = "ws://" + window.location.hostname;
+            writeToScreen("Connection to " + wsUri + "...")
+            websocket           = new WebSocket(wsUri);
+            websocket.onopen    = function(evt) { onOpen    (evt) };
+            websocket.onclose   = function(evt) { onClose   (evt) };
+            websocket.onmessage = function(evt) { onMessage (evt) };
+            websocket.onerror   = function(evt) { onError   (evt) };
+        }
+
+        function onOpen(evt)
+        {
+            writeToScreen("<strong>-- CONNECTED --</strong>");
+            SendMsg("Hello world :)");
+            SendMsg("This is a WebSocket test");
+            SendMsg("(with a text frame encoded in UTF-8)");
+            setTimeout( function() { websocket.close() }, 500 )
+        }
+
+        function onClose(evt)
+        {
+            writeToScreen("<strong>-- DISCONNECTED --</strong>");
+        }
+
+        function onMessage(evt)
+        {
+            writeToScreen('MSG FROM SERVER : <span style="color: blue;">' + evt.data + '</span>');
+        }
+
+        function onError(evt)
+        {
+            writeToScreen('ERROR : <span style="color: red;">' + evt.data + '</span>');
+        }
+
+        function SendMsg(msg)
+        {
+            writeToScreen('MSG TO SERVER : <span style="color: green;">' + msg + '</span>');
+            websocket.send(msg);
+        }
+
+        function writeToScreen(s)
+        {
+            var pre = document.createElement("p");
+            pre.style.wordWrap = "break-word";
+            pre.innerHTML = s;
+            output.appendChild(pre);
+        }
+
+        window.addEventListener("load", init, false);
+
+    </script>
+
+    <body>
+      <h2>MicroWebSocket Test :</h2>
+      <div id="output"></div>
+    </body>
+
+</html>

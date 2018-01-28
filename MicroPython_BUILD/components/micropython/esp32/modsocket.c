@@ -158,6 +158,7 @@ STATIC mp_obj_t socket_accept(const mp_obj_t arg0) {
     struct sockaddr addr;
     socklen_t addr_len = sizeof(addr);
 
+	mp_hal_set_wdt_tmo();
     int new_fd = -1;
     for (int i=0; i<=self->retries; i++) {
         MP_THREAD_GIL_EXIT();
@@ -166,6 +167,7 @@ STATIC mp_obj_t socket_accept(const mp_obj_t arg0) {
         if (new_fd >= 0) break;
         if (errno != EAGAIN) exception_from_errno(errno);
         check_for_exceptions();
+    	mp_hal_reset_wdt();
     }
     if (new_fd < 0) mp_raise_OSError(MP_ETIMEDOUT);
 
@@ -198,6 +200,7 @@ STATIC mp_obj_t socket_accepted(const mp_obj_t arg0) {
     socklen_t addr_len = sizeof(addr);
 
     int new_fd = -1;
+	mp_hal_set_wdt_tmo();
     for (int i=0; i<=self->retries; i++) {
         MP_THREAD_GIL_EXIT();
         new_fd = lwip_accept_r(self->fd, &addr, &addr_len);
@@ -205,6 +208,7 @@ STATIC mp_obj_t socket_accepted(const mp_obj_t arg0) {
         if (new_fd >= 0) break;
         if (errno != EAGAIN) exception_from_errno(errno);
         check_for_exceptions();
+    	mp_hal_reset_wdt();
     }
 
     mp_obj_tuple_t *client = mp_obj_new_tuple(2, NULL);
@@ -331,6 +335,7 @@ mp_obj_t _socket_recvfrom(mp_obj_t self_in, mp_obj_t len_in,
     vstr_init_len(&vstr, len);
 
     // XXX Would be nicer to use RTC to handle timeouts
+	mp_hal_set_wdt_tmo();
     for (int i=0; i<=sock->retries; i++) {
         MP_THREAD_GIL_EXIT();
         int r = lwip_recvfrom_r(sock->fd, vstr.buf, len, 0, from, from_len);
@@ -338,6 +343,7 @@ mp_obj_t _socket_recvfrom(mp_obj_t self_in, mp_obj_t len_in,
         if (r >= 0) { vstr.len = r; return mp_obj_new_str_from_vstr(&mp_type_bytes, &vstr); }
         if (errno != EWOULDBLOCK) exception_from_errno(errno);
         check_for_exceptions();
+    	mp_hal_reset_wdt();
     }
     mp_raise_OSError(MP_ETIMEDOUT);
 }
@@ -364,6 +370,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(socket_recvfrom_obj, socket_recvfrom);
 
 int _socket_send(socket_obj_t *sock, const char *data, size_t datalen) {
     int sentlen = 0;
+	mp_hal_set_wdt_tmo();
     for (int i=0; i<=sock->retries && sentlen < datalen; i++) {
         MP_THREAD_GIL_EXIT();
         int r = lwip_write_r(sock->fd, data+sentlen, datalen-sentlen);
@@ -371,6 +378,7 @@ int _socket_send(socket_obj_t *sock, const char *data, size_t datalen) {
         if (r < 0 && errno != EWOULDBLOCK) exception_from_errno(errno);
         if (r > 0) sentlen += r;
         check_for_exceptions();
+    	mp_hal_reset_wdt();
     }
     if (sentlen == 0) mp_raise_OSError(MP_ETIMEDOUT); 
     return sentlen;
@@ -411,6 +419,7 @@ STATIC mp_obj_t socket_sendto(mp_obj_t self_in, mp_obj_t data_in, mp_obj_t addr_
     to.sin_port = lwip_htons(netutils_parse_inet_addr(addr_in, (uint8_t*)&to.sin_addr, NETUTILS_BIG));
 
     // send the data
+	mp_hal_set_wdt_tmo();
     for (int i=0; i<=self->retries; i++) {
         MP_THREAD_GIL_EXIT();
         int ret = lwip_sendto_r(self->fd, bufinfo.buf, bufinfo.len, 0, (struct sockaddr*)&to, sizeof(to));
@@ -420,6 +429,7 @@ STATIC mp_obj_t socket_sendto(mp_obj_t self_in, mp_obj_t data_in, mp_obj_t addr_
             exception_from_errno(errno);
         }
         check_for_exceptions();
+    	mp_hal_reset_wdt();
     }
     mp_raise_OSError(MP_ETIMEDOUT); 
 }
@@ -446,6 +456,7 @@ STATIC mp_uint_t socket_stream_read(mp_obj_t self_in, void *buf, mp_uint_t size,
     socket_obj_t *sock = self_in;
 
     // XXX Would be nicer to use RTC to handle timeouts
+	mp_hal_set_wdt_tmo();
     for (int i=0; i<=sock->retries; i++) {
         MP_THREAD_GIL_EXIT();
         int r = lwip_recvfrom_r(sock->fd, buf, size, 0, NULL, NULL);
@@ -453,6 +464,7 @@ STATIC mp_uint_t socket_stream_read(mp_obj_t self_in, void *buf, mp_uint_t size,
         if (r >= 0) return r;
         if (r < 0 && errno != EWOULDBLOCK) { *errcode = errno; return MP_STREAM_ERROR; }
         check_for_exceptions();
+    	mp_hal_reset_wdt();
     }
     *errcode = sock->retries == 0 ? MP_EWOULDBLOCK : MP_ETIMEDOUT;
     return MP_STREAM_ERROR;
@@ -460,6 +472,7 @@ STATIC mp_uint_t socket_stream_read(mp_obj_t self_in, void *buf, mp_uint_t size,
 
 STATIC mp_uint_t socket_stream_write(mp_obj_t self_in, const void *buf, mp_uint_t size, int *errcode) {
     socket_obj_t *sock = self_in;
+	mp_hal_set_wdt_tmo();
     for (int i=0; i<=sock->retries; i++) {
         MP_THREAD_GIL_EXIT();
         int r = lwip_write_r(sock->fd, buf, size);
@@ -467,6 +480,7 @@ STATIC mp_uint_t socket_stream_write(mp_obj_t self_in, const void *buf, mp_uint_
         if (r > 0) return r;
         if (r < 0 && errno != EWOULDBLOCK) { *errcode = errno; return MP_STREAM_ERROR; }
         check_for_exceptions();
+    	mp_hal_reset_wdt();
     }
     *errcode = sock->retries == 0 ? MP_EWOULDBLOCK : MP_ETIMEDOUT;
     return MP_STREAM_ERROR;

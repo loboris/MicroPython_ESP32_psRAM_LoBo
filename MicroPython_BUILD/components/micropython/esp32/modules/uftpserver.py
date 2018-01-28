@@ -118,7 +118,7 @@ def check_notify(nquit):
 def ftpserver(timeout = 300, inthread = False, prnip = True):
     global quiet_run
     quiet_run = inthread
-    notify_quit = 7591
+    notify_quit = _thread.EXIT
 
     if prnip:
         print ("Starting ftp server. Version 1.2")
@@ -139,10 +139,8 @@ def ftpserver(timeout = 300, inthread = False, prnip = True):
     datasocket.bind(socket.getaddrinfo("0.0.0.0", DATA_PORT)[0][4])
 
     ftpsocket.listen(1)
-    if inthread:
-        ftpsocket.settimeout(1)
-    else:
-        ftpsocket.settimeout(None)
+    ftpsocket.settimeout(1)
+
     datasocket.listen(1)
     datasocket.settimeout(None)
 
@@ -157,15 +155,14 @@ def ftpserver(timeout = 300, inthread = False, prnip = True):
         fromname = None
         do_run = True
         while do_run:
-            if inthread:
-                cl, remote_addr = ftpsocket.accepted()
-                if cl == None:
+            cl, remote_addr = ftpsocket.accepted()
+            if cl == None:
+                if inthread:
                     notif = check_notify(notify_quit)
                     if notif == notify_quit:
                         break
-                    continue
-            else:
-                cl, remote_addr = ftpsocket.accept()
+                    utime.sleep_ms(2)
+                continue
             cl.settimeout(timeout)
             cwd = '/'
             try:
@@ -183,7 +180,7 @@ def ftpserver(timeout = 300, inthread = False, prnip = True):
                     data = cl.readline().decode("utf-8").rstrip("\r\n")
                     if len(data) <= 0:
                         if not quiet_run:
-                            print("Client disappeared")
+                            print("Client disconnected")
                         break
 
                     command = data.split(" ")[0].upper()

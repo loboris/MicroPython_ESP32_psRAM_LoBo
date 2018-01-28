@@ -42,8 +42,6 @@
 #include "sdkconfig.h"
 #include "stmpe610.h"
 
-#define CONFIG_EXAMPLE_ESP_WROVER_KIT
-
 // === Various display constants constants ===
 #define PORTRAIT	0
 #define LANDSCAPE	1
@@ -62,8 +60,9 @@
 //#define DISP_COLOR_BITS_16	0x55
 
 #define DISP_COLOR_BITS_24	0x66
-#define TFT_RGB_BGR 0x00
+#define TFT_RGB_BGR 0x00	// default only, set when initializing the display
 
+// Pins defaults (ESP32-WROVER-KIT v3)
 #define PIN_NUM_MISO 25		// SPI MISO
 #define PIN_NUM_MOSI 23		// SPI MOSI
 #define PIN_NUM_CLK  19		// SPI CLOCK pin

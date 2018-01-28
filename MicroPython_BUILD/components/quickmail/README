@@ -1,0 +1,17 @@
+Project name:
+	libquickmail
+URL:
+	http://sourceforge.net/projects/libquickmail/
+Project discription:
+	C library intended to give C/C++ developers a quick and easy way
+	to send e-mail from their applications.
+	For the actual SMTP communication this library depends on libcurl.
+	There is also a light version available without libcurl dependancy.
+	The library can also be used to just create a multipart MIME
+	message body.
+	Features:
+	- multiple To/Cc/Bcc recipients
+	- multiple attachments without size limitation
+	- multiple bodies in alternative formats (e.g: text + HTML)
+	- SMTP authentication
+	- TLS encryption (via libcurl)
