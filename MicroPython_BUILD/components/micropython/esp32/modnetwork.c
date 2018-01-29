@@ -35,12 +35,16 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "sdkconfig.h"
+
 #include "py/nlr.h"
 #include "py/objlist.h"
 #include "py/runtime.h"
 #include "py/mphal.h"
 #include "py/mperrno.h"
+#include "py/obj.h"
 #include "netutils.h"
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
@@ -115,6 +119,33 @@ NORETURN void _esp_exceptions(esp_err_t e) {
    }
 }
 
+static const char* const wifi_events[] = {
+	"WiFi ready",
+	"Finish scanning AP",
+	"Station start",
+	"Station stop",
+	"Station connected to AP",
+	"Station disconnected from AP",
+	"The auth mode of AP connected by station changed",
+	"Station got IP from connected AP",
+	"Station lost IP and the IP is reset to 0",
+	"Station wps succeeds in enrollee mode",
+	"Station wps fails in enrollee mode",
+	"Station wps timeout in enrollee mode",
+	"Station wps pin code in enrollee mode",
+	"Soft-AP start",
+	"Soft-AP stop",
+	"Station connected to soft-AP",
+	"Station disconnected from ESP32 soft-AP",
+	"Receive probe request packet in soft-AP interface",
+	"Station or ap or ethernet interface v6IP addr is preferred",
+	"Ethernet start",
+	"Ethernet stop",
+	"Ethernet phy link up",
+	"Ethernet phy link down",
+	"Ethernet got IP from connected AP",
+};
+
 static inline void esp_exceptions(esp_err_t e) {
     if (e != ESP_OK) _esp_exceptions(e);
 }
@@ -134,63 +165,157 @@ static bool wifi_sta_connected = false;
 
 static uint8_t _isConnected = 0;
 
+static mp_obj_t event_callback = NULL;
+static QueueHandle_t wifi_mutex = NULL;
+
+
+//------------------------------------------------------
+static void processEvent_callback(system_event_t *event)
+{
+	if (event_callback == NULL) return;
+	if (event->event_id >= SYSTEM_EVENT_MAX) return;
+
+	mp_obj_t tuple[3];
+	tuple[0] = mp_obj_new_int(event->event_id);
+	tuple[1] = mp_obj_new_str(wifi_events[event->event_id], strlen(wifi_events[event->event_id]), false);
+	tuple[2] = mp_const_none;
+	switch (event->event_id) {
+		case SYSTEM_EVENT_STA_CONNECTED: {
+				mp_obj_dict_t *dct = mp_obj_new_dict(0);
+				system_event_sta_connected_t *info = (system_event_sta_connected_t *)&event->event_info;
+            	mp_obj_dict_store(dct, mp_obj_new_str("ssid", 4, false), mp_obj_new_str((const char*)info->ssid, info->ssid_len, false));
+            	mp_obj_dict_store(dct, mp_obj_new_str("channel", 7, false), mp_obj_new_int(info->channel));
+            	tuple[2] = dct;
+				break;
+			}
+		case SYSTEM_EVENT_STA_DISCONNECTED: {
+				mp_obj_dict_t *dct = mp_obj_new_dict(0);
+				system_event_sta_disconnected_t *info = (system_event_sta_disconnected_t *)&event->event_info;
+            	mp_obj_dict_store(dct, mp_obj_new_str("ssid", 4, false), mp_obj_new_str((const char*)info->ssid, info->ssid_len, false));
+            	mp_obj_dict_store(dct, mp_obj_new_str("reason", 6, false), mp_obj_new_int(info->reason));
+            	tuple[2] = dct;
+				break;
+			}
+		case SYSTEM_EVENT_AP_STACONNECTED: {
+				mp_obj_dict_t *dct = mp_obj_new_dict(0);
+				system_event_ap_staconnected_t *info = (system_event_ap_staconnected_t *)&event->event_info;
+            	mp_obj_dict_store(dct, mp_obj_new_str("mac", 3, false), mp_obj_new_bytes(info->mac, 6));
+            	mp_obj_dict_store(dct, mp_obj_new_str("aid", 3, false), mp_obj_new_int(info->aid));
+            	tuple[2] = dct;
+				break;
+			}
+		case SYSTEM_EVENT_AP_STADISCONNECTED: {
+				mp_obj_dict_t *dct = mp_obj_new_dict(0);
+				system_event_ap_stadisconnected_t *info = (system_event_ap_stadisconnected_t *)&event->event_info;
+            	mp_obj_dict_store(dct, mp_obj_new_str("mac", 3, false), mp_obj_new_bytes(info->mac, 6));
+            	mp_obj_dict_store(dct, mp_obj_new_str("aid", 3, false), mp_obj_new_int(info->aid));
+            	tuple[2] = dct;
+				break;
+			}
+		case SYSTEM_EVENT_AP_PROBEREQRECVED: {
+				mp_obj_dict_t *dct = mp_obj_new_dict(0);
+				system_event_ap_probe_req_rx_t *info = (system_event_ap_probe_req_rx_t *)&event->event_info;
+            	mp_obj_dict_store(dct, mp_obj_new_str("rssi", 4, false), mp_obj_new_int(info->rssi));
+            	mp_obj_dict_store(dct, mp_obj_new_str("mac", 3, false), mp_obj_new_bytes(info->mac, 6));
+            	tuple[2] = dct;
+				break;
+			}
+		case SYSTEM_EVENT_STA_GOT_IP: {
+				mp_obj_dict_t *dct = mp_obj_new_dict(0);
+				system_event_sta_got_ip_t *info = (system_event_sta_got_ip_t *)&event->event_info;
+				mp_obj_dict_store(dct, mp_obj_new_str("ip", 2, false), netutils_format_ipv4_addr((uint8_t*)&info->ip_info.ip, NETUTILS_BIG));
+				mp_obj_dict_store(dct, mp_obj_new_str("changed", 7, false), mp_obj_new_bool(info->ip_changed));
+            	tuple[2] = dct;
+				break;
+			}
+		case SYSTEM_EVENT_SCAN_DONE: {
+				mp_obj_dict_t *dct = mp_obj_new_dict(0);
+				system_event_sta_scan_done_t *info = (system_event_sta_scan_done_t *)&event->event_info;
+            	mp_obj_dict_store(dct, mp_obj_new_str("status", 6, false), mp_obj_new_int(info->status));
+            	mp_obj_dict_store(dct, mp_obj_new_str("number", 6, false), mp_obj_new_int(info->number));
+            	mp_obj_dict_store(dct, mp_obj_new_str("scan_id", 7, false), mp_obj_new_int(info->scan_id));
+            	tuple[2] = dct;
+				break;
+			}
+		case SYSTEM_EVENT_STA_AUTHMODE_CHANGE: {
+				mp_obj_dict_t *dct = mp_obj_new_dict(0);
+				system_event_sta_authmode_change_t *info = (system_event_sta_authmode_change_t *)&event->event_info;
+            	mp_obj_dict_store(dct, mp_obj_new_str("old_mode", 8, false), mp_obj_new_int(info->old_mode));
+            	mp_obj_dict_store(dct, mp_obj_new_str("new_mode", 8, false), mp_obj_new_int(info->new_mode));
+            	tuple[2] = dct;
+				break;
+			}
+		default:
+			break;
+	}
+	mp_sched_schedule(event_callback, mp_obj_new_tuple(3, tuple));
+}
+
 // This function is called by the system-event task and so runs in a different
 // thread to the main MicroPython task.  It must not raise any Python exceptions.
-static esp_err_t event_handler(void *ctx, system_event_t *event) {
-   switch(event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        ESP_LOGI("wifi", "STA_START");
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        ESP_LOGI("network", "GOT_IP");
-        _isConnected = 1;
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED: {
-        // This is a workaround as ESP32 WiFi libs don't currently
-        // auto-reassociate.
-        _isConnected = 0;
-        system_event_sta_disconnected_t *disconn = &event->event_info.disconnected;
-        ESP_LOGI("wifi", "STA_DISCONNECTED, reason:%d", disconn->reason);
-        switch (disconn->reason) {
-            case WIFI_REASON_BEACON_TIMEOUT:
-                mp_printf(MP_PYTHON_PRINTER, "beacon timeout\n");
-                // AP has dropped out; try to reconnect.
-                break;
-            case WIFI_REASON_NO_AP_FOUND:
-                mp_printf(MP_PYTHON_PRINTER, "no AP found\n");
-                // AP may not exist, or it may have momentarily dropped out; try to reconnect.
-                break;
-            case WIFI_REASON_AUTH_FAIL:
-                mp_printf(MP_PYTHON_PRINTER, "authentication failed\n");
-                wifi_sta_connected = false;
-                break;
-            default:
-                // Let other errors through and try to reconnect.
-                break;
-        }
-        if (wifi_sta_connected) {
-            wifi_mode_t mode;
-            if (esp_wifi_get_mode(&mode) == ESP_OK) {
-                if (mode & WIFI_MODE_STA) {
-                    // STA is active so attempt to reconnect.
-                    esp_err_t e = esp_wifi_connect();
-                    if (e != ESP_OK) {
-                        mp_printf(MP_PYTHON_PRINTER, "error attempting to reconnect: 0x%04x", e);
-                    }
-                }
-            }
-        }
-        break;
-    }
-    default:
-        ESP_LOGI("network", "event %d", event->event_id);
-        break;
-    }
+//--------------------------------------------------------------
+static esp_err_t event_handler(void *ctx, system_event_t *event)
+{
+	if (wifi_mutex) xSemaphoreTake(wifi_mutex, 1000);
+	switch(event->event_id) {
+	case SYSTEM_EVENT_STA_START:
+		ESP_LOGI("wifi", "STA_START");
+		break;
+	case SYSTEM_EVENT_STA_GOT_IP:
+		ESP_LOGI("network", "GOT_IP");
+		_isConnected = 1;
+		break;
+	case SYSTEM_EVENT_STA_DISCONNECTED: {
+		// This is a workaround as ESP32 WiFi libs don't currently
+		// auto-reassociate.
+		_isConnected = 0;
+		system_event_sta_disconnected_t *disconn = &event->event_info.disconnected;
+		ESP_LOGI("wifi", "STA_DISCONNECTED, reason:%d", disconn->reason);
+		switch (disconn->reason) {
+			case WIFI_REASON_BEACON_TIMEOUT:
+				mp_printf(MP_PYTHON_PRINTER, "beacon timeout\n");
+				// AP has dropped out; try to reconnect.
+				break;
+			case WIFI_REASON_NO_AP_FOUND:
+				mp_printf(MP_PYTHON_PRINTER, "no AP found\n");
+				// AP may not exist, or it may have momentarily dropped out; try to reconnect.
+				break;
+			case WIFI_REASON_AUTH_FAIL:
+				mp_printf(MP_PYTHON_PRINTER, "authentication failed\n");
+				wifi_sta_connected = false;
+				break;
+			default:
+				// Let other errors through and try to reconnect.
+				break;
+		}
+		if (wifi_sta_connected) {
+			wifi_mode_t mode;
+			if (esp_wifi_get_mode(&mode) == ESP_OK) {
+				if (mode & WIFI_MODE_STA) {
+					// STA is active so attempt to reconnect.
+					esp_err_t e = esp_wifi_connect();
+					if (e != ESP_OK) {
+						mp_printf(MP_PYTHON_PRINTER, "error attempting to reconnect: 0x%04x", e);
+					}
+				}
+			}
+		}
+		break;
+	}
+	default:
+		ESP_LOGI("network", "event %d", event->event_id);
+		break;
+	}
 
-    #ifdef CONFIG_MICROPY_USE_MDNS
-    mdns_handle_system_event(ctx, event);
+	#ifdef CONFIG_MICROPY_USE_MDNS
+	mdns_handle_system_event(ctx, event);
 	#endif
-    return ESP_OK;
+
+	// Handle events callback
+	processEvent_callback(event);
+
+	if (wifi_mutex) xSemaphoreGive(wifi_mutex);
+	return ESP_OK;
 }
 
 /*void error_check(bool status, const char *msg) {
@@ -240,7 +365,10 @@ STATIC mp_obj_t esp_initialize() {
         ESP_LOGD("modnetwork", "Initializing Event Loop");
         ESP_EXCEPTIONS( esp_event_loop_init(event_handler, NULL) );
         ESP_LOGD("modnetwork", "esp_event_loop_init done");
-        initialized = 1;
+
+        if (wifi_mutex == NULL) wifi_mutex = xSemaphoreCreateMutex();
+
+		initialized = 1;
     }
     return mp_const_none;
 }
@@ -536,6 +664,25 @@ unknown:
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(esp_config_obj, 1, esp_config);
 
+//---------------------------------------------------------------
+STATIC mp_obj_t esp_callback(size_t n_args, const mp_obj_t *args)
+{
+    if (n_args == 1) {
+    	if (event_callback == NULL) return mp_const_false;
+    	return mp_const_true;
+    }
+
+	if (wifi_mutex) xSemaphoreTake(wifi_mutex, 1000);
+    if (MP_OBJ_IS_FUN(args[1])) {
+		event_callback = args[1];
+    }
+    else event_callback = NULL;
+	if (wifi_mutex) xSemaphoreGive(wifi_mutex);
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_callback_obj, 1, 2, esp_callback);
+
 STATIC const mp_map_elem_t wlan_if_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_active), (mp_obj_t)&esp_active_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_connect), (mp_obj_t)&esp_connect_obj },
@@ -545,6 +692,7 @@ STATIC const mp_map_elem_t wlan_if_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_isconnected), (mp_obj_t)&esp_isconnected_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_config), (mp_obj_t)&esp_config_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_ifconfig), (mp_obj_t)&esp_ifconfig_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_eventCB), (mp_obj_t)&esp_callback_obj },
 };
 
 STATIC MP_DEFINE_CONST_DICT(wlan_if_locals_dict, wlan_if_locals_dict_table);

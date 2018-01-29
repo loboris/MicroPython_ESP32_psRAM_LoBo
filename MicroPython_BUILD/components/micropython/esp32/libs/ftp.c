@@ -759,7 +759,7 @@ static void ftp_process_cmd (void) {
         }
         switch (cmd) {
         case E_FTP_CMD_FEAT:
-            ftp_send_reply(211, "no-features");
+            ftp_send_reply(502, "no-features");
             break;
         case E_FTP_CMD_SYST:
             ftp_send_reply(215, "UNIX Type: L8");

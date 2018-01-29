@@ -152,7 +152,8 @@ STATIC color_t intToColor(uint32_t cint)
 
 //-----------------------------------------------------------------------------------------------
 STATIC mp_obj_t display_tft_init(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
-	enum { ARG_type, ARG_host, ARG_width, ARG_height, ARG_speed, ARG_miso, ARG_mosi, ARG_clk, ARG_cs, ARG_dc, ARG_tcs, ARG_rst, ARG_bckl, ARG_bcklon, ARG_hastouch, ARG_invrot, ARG_bgr };
+	enum { ARG_type, ARG_host, ARG_width, ARG_height, ARG_speed, ARG_miso, ARG_mosi, ARG_clk,
+		ARG_cs, ARG_dc, ARG_tcs, ARG_rst, ARG_bckl, ARG_bcklon, ARG_hastouch, ARG_invrot, ARG_bgr, ARG_rot, ARG_splash };
     const mp_arg_t allowed_args[] = {
 		{ MP_QSTR_type,      MP_ARG_REQUIRED                   | MP_ARG_INT,  { .u_int = DISP_TYPE_ST7789V } },
 		{ MP_QSTR_spihost,                     MP_ARG_KW_ONLY  | MP_ARG_INT,  { .u_int = LOBO_HSPI_HOST } },
@@ -171,6 +172,8 @@ STATIC mp_obj_t display_tft_init(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
         { MP_QSTR_hastouch,                    MP_ARG_KW_ONLY  | MP_ARG_INT,  { .u_int = 0 } },
         { MP_QSTR_invrot,                      MP_ARG_KW_ONLY  | MP_ARG_INT,  { .u_int = -1 } },
         { MP_QSTR_bgr,                         MP_ARG_KW_ONLY  | MP_ARG_BOOL, { .u_bool = false } },
+        { MP_QSTR_rot,                         MP_ARG_KW_ONLY  | MP_ARG_INT,  { .u_int = PORTRAIT } },
+        { MP_QSTR_splash,                      MP_ARG_KW_ONLY  | MP_ARG_BOOL, { .u_bool = true } },
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
@@ -375,19 +378,20 @@ STATIC mp_obj_t display_tft_init(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
 	font_transparent = 0;
 	font_forceFixed = 0;
 	gray_scale = 0;
-	TFT_setRotation(PORTRAIT);
+	TFT_setRotation(args[ARG_rot].u_int & 3);
     TFT_setGammaCurve(DEFAULT_GAMMA_CURVE);
 	TFT_setFont(DEFAULT_FONT, NULL);
 	TFT_resetclipwin();
-	int fhight = TFT_getfontheight();
-	_fg = intToColor(iTFT_RED);
-	TFT_print("MicroPython", CENTER, (_height/2) - fhight - (fhight/2));
-	_fg = intToColor(iTFT_GREEN);
-	TFT_print("MicroPython", CENTER, (_height/2) - (fhight/2));
-	_fg = intToColor(iTFT_BLUE);
-	TFT_print("MicroPython", CENTER, (_height/2) + (fhight/2));
-	_fg = intToColor(iTFT_GREEN);
-
+	if (args[ARG_splash].u_bool) {
+		int fhight = TFT_getfontheight();
+		_fg = intToColor(iTFT_RED);
+		TFT_print("MicroPython", CENTER, (_height/2) - fhight - (fhight/2));
+		_fg = intToColor(iTFT_GREEN);
+		TFT_print("MicroPython", CENTER, (_height/2) - (fhight/2));
+		_fg = intToColor(iTFT_BLUE);
+		TFT_print("MicroPython", CENTER, (_height/2) + (fhight/2));
+		_fg = intToColor(iTFT_GREEN);
+	}
 	bcklOn();
 
     return mp_const_none;

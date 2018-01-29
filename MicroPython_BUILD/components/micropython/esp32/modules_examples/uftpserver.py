@@ -1,7 +1,32 @@
 import network, socket, uos, utime
 import gc, _thread
 
-# based in version in https://github.com/cpopp/MicroFTPServer
+# ------------------------------------------------
+# based on https://github.com/cpopp/MicroFTPServer
+# ------------------------------------------------
+
+'''
+
+Usage:
+======
+---------------------------------------------------------------
+Run ftpserver in main thread, it will block until
+timeout expires, remote client disconnets or Ctrl-C is pressed
+---------------------------------------------------------------
+
+import uftpserver
+
+uptpserver.ftpserver()
+
+------------------------
+Run ftpserver in thread:
+------------------------
+import uftpserver
+
+_thread.stack_size(5*1024)
+ftpth = _thread.start_new_thread("FTPServer", uftpserver.ftpserver, (500,True))
+
+'''
 
 quiet_run = False
 

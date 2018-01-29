@@ -31,7 +31,6 @@
 #include <stdio.h>
 
 #include "driver/timer.h"
-#include "py/obj.h"
 #include "py/runtime.h"
 #include "modmachine.h"
 
@@ -616,7 +615,7 @@ STATIC mp_obj_t machine_timer_period(size_t n_args, const mp_obj_t *args)
     return MP_OBJ_NEW_SMALL_INT(period);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_timer_period_obj, 1, 2, machine_timer_period);
-#include "py/obj.h"
+
 //-------------------------------------------------------------------------
 STATIC mp_obj_t machine_timer_callback(size_t n_args, const mp_obj_t *args)
 {
