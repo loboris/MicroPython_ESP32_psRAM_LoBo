@@ -219,7 +219,6 @@ extern const struct _mp_obj_module_t mp_module_usocket;
 extern const struct _mp_obj_module_t mp_module_machine;
 extern const struct _mp_obj_module_t mp_module_network;
 extern const struct _mp_obj_module_t mp_module_ymodem;
-extern const struct _mp_obj_module_t mp_module_display;
 
 #ifdef CONFIG_MICROPY_USE_CURL
 extern const struct _mp_obj_module_t mp_module_curl;
@@ -233,6 +232,13 @@ extern const struct _mp_obj_module_t mp_module_ssh;
 #define BUILTIN_MODULE_SSH { MP_OBJ_NEW_QSTR(MP_QSTR_ssh), (mp_obj_t)&mp_module_ssh },
 #else
 #define BUILTIN_MODULE_SSH
+#endif
+
+#ifdef CONFIG_MICROPY_USE_DISPLAY
+extern const struct _mp_obj_module_t mp_module_display;
+#define BUILTIN_MODULE_DISPLAY { MP_OBJ_NEW_QSTR(MP_QSTR_display), (mp_obj_t)&mp_module_display },
+#else
+#define BUILTIN_MODULE_DISPLAY
 #endif
 
 #ifdef CONFIG_MICROPY_USE_GSM
@@ -256,7 +262,7 @@ extern const struct _mp_obj_module_t mp_module_ota;
     { MP_OBJ_NEW_QSTR(MP_QSTR_machine),  (mp_obj_t)&mp_module_machine }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR_network),  (mp_obj_t)&mp_module_network }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR_ymodem),   (mp_obj_t)&mp_module_ymodem }, \
-    { MP_OBJ_NEW_QSTR(MP_QSTR_display),  (mp_obj_t)&mp_module_display }, \
+	BUILTIN_MODULE_DISPLAY \
 	BUILTIN_MODULE_CURL \
 	BUILTIN_MODULE_SSH \
 	BUILTIN_MODULE_GSM \

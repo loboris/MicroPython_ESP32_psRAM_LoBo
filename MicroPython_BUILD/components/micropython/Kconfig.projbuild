@@ -15,8 +15,9 @@ menu "MicroPython"
         string "Time zone"
         default "GMT0BST"
         help
-        Set the time zone string used when updating the tome from NTP server
-        You can use 'zones.csv' file to find the time zone string
+        Set the default time zone string used when updating the time from NTP server
+        You can use 'components/micropython/docs/zones.csvzones.csv'
+        file to find the time zone string.
         Use the second entry for your Region/city as the value set here
 
     config MICROPY_USE_OTA
@@ -210,6 +211,20 @@ menu "MicroPython"
 	        default n
 	        help
 	        Include websockets module into build
+	
+	    config MICROPY_USE_DISPLAY
+	        bool "Use Display module"
+	        default n
+	        help
+	        Include Display module into build
+	        Display module includes support for various SPI TFT displays
+	
+	    config MICROPY_USE_EVE
+	        bool "Use EVE display module"
+	        default n
+	        help
+	        Include EVE display module into build
+	        Display module includes support for EVE displays (FT80x, FT81x)
 	
 	    config MICROPY_USE_GSM
 	        bool "Use GSM module"

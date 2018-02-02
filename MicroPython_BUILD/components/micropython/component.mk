@@ -157,12 +157,15 @@ SRC_C =  $(addprefix esp32/,\
 	mpsleep.c \
 	machine_rtc.c \
 	modymodem.c \
-	moddisplay.c \
 	machine_hw_i2c.c \
 	machine_neopixel.c \
 	machine_dht.c \
 	machine_ow.c \
 	)
+
+ifdef CONFIG_MICROPY_USE_DISPLAY
+SRC_C += esp32/moddisplay.c
+endif
 
 ifdef CONFIG_MICROPY_USE_CURL
 SRC_C += esp32/modcurl.c
@@ -226,18 +229,6 @@ LIB_SRC_C = $(addprefix lib/,\
 LIBS_SRC_C = $(addprefix esp32/libs/,\
 	espcurl.c \
 	neopixel.c \
-	tft/spi_master_lobo.c \
-	tft/tftspi.c \
-	tft/tft.c \
-	tft/comic24.c \
-	tft/DefaultFont.c \
-	tft/DejaVuSans18.c \
-	tft/DejaVuSans24.c \
-	tft/minya24.c \
-	tft/SmallFont.c \
-	tft/tooney32.c \
-	tft/Ubuntu16.c \
-	tft/def_small.c \
 	esp_rmt.c \
 	telnet.c \
 	ftp.c \
@@ -247,6 +238,27 @@ LIBS_SRC_C = $(addprefix esp32/libs/,\
 	ow/owb.c \
 	ow/ds18b20.c \
 	)
+
+ifdef CONFIG_MICROPY_USE_DISPLAY
+LIBS_SRC_C += \
+	esp32/libs/tft/spi_master_lobo.c \
+	esp32/libs/tft/tftspi.c \
+	esp32/libs/tft/tft.c \
+	esp32/libs/tft/comic24.c \
+	esp32/libs/tft/DefaultFont.c \
+	esp32/libs/tft/DejaVuSans18.c \
+	esp32/libs/tft/DejaVuSans24.c \
+	esp32/libs/tft/minya24.c \
+	esp32/libs/tft/SmallFont.c \
+	esp32/libs/tft/tooney32.c \
+	esp32/libs/tft/Ubuntu16.c \
+	esp32/libs/tft/def_small.c
+endif
+
+ifdef CONFIG_MICROPY_USE_EVE
+LIBS_SRC_C += \
+	esp32/libs/eve/FT8_commands.c
+endif
 
 ifeq ($(MICROPY_PY_BTREE),1)
 LIB_SRC_C += \

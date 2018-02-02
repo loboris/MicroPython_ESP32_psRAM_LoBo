@@ -747,7 +747,8 @@ static void ftp_process_cmd (void) {
     if (result == E_FTP_RESULT_OK) {
         // bufptr is moved as commands are being popped
         ftp_cmd_index_t cmd = ftp_pop_command(&bufptr);
-        if (!ftp_data.loggin.passvalid && (cmd != E_FTP_CMD_USER && cmd != E_FTP_CMD_PASS && cmd != E_FTP_CMD_QUIT)) {
+        if (!ftp_data.loggin.passvalid &&
+        		((cmd != E_FTP_CMD_USER) && (cmd != E_FTP_CMD_PASS) && (cmd != E_FTP_CMD_QUIT) && (cmd != E_FTP_CMD_FEAT))) {
             ftp_send_reply(332, NULL);
             return;
         }

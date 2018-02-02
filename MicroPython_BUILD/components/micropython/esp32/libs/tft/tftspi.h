@@ -456,6 +456,7 @@ static const uint8_t Rcmd3[] = {
 // ==== Public functions =========================================================
 
 // == Low level functions; usually not used directly ==
+
 esp_err_t wait_trans_finish(uint8_t free_line);
 void disp_spi_transfer_cmd(int8_t cmd);
 void disp_spi_transfer_cmd_data(int8_t cmd, uint8_t *data, uint32_t len);

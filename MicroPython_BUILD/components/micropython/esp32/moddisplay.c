@@ -27,6 +27,10 @@
  * THE SOFTWARE.
  */
 
+#include "sdkconfig.h"
+
+#ifdef CONFIG_MICROPY_USE_DISPLAY
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -1407,3 +1411,4 @@ const mp_obj_module_t mp_module_display = {
     .globals = (mp_obj_dict_t*)&display_module_globals,
 };
 
+#endif // CONFIG_MICROPY_USE_DISPLAY

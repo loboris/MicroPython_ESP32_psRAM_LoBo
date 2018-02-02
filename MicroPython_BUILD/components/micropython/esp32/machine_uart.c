@@ -34,6 +34,7 @@
 #include "py/runtime.h"
 #include "py/stream.h"
 #include "py/mperrno.h"
+#include "py/mphal.h"
 #include "modmachine.h"
 
 typedef struct _machine_uart_obj_t {
@@ -47,7 +48,8 @@ typedef struct _machine_uart_obj_t {
     int8_t rts;
     int8_t cts;
     uint16_t timeout;       // timeout waiting for first char (in ms)
-    uint16_t timeout_char;  // timeout waiting between chars (in ms)
+    uint16_t timeout_char;  // timeout character
+    uint16_t buffer_size;
 } machine_uart_obj_t;
 
 STATIC const char *_parity_name[] = {"None", "1", "0"};
@@ -62,26 +64,28 @@ STATIC void machine_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_pri
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
     uint32_t baudrate;
     uart_get_baudrate(self->uart_num, &baudrate);
-    mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%s, stop=%u, tx=%d, rx=%d, rts=%d, cts=%d, timeout=%u, timeout_char=%u)",
+    mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%s, stop=%u, tx=%d, rx=%d, rts=%d, cts=%d, timeout=%u, timeout_char=%u, buf_size=%u)",
         self->uart_num, baudrate, self->bits, _parity_name[self->parity],
-        self->stop, self->tx, self->rx, self->rts, self->cts, self->timeout, self->timeout_char);
+        self->stop, self->tx, self->rx, self->rts, self->cts, self->timeout, self->timeout_char, self->buffer_size);
 }
+
+static const mp_arg_t allowed_args[] = {
+    { MP_QSTR_baudrate,						 MP_ARG_INT, {.u_int = 0} },
+    { MP_QSTR_bits,							 MP_ARG_INT, {.u_int = 0} },
+    { MP_QSTR_parity,						 MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+    { MP_QSTR_stop,							 MP_ARG_INT, {.u_int = 0} },
+    { MP_QSTR_tx,			MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = UART_PIN_NO_CHANGE} },
+    { MP_QSTR_rx,			MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = UART_PIN_NO_CHANGE} },
+    { MP_QSTR_rts,			MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = UART_PIN_NO_CHANGE} },
+    { MP_QSTR_cts,			MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = UART_PIN_NO_CHANGE} },
+    { MP_QSTR_timeout,		MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 0} },
+    { MP_QSTR_timeout_char,	MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 0} },
+    { MP_QSTR_buffer_size,	MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 0} },
+};
 
 //--------------------------------------------------------------------------------------------------------------------------
 STATIC void machine_uart_init_helper(machine_uart_obj_t *self, size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
-    enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_tx, ARG_rx, ARG_rts, ARG_cts, ARG_timeout, ARG_timeout_char };
-    static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_baudrate,						 MP_ARG_INT, {.u_int = 0} },
-        { MP_QSTR_bits,							 MP_ARG_INT, {.u_int = 0} },
-        { MP_QSTR_parity,						 MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
-        { MP_QSTR_stop,							 MP_ARG_INT, {.u_int = 0} },
-        { MP_QSTR_tx,			MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = UART_PIN_NO_CHANGE} },
-        { MP_QSTR_rx,			MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = UART_PIN_NO_CHANGE} },
-        { MP_QSTR_rts,			MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = UART_PIN_NO_CHANGE} },
-        { MP_QSTR_cts,			MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = UART_PIN_NO_CHANGE} },
-        { MP_QSTR_timeout,		MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 0} },
-        { MP_QSTR_timeout_char,	MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 0} },
-    };
+    enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_tx, ARG_rx, ARG_rts, ARG_cts, ARG_timeout, ARG_timeout_char, ARG_buffer_size };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
@@ -245,6 +249,18 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
             break;
     }
 
+    mp_map_t kw_args;
+    mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
+
+    enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_tx, ARG_rx, ARG_rts, ARG_cts, ARG_timeout, ARG_timeout_char, ARG_buffer_size };
+    mp_arg_val_t kargs[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args-1, args+1, &kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, kargs);
+
+    int bufsize = kargs[ARG_buffer_size].u_int;
+    if (bufsize < 256) bufsize = 256;
+    if (bufsize > 4096) bufsize = 4096;
+    self->buffer_size = bufsize;
+
     // Remove any existing configuration
     uart_driver_delete(self->uart_num);
 
@@ -253,13 +269,13 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     uart_param_config(self->uart_num, &uartcfg);
 
     // RX and TX buffers are currently hardcoded at 256 and 256 bytes respectively.
-    esp_err_t res = uart_driver_install(uart_num, 256, 0, 10, &UART_QUEUE[self->uart_num], 0);
+    //esp_err_t res = uart_driver_install(uart_num, 256, 0, 10, &UART_QUEUE[self->uart_num], 0);
+    esp_err_t res = uart_driver_install(uart_num, bufsize, 0, 0, NULL, 0);
     if (res != ESP_OK) {
         nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "UART(%d) Error installing driver", uart_num));
     }
 
-    mp_map_t kw_args;
-    mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
+
     machine_uart_init_helper(self, n_args - 1, args + 1, &kw_args);
 
     // Make sure pins are connected.
@@ -305,14 +321,22 @@ STATIC mp_uint_t machine_uart_read(mp_obj_t self_in, void *buf_in, mp_uint_t siz
         return 0;
     }
 
-    TickType_t time_to_wait;
+    int bytes_read = 0;
+	mp_hal_set_wdt_tmo();
     if (self->timeout == 0) {
-        time_to_wait = 0;
-    } else {
-        time_to_wait = pdMS_TO_TICKS(self->timeout);
+        bytes_read = uart_read_bytes(self->uart_num, buf_in, size, 0);
     }
-
-    int bytes_read = uart_read_bytes(self->uart_num, buf_in, size, time_to_wait);
+    else {
+		int wait = self->timeout;
+		MP_THREAD_GIL_EXIT();
+		while (wait > 0) {
+			bytes_read = uart_read_bytes(self->uart_num, buf_in, size, pdMS_TO_TICKS(10));
+			if (bytes_read != 0) break;
+			mp_hal_reset_wdt();
+			wait -= 10;
+		}
+		MP_THREAD_GIL_ENTER();
+    }
 
     if (bytes_read < 0) {
         *errcode = MP_EAGAIN;
