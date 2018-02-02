@@ -2,6 +2,8 @@
 fs_type_fat="no"
 fs_fat_sect=4096
 linplatform=""
+linprocessor=""
+linmachine=""
 
 #----------------
 get_arguments() {
@@ -260,6 +262,8 @@ check_OS() {
     else
 	    if [ "${machine}" == "Linux" ]; then
 		    linplatform="$(uname -i)"
+		    linprocessor="$(uname -p)"
+		    linmachine="$(uname -m)"
 		fi
         MK_SPIFFS_BIN="mkspiffs"
         MK_FATFS_BIN="mkfatfs"
@@ -356,7 +360,7 @@ check_Environment() {
             if [ "${linplatform}" == "i686" ]; then
                 echo "unpacking ${machine}/xtensa-esp32-elf (32bit)"
                 tar -xf ${machine}/xtensa-esp32-elf_32bit.tar.xz > /dev/null 2>&1
-            elif [ "${linplatform}" == "armv7l" ]; then
+            elif [ "${linplatform}" == "armv7l" ] || [ "${linprocessor}" == "armv7l" ] || [ "${linmachine}" == "armv7l" ]; then
                 echo "unpacking ${machine}/xtensa-esp32-elf (arm)"
                 tar -xf ${machine}/xtensa-esp32-elf_arm.tar.xz > /dev/null 2>&1
             else

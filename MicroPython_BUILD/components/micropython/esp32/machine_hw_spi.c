@@ -24,6 +24,8 @@
  * THE SOFTWARE.
  */
 
+#include "sdkconfig.h"
+
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -74,12 +76,16 @@ typedef struct _machine_hw_spi_obj_t {
     } state;
 } machine_hw_spi_obj_t;
 
+#ifdef CONFIG_MICROPY_USE_DISPLAY
 extern uint8_t disp_used_spi_host;
+#endif
 
 //-----------------------------------------------------------------
 int checkSPIBUS(int8_t bus, int8_t mosi, uint8_t miso, uint8_t sck)
 {
+	#ifdef CONFIG_MICROPY_USE_DISPLAY
     if ((disp_used_spi_host > 0) && (MPy_SPIbus[disp_used_spi_host]->mosi_io_num >= 0)) return -3; // bus used by display driver
+	#endif
 
     if (MPy_SPIbus[bus] == NULL) return -2;					// bus not available
 	if (MPy_SPIbus[bus]->mosi_io_num < 0) return 1;			// bus not configured, free to use
