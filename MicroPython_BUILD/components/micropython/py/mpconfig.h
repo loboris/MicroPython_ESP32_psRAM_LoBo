@@ -1187,6 +1187,7 @@ typedef double mp_float_t;
 #define BITS_PER_WORD (BITS_PER_BYTE * BYTES_PER_WORD)
 // mp_int_t value with most significant bit set
 #define WORD_MSBIT_HIGH (((mp_uint_t)1) << (BYTES_PER_WORD * 8 - 1))
+#define LONG_WORD_MSBIT_HIGH (((uint64_t)1) << (BYTES_PER_WORD * 8 - 1))
 
 // Make sure both MP_ENDIANNESS_LITTLE and MP_ENDIANNESS_BIG are
 // defined and that they are the opposite of each other.

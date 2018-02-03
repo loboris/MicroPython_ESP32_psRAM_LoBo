@@ -129,7 +129,13 @@ STATIC mp_obj_t mod_utimeq_heappush(size_t n_args, const mp_obj_t *args) {
         mp_raise_msg(&mp_type_IndexError, "queue overflow");
     }
     mp_uint_t l = heap->len;
-    heap->items[l].time = MP_OBJ_SMALL_INT_VALUE(args[1]);
+    mp_uint_t itime;
+    if (mp_obj_is_float(args[1])) {
+    	mp_float_t time = mp_obj_float_get(args[1]);
+        itime = (uint32_t)time;
+    }
+    else itime = MP_OBJ_SMALL_INT_VALUE(args[1]);
+    heap->items[l].time = itime;
     heap->items[l].id = utimeq_id++;
     heap->items[l].callback = args[2];
     heap->items[l].args = args[3];

@@ -638,7 +638,7 @@ STATIC mp_obj_t machine_timer_callback(size_t n_args, const mp_obj_t *args)
     }
     self->state = TIMER_PAUSED;
 
-    if (MP_OBJ_IS_FUN(args[1])) {
+    if ((MP_OBJ_IS_FUN(args[1])) || (MP_OBJ_IS_METH(args[1]))) {
 		// Set new callback
 		self->counter = 0x00000000ULL;
 		self->alarm = self->period;

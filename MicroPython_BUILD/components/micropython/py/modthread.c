@@ -158,10 +158,8 @@ STATIC mp_obj_t mod_thread_start_new_thread(size_t n_args, const mp_obj_t *pos_a
 	else {
         mp_raise_TypeError("expecting a string for thread name argument");
 	}
-    if (!MP_OBJ_IS_FUN(args[1].u_obj)) {
-        if (!MP_OBJ_IS_METH(args[1].u_obj)) {
-        	mp_raise_TypeError("expecting a function for thread function argument");
-        }
+    if ((!MP_OBJ_IS_FUN(args[1].u_obj)) && (!MP_OBJ_IS_METH(args[1].u_obj))) {
+       	mp_raise_TypeError("expecting a function for thread function argument");
     }
 
     // get positional arguments

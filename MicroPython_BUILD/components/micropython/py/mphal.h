@@ -51,11 +51,11 @@ void mp_hal_stdout_tx_strn_cooked(const char *str, size_t len);
 #endif
 
 #ifndef mp_hal_delay_ms
-int mp_hal_delay_ms(mp_uint_t ms);
+int mp_hal_delay_ms(uint32_t ms);
 #endif
 
 #ifndef mp_hal_delay_us
-void mp_hal_delay_us(mp_uint_t us);
+void mp_hal_delay_us(uint32_t us);
 #endif
 
 #ifndef mp_hal_ticks_ms
@@ -67,7 +67,7 @@ uint64_t mp_hal_ticks_us(void);
 #endif
 
 #ifndef mp_hal_ticks_cpu
-mp_uint_t mp_hal_ticks_cpu(void);
+uint32_t mp_hal_ticks_cpu(void);
 #endif
 
 // If port HAL didn't define its own pin API, use generic

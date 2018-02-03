@@ -93,8 +93,8 @@ MP_DEFINE_CONST_FUN_OBJ_0(mp_utime_ticks_cpu_obj, time_ticks_cpu);
 
 //-------------------------------------------------------------------
 STATIC mp_obj_t time_ticks_diff(mp_obj_t end_in, mp_obj_t start_in) {
-    uint64_t start = mp_obj_get_int(start_in);
-    uint64_t end = mp_obj_get_int(end_in);
+    uint64_t start = mp_obj_get_int64(start_in);
+    uint64_t end = mp_obj_get_int64(end_in);
     int64_t diff = end - start;
     return mp_obj_new_int_from_ll(diff);
 }
@@ -116,8 +116,8 @@ MP_DEFINE_CONST_FUN_OBJ_2(mp_utime_tickscpu_diff_obj, time_tickscpu_diff);
 //--------------------------------------------------------------------
 STATIC mp_obj_t time_ticks_add(mp_obj_t ticks_in, mp_obj_t delta_in) {
     // we assume that first argument come from ticks_xx so is 64-bit int
-    uint64_t tickin = mp_obj_get_int(ticks_in);
-    uint64_t delta = mp_obj_get_int(delta_in);
+    uint64_t tickin = mp_obj_get_int64(ticks_in);
+    uint64_t delta = mp_obj_get_int64(delta_in);
     int64_t addtick = tickin + delta;
     return mp_obj_new_int_from_ll(addtick);
 }

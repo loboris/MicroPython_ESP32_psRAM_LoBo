@@ -28,14 +28,21 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "driver/uart.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "driver/uart.h"
 
 #include "py/runtime.h"
 #include "py/stream.h"
 #include "py/mperrno.h"
 #include "py/mphal.h"
 #include "modmachine.h"
+
+#define UART_CB_TYPE_DATA		1
+#define UART_CB_TYPE_PATTERN	2
+#define UART_CB_TYPE_ERROR		3
+
 
 typedef struct _machine_uart_obj_t {
     mp_obj_base_t base;
@@ -47,28 +54,161 @@ typedef struct _machine_uart_obj_t {
     int8_t rx;
     int8_t rts;
     int8_t cts;
+    uint8_t patern_chr_num;
+    int data_cb_size;
+    char patern_char;
     uint16_t timeout;       // timeout waiting for first char (in ms)
-    uint16_t timeout_char;  // timeout character
     uint16_t buffer_size;
+    uint32_t *data_cb;
+    uint32_t *pattern_cb;
+    uint32_t *error_cb;
+    TaskHandle_t task_id;
+    uint8_t end_task;
 } machine_uart_obj_t;
 
 STATIC const char *_parity_name[] = {"None", "1", "0"};
+static QueueHandle_t UART_QUEUE[UART_NUM_MAX] = {NULL};
+static QueueHandle_t uart_mutex = NULL;
 
-QueueHandle_t UART_QUEUE[UART_NUM_MAX] = {};
+
+//---------------------------------------------
+static void uart_event_task(void *pvParameters)
+{
+	machine_uart_obj_t *self = (machine_uart_obj_t *)pvParameters;
+    uart_event_t event;
+    size_t buffered_size;
+    uint8_t* dtmp = (uint8_t*) malloc(self->buffer_size);
+    for(;;) {
+    	if (self->end_task) break;
+    	if (UART_QUEUE[self->uart_num] == NULL) {
+    		vTaskDelay(1000 / portTICK_PERIOD_MS);
+    		continue;
+    	}
+        //Waiting for UART event.
+        if (xQueueReceive(UART_QUEUE[self->uart_num], (void * )&event, 1000 / portTICK_PERIOD_MS)) {
+        	if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
+            bzero(dtmp, self->buffer_size);
+            switch(event.type) {
+                //Event of UART receiving data
+                /*We'd better handler data event fast, there would be much more data events than
+                other types of events. If we take too much time on data event, the queue might
+                be full.*/
+                case UART_DATA:
+                    if (self->data_cb) {
+                        size_t datasize;
+                        uart_get_buffered_data_len(self->uart_num, &datasize);
+                        if ((self->data_cb_size > 0) && (datasize >= self->data_cb_size)) {
+							uart_read_bytes(self->uart_num, dtmp, datasize, 20 / portTICK_PERIOD_MS);
+							mp_obj_t tuple[3];
+							tuple[0] = mp_obj_new_int(self->uart_num);
+							tuple[1] = mp_obj_new_int(UART_CB_TYPE_DATA);
+							tuple[2] = mp_obj_new_str((const char*)dtmp, datasize, 0);
+							mp_sched_schedule(self->data_cb, mp_obj_new_tuple(3, tuple));
+                        }
+                    }
+                    break;
+                //Event of HW FIFO overflow detected
+                case UART_FIFO_OVF:
+                    // If fifo overflow happened, you should consider adding flow control for your application.
+                    // The ISR has already reset the rx FIFO,
+                    // As an example, we directly flush the rx buffer here in order to read more data.
+                    uart_flush_input(self->uart_num);
+                    xQueueReset(UART_QUEUE[self->uart_num]);
+                    if (self->error_cb) {
+						mp_obj_t tuple[3];
+						tuple[0] = mp_obj_new_int(self->uart_num);
+						tuple[1] = mp_obj_new_int(UART_CB_TYPE_ERROR);
+						tuple[2] = mp_obj_new_int(UART_FIFO_OVF);
+						mp_sched_schedule(self->error_cb, mp_obj_new_tuple(3, tuple));
+                    }
+                    break;
+                //Event of UART ring buffer full
+                case UART_BUFFER_FULL:
+                    // If buffer full happened, you should consider increasing your buffer size
+                    // As an example, we directly flush the rx buffer here in order to read more data.
+                    uart_flush_input(self->uart_num);
+                    xQueueReset(UART_QUEUE[self->uart_num]);
+                    if (self->error_cb) {
+						mp_obj_t tuple[3];
+						tuple[0] = mp_obj_new_int(self->uart_num);
+						tuple[1] = mp_obj_new_int(UART_CB_TYPE_ERROR);
+						tuple[2] = mp_obj_new_int(UART_BUFFER_FULL);
+						mp_sched_schedule(self->error_cb, mp_obj_new_tuple(3, tuple));
+                    }
+                    break;
+                //Event of UART RX break detected
+                case UART_BREAK:
+                    if (self->error_cb) {
+						mp_obj_t tuple[3];
+						tuple[0] = mp_obj_new_int(self->uart_num);
+						tuple[1] = mp_obj_new_int(UART_CB_TYPE_ERROR);
+						tuple[2] = mp_obj_new_int(UART_BREAK);
+						mp_sched_schedule(self->error_cb, mp_obj_new_tuple(3, tuple));
+                    }
+                    break;
+                //Event of UART parity check error
+                case UART_PARITY_ERR:
+                    if (self->error_cb) {
+						mp_obj_t tuple[3];
+						tuple[0] = mp_obj_new_int(self->uart_num);
+						tuple[1] = mp_obj_new_int(UART_CB_TYPE_ERROR);
+						tuple[2] = mp_obj_new_int(UART_PARITY_ERR);
+						mp_sched_schedule(self->error_cb, mp_obj_new_tuple(3, tuple));
+                    }
+                    break;
+                //Event of UART frame error
+                case UART_FRAME_ERR:
+                    if (self->error_cb) {
+						mp_obj_t tuple[3];
+						tuple[0] = mp_obj_new_int(self->uart_num);
+						tuple[1] = mp_obj_new_int(UART_CB_TYPE_ERROR);
+						tuple[2] = mp_obj_new_int(UART_FRAME_ERR);
+						mp_sched_schedule(self->error_cb, mp_obj_new_tuple(3, tuple));
+                    }
+                    break;
+                //UART_PATTERN_DET
+                case UART_PATTERN_DET:
+                    uart_get_buffered_data_len(self->uart_num, &buffered_size);
+                    int pos = uart_pattern_pop_pos(self->uart_num);
+                    if (pos == -1) {
+                        // There used to be a UART_PATTERN_DET event, but the pattern position queue is full so that it can not
+                        // record the position. We should set a larger queue size.
+                        // As an example, we directly flush the rx buffer here.
+                        uart_flush_input(self->uart_num);
+                    }
+                    else {
+                        if (self->pattern_cb) {
+							uart_read_bytes(self->uart_num, dtmp, pos, 100 / portTICK_PERIOD_MS);
+							uint8_t pat[self->patern_chr_num + 1];
+							memset(pat, 0, sizeof(pat));
+							uart_read_bytes(self->uart_num, pat, self->patern_chr_num, 100 / portTICK_PERIOD_MS);
+                        	mp_obj_t tuple[4];
+                        	tuple[0] = mp_obj_new_int(self->uart_num);
+							tuple[1] = mp_obj_new_int(UART_CB_TYPE_PATTERN);
+                        	tuple[2] = mp_obj_new_str((const char*)pat, self->patern_chr_num, 0);
+                        	tuple[3] = mp_obj_new_str((const char*)dtmp, pos, 0);
+                        	mp_sched_schedule(self->pattern_cb, mp_obj_new_tuple(4, tuple));
+                        }
+                    }
+                    break;
+                //Others
+                default:
+                    //ESP_LOGI(TAG, "uart event type: %d", event.type);
+                    break;
+            }
+        	if (uart_mutex) xSemaphoreGive(uart_mutex);
+        }
+    }
+    free(dtmp);
+    dtmp = NULL;
+    vTaskDelete(NULL);
+}
+
 
 /******************************************************************************/
 // MicroPython bindings for UART
 
-//-----------------------------------------------------------------------------------------------
-STATIC void machine_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
-    machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    uint32_t baudrate;
-    uart_get_baudrate(self->uart_num, &baudrate);
-    mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%s, stop=%u, tx=%d, rx=%d, rts=%d, cts=%d, timeout=%u, timeout_char=%u, buf_size=%u)",
-        self->uart_num, baudrate, self->bits, _parity_name[self->parity],
-        self->stop, self->tx, self->rx, self->rts, self->cts, self->timeout, self->timeout_char, self->buffer_size);
-}
-
+//--------------------------------------
 static const mp_arg_t allowed_args[] = {
     { MP_QSTR_baudrate,						 MP_ARG_INT, {.u_int = 0} },
     { MP_QSTR_bits,							 MP_ARG_INT, {.u_int = 0} },
@@ -79,13 +219,36 @@ static const mp_arg_t allowed_args[] = {
     { MP_QSTR_rts,			MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = UART_PIN_NO_CHANGE} },
     { MP_QSTR_cts,			MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = UART_PIN_NO_CHANGE} },
     { MP_QSTR_timeout,		MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 0} },
-    { MP_QSTR_timeout_char,	MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 0} },
-    { MP_QSTR_buffer_size,	MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 0} },
+    { MP_QSTR_buffer_size,	MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 256} },
 };
+
+static enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_tx, ARG_rx, ARG_rts, ARG_cts, ARG_timeout, ARG_buffer_size };
+
+//-----------------------------------------------------------------------------------------------
+STATIC void machine_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
+    machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    uint32_t baudrate;
+    uart_get_baudrate(self->uart_num, &baudrate);
+
+    mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%s, stop=%u, tx=%d, rx=%d, rts=%d, cts=%d, timeout=%u, buf_size=%u)",
+        self->uart_num, baudrate, self->bits, _parity_name[self->parity],
+        self->stop, self->tx, self->rx, self->rts, self->cts, self->timeout, self->buffer_size);
+    if (self->data_cb) {
+    	mp_printf(print, "\n     data CB: True, on len: %d", self->data_cb_size);
+    }
+    if (self->pattern_cb) {
+    	mp_printf(print, "\n     patern CB: True, pattern len: %d, pattern char: '%c'", self->patern_chr_num, self->patern_char);
+    }
+    if (self->error_cb) {
+    	mp_printf(print, "\n     error CB: True");
+    }
+    if (self->task_id) {
+    	mp_printf(print, "\n     Event task minimum free stack: %u", uxTaskGetStackHighWaterMark(self->task_id));
+    }
+}
 
 //--------------------------------------------------------------------------------------------------------------------------
 STATIC void machine_uart_init_helper(machine_uart_obj_t *self, size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
-    enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_tx, ARG_rx, ARG_rts, ARG_cts, ARG_timeout, ARG_timeout_char, ARG_buffer_size };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
@@ -186,14 +349,6 @@ STATIC void machine_uart_init_helper(machine_uart_obj_t *self, size_t n_args, co
 
     // set timeout
     self->timeout = args[ARG_timeout].u_int;
-
-    // set timeout_char
-    // make sure it is at least as long as a whole character (13 bits to be safe)
-    self->timeout_char = args[ARG_timeout_char].u_int;
-    uint32_t min_timeout_char = 13000 / baudrate + 1;
-    if (self->timeout_char < min_timeout_char) {
-        self->timeout_char = min_timeout_char;
-    }
 }
 
 //------------------------------------------------------------------------------------------------------------------
@@ -202,7 +357,7 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
 
     // get uart id
     mp_int_t uart_num = mp_obj_get_int(args[0]);
-    if (uart_num < 0 || uart_num > UART_NUM_MAX) {
+    if (uart_num < 0 || uart_num >= UART_NUM_MAX) {
         nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "UART(%d) does not exist", uart_num));
     }
 
@@ -222,7 +377,11 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
         .rx_flow_ctrl_thresh = 0
     };
 
-    // create instance
+	if (uart_mutex == NULL) {
+		uart_mutex = xSemaphoreCreateMutex();
+	}
+
+	// Create UART instance, set defaults
     machine_uart_obj_t *self = m_new_obj(machine_uart_obj_t);
     self->base.type = &machine_uart_type;
     self->uart_num = uart_num;
@@ -232,7 +391,15 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     self->rts = -1;
     self->cts = -1;
     self->timeout = 0;
-    self->timeout_char = 0;
+    self->patern_chr_num = 3;
+    self->patern_char = '+';
+    self->data_cb = NULL;
+    self->pattern_cb = NULL;
+    self->error_cb = NULL;
+    self->task_id = NULL;
+    self->data_cb_size = 0;
+    self->end_task = 0;
+
 
     switch (uart_num) {
         case UART_NUM_0:
@@ -252,7 +419,6 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     mp_map_t kw_args;
     mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
 
-    enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_tx, ARG_rx, ARG_rts, ARG_cts, ARG_timeout, ARG_timeout_char, ARG_buffer_size };
     mp_arg_val_t kargs[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args-1, args+1, &kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, kargs);
 
@@ -268,9 +434,9 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     // Setup
     uart_param_config(self->uart_num, &uartcfg);
 
-    // RX and TX buffers are currently hardcoded at 256 and 256 bytes respectively.
-    //esp_err_t res = uart_driver_install(uart_num, 256, 0, 10, &UART_QUEUE[self->uart_num], 0);
-    esp_err_t res = uart_driver_install(uart_num, bufsize, 0, 0, NULL, 0);
+    // RX buffer size is set from argument (default 256), TX buffer is disabled.
+    esp_err_t res = uart_driver_install(uart_num, bufsize, 0, 10, &UART_QUEUE[self->uart_num], 0);
+    //esp_err_t res = uart_driver_install(uart_num, bufsize, 0, 0, NULL, 0);
     if (res != ESP_OK) {
         nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "UART(%d) Error installing driver", uart_num));
     }
@@ -280,6 +446,12 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
 
     // Make sure pins are connected.
     uart_set_pin(self->uart_num, self->tx, self->rx, self->rts, self->cts);
+
+    //Set uart pattern detect function (This is the test pattern ABCD+++).
+    uart_disable_pattern_det_intr(self->uart_num);
+
+    //Create a task to handler UART event from ISR
+    xTaskCreate(uart_event_task, "uart_event_task", 1024, (void *)self, 12, &self->task_id);
 
     return MP_OBJ_FROM_PTR(self);
 }
@@ -300,15 +472,122 @@ STATIC mp_obj_t machine_uart_any(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_uart_any_obj, machine_uart_any);
 
+//-----------------------------------------------------
+STATIC mp_obj_t machine_uart_flush(mp_obj_t self_in) {
+    machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    uart_flush_input(self->uart_num);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_uart_flush_obj, machine_uart_flush);
+
+//-----------------------------------------------------------------------------------------------
+STATIC mp_obj_t machine_uart_callback(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+	enum { ARG_type, ARG_func, ARG_pattern, ARG_patternlen, ARG_datalen, ARG_timeout, ARG_predelay, ARG_postdelay };
+    const mp_arg_t allowed_args[] = {
+        { MP_QSTR_type,			MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_func,			MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_pattern_char,	MP_ARG_KW_ONLY  | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_pattern_len,	MP_ARG_KW_ONLY  | MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_data_len,		MP_ARG_KW_ONLY  | MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_timeout,		MP_ARG_KW_ONLY  | MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_pre_delay,	MP_ARG_KW_ONLY  | MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_post_delay,	MP_ARG_KW_ONLY  | MP_ARG_INT, { .u_int = -1 } },
+    };
+
+    machine_uart_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
+	mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    int cbtype = args[ARG_type].u_int;
+    if ((!MP_OBJ_IS_FUN(args[ARG_func].u_obj)) && (!MP_OBJ_IS_METH(args[ARG_func].u_obj))) {
+    	if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
+        switch(cbtype) {
+            case UART_CB_TYPE_DATA:
+        		self->data_cb = NULL;
+        		self->data_cb_size = 0;
+                break;
+            case UART_CB_TYPE_PATTERN:
+        	    uart_disable_pattern_det_intr(self->uart_num);
+            	self->pattern_cb = NULL;
+                break;
+            case UART_CB_TYPE_ERROR:
+            	self->error_cb = NULL;
+                break;
+            default:
+            	break;
+        }
+    	if (uart_mutex) xSemaphoreGive(uart_mutex);
+        return mp_const_none;
+    }
+
+
+    int patlen = -1;
+    int datalen = -1;
+    int timeout = 10000;
+    int predelay = 10;
+    int postdelay = 10;
+    char pchar = self->patern_char;
+
+    if (MP_OBJ_IS_STR(args[ARG_pattern].u_obj)) {
+    	const char * pattern = mp_obj_str_get_str(args[ARG_pattern].u_obj);
+    	if ((pattern) && strlen(pattern) > 0) pchar = pattern[0];
+	}
+
+	if ((args[ARG_patternlen].u_int > 1) && (args[ARG_patternlen].u_int <= 64)) patlen = args[ARG_patternlen].u_int;
+    if ((args[ARG_datalen].u_int >= 0) && (args[ARG_datalen].u_int < self->buffer_size)) datalen = args[ARG_datalen].u_int;
+
+    int tmp = args[ARG_timeout].u_int;
+    if ((tmp >= 1) && (tmp <= 200000)) timeout = tmp * 80;
+    tmp = args[ARG_predelay].u_int;
+    if ((tmp >= 1) && (tmp <= 200000)) predelay = tmp * 80;
+    tmp = args[ARG_postdelay].u_int;
+    if ((tmp >= 1) && (tmp <= 200000)) postdelay = tmp * 80;
+
+	if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
+    switch(cbtype) {
+        case UART_CB_TYPE_DATA:
+    		if (datalen >= 0) self->data_cb_size = datalen;
+    		self->data_cb = args[ARG_func].u_obj;
+            break;
+        case UART_CB_TYPE_PATTERN:
+    	    uart_disable_pattern_det_intr(self->uart_num);
+    		self->pattern_cb = args[ARG_func].u_obj;
+    		if (patlen > 0) self->patern_chr_num = patlen;
+    		if (pchar != self->patern_char) self->patern_char = pchar;
+    	    uart_enable_pattern_det_intr(self->uart_num, self->patern_char, self->patern_chr_num, timeout, postdelay, predelay);
+    	    //Reset the pattern queue length to record at most 10 pattern positions.
+    	    uart_pattern_queue_reset(self->uart_num, 10);
+            break;
+        case UART_CB_TYPE_ERROR:
+    		self->error_cb = args[ARG_func].u_obj;
+            break;
+        default:
+        	break;
+    }
+	if (uart_mutex) xSemaphoreGive(uart_mutex);
+
+	return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(machine_uart_callback_obj, 2, machine_uart_callback);
+
+
 //=================================================================
 STATIC const mp_rom_map_elem_t machine_uart_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&machine_uart_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_init),			MP_ROM_PTR(&machine_uart_init_obj) },
 
-    { MP_ROM_QSTR(MP_QSTR_any), MP_ROM_PTR(&machine_uart_any_obj) },
-    { MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&mp_stream_read_obj) },
-    { MP_ROM_QSTR(MP_QSTR_readline), MP_ROM_PTR(&mp_stream_unbuffered_readline_obj) },
-    { MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&mp_stream_readinto_obj) },
-    { MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&mp_stream_write_obj) },
+    { MP_ROM_QSTR(MP_QSTR_any),				MP_ROM_PTR(&machine_uart_any_obj) },
+    { MP_ROM_QSTR(MP_QSTR_read),			MP_ROM_PTR(&mp_stream_read_obj) },
+    { MP_ROM_QSTR(MP_QSTR_readline),		MP_ROM_PTR(&mp_stream_unbuffered_readline_obj) },
+    { MP_ROM_QSTR(MP_QSTR_readinto),		MP_ROM_PTR(&mp_stream_readinto_obj) },
+    { MP_ROM_QSTR(MP_QSTR_write),			MP_ROM_PTR(&mp_stream_write_obj) },
+    { MP_ROM_QSTR(MP_QSTR_flush),			MP_ROM_PTR(&machine_uart_flush_obj) },
+    { MP_ROM_QSTR(MP_QSTR_callback),		MP_ROM_PTR(&machine_uart_callback_obj) },
+
+	// class constants
+    { MP_ROM_QSTR(MP_QSTR_CBTYPE_DATA),		MP_ROM_INT(UART_CB_TYPE_DATA) },
+    { MP_ROM_QSTR(MP_QSTR_CBTYPE_PATTERN),	MP_ROM_INT(UART_CB_TYPE_PATTERN) },
+    { MP_ROM_QSTR(MP_QSTR_CBTYPE_ERROR),	MP_ROM_INT(UART_CB_TYPE_ERROR) },
 };
 STATIC MP_DEFINE_CONST_DICT(machine_uart_locals_dict, machine_uart_locals_dict_table);
 

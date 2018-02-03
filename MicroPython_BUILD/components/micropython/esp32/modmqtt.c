@@ -104,7 +104,7 @@ STATIC void subscribed_cb(void *self, void *params)
     	mp_obj_t tuple[2];
     	tuple[0] = mp_obj_new_str(client->name, strlen(client->name), 0);
     	if (topic) tuple[1] = mp_obj_new_str(topic, strlen(topic), 0);
-    	else tuple[1] = mp_obj_new_str("?", 1, 0);;
+    	else tuple[1] = mp_obj_new_str("?", 1, 0);
 
     	mp_sched_schedule(client->settings->mpy_subscribed_cb, mp_obj_new_tuple(2, tuple));
     }
@@ -323,32 +323,32 @@ STATIC mp_obj_t mqtt_make_new(const mp_obj_type_t *type, size_t n_args, size_t n
     self->client->settings->lwt_retain = args[ARG_retain].u_int;
 
     // set callbacks
-    if (MP_OBJ_IS_FUN(args[ARG_datacb].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_datacb].u_obj)) || (MP_OBJ_IS_METH(args[ARG_datacb].u_obj))) {
 	    self->client->settings->data_cb = (void*)data_cb;
 	    self->client->settings->mpy_data_cb = args[ARG_datacb].u_obj;
 	}
 
-    if (MP_OBJ_IS_FUN(args[ARG_connected].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_connected].u_obj)) || (MP_OBJ_IS_METH(args[ARG_connected].u_obj))) {
 	    self->client->settings->connected_cb = (void*)connected_cb;
 	    self->client->settings->mpy_connected_cb = args[ARG_connected].u_obj;
 	}
 
-    if (MP_OBJ_IS_FUN(args[ARG_disconnected].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_disconnected].u_obj)) || (MP_OBJ_IS_METH(args[ARG_disconnected].u_obj))) {
 	    self->client->settings->disconnected_cb = (void*)disconnected_cb;
 	    self->client->settings->mpy_disconnected_cb = args[ARG_disconnected].u_obj;
 	}
 
-    if (MP_OBJ_IS_FUN(args[ARG_subscribed].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_subscribed].u_obj)) || (MP_OBJ_IS_METH(args[ARG_subscribed].u_obj))) {
 	    self->client->settings->subscribe_cb = (void*)subscribed_cb;
 	    self->client->settings->mpy_subscribed_cb = args[ARG_subscribed].u_obj;
 	}
 
-    if (MP_OBJ_IS_FUN(args[ARG_unsubscribed].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_unsubscribed].u_obj)) || (MP_OBJ_IS_METH(args[ARG_unsubscribed].u_obj))) {
 	    self->client->settings->unsubscribe_cb = (void*)unsubscribed_cb;
 	    self->client->settings->mpy_unsubscribed_cb = args[ARG_unsubscribed].u_obj;
 	}
 
-    if (MP_OBJ_IS_FUN(args[ARG_published].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_published].u_obj)) || (MP_OBJ_IS_METH(args[ARG_published].u_obj))) {
 	    self->client->settings->publish_cb = (void*)published_cb;
 	    self->client->settings->mpy_published_cb = args[ARG_published].u_obj;
 	}
@@ -402,32 +402,32 @@ STATIC mp_obj_t mqtt_op_config(mp_uint_t n_args, const mp_obj_t *pos_args, mp_ma
     if (args[ARG_retain].u_int >= 0) self->client->settings->lwt_retain = args[ARG_retain].u_int;
     if (args[ARG_cleansess].u_int >= 0) self->client->settings->clean_session = args[ARG_cleansess].u_int;
 
-    if (MP_OBJ_IS_FUN(args[ARG_datacb].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_datacb].u_obj)) || (MP_OBJ_IS_METH(args[ARG_datacb].u_obj))) {
 	    self->client->settings->data_cb = NULL;
 	    self->client->settings->mpy_data_cb = args[ARG_datacb].u_obj;
 	    self->client->settings->data_cb = (void*)data_cb;
 	}
-    if (MP_OBJ_IS_FUN(args[ARG_connected].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_connected].u_obj)) || (MP_OBJ_IS_METH(args[ARG_connected].u_obj))) {
 	    self->client->settings->connected_cb = NULL;
 	    self->client->settings->mpy_connected_cb = args[ARG_connected].u_obj;
 	    self->client->settings->connected_cb = (void*)connected_cb;
 	}
-    if (MP_OBJ_IS_FUN(args[ARG_disconnected].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_disconnected].u_obj)) || (MP_OBJ_IS_METH(args[ARG_disconnected].u_obj))) {
 	    self->client->settings->disconnected_cb = NULL;
 	    self->client->settings->mpy_disconnected_cb = args[ARG_disconnected].u_obj;
 	    self->client->settings->disconnected_cb = (void*)disconnected_cb;
 	}
-    if (MP_OBJ_IS_FUN(args[ARG_subscribed].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_subscribed].u_obj)) || (MP_OBJ_IS_METH(args[ARG_subscribed].u_obj))) {
 	    self->client->settings->subscribe_cb = NULL;
 	    self->client->settings->mpy_subscribed_cb = args[ARG_subscribed].u_obj;
 	    self->client->settings->subscribe_cb = (void*)subscribed_cb;
 	}
-    if (MP_OBJ_IS_FUN(args[ARG_unsubscribed].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_unsubscribed].u_obj)) || (MP_OBJ_IS_METH(args[ARG_unsubscribed].u_obj))) {
 	    self->client->settings->unsubscribe_cb = NULL;
 	    self->client->settings->mpy_unsubscribed_cb = args[ARG_unsubscribed].u_obj;
 	    self->client->settings->unsubscribe_cb = (void*)unsubscribed_cb;
 	}
-    if (MP_OBJ_IS_FUN(args[ARG_published].u_obj)) {
+    if ((MP_OBJ_IS_FUN(args[ARG_published].u_obj)) || (MP_OBJ_IS_METH(args[ARG_published].u_obj))) {
 	    self->client->settings->publish_cb = NULL;
 	    self->client->settings->mpy_published_cb = args[ARG_published].u_obj;
 	    self->client->settings->publish_cb = (void*)published_cb;

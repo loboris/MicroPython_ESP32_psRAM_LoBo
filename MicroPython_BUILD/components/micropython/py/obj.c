@@ -244,6 +244,28 @@ mp_int_t mp_obj_get_int(mp_const_obj_t arg) {
     }
 }
 
+uint64_t mp_obj_get_int64(mp_const_obj_t arg) {
+    // This function essentially performs implicit type conversion to int64
+    // Note that Python does NOT provide implicit type conversion from
+    // float to int in the core expression language, try some_list[1.0].
+    if (arg == mp_const_false) {
+        return 0;
+    } else if (arg == mp_const_true) {
+        return 1;
+    } else if (MP_OBJ_IS_SMALL_INT(arg)) {
+        return MP_OBJ_SMALL_INT_VALUE(arg);
+    } else if (MP_OBJ_IS_TYPE(arg, &mp_type_int)) {
+        return mp_obj_int64_get_checked(arg);
+    } else {
+        if (MICROPY_ERROR_REPORTING == MICROPY_ERROR_REPORTING_TERSE) {
+            mp_raise_TypeError("can't convert to int");
+        } else {
+            nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_TypeError,
+                "can't convert %s to int", mp_obj_get_type_str(arg)));
+        }
+    }
+}
+
 mp_int_t mp_obj_get_int_truncated(mp_const_obj_t arg) {
     if (MP_OBJ_IS_INT(arg)) {
         return mp_obj_int_get_truncated(arg);

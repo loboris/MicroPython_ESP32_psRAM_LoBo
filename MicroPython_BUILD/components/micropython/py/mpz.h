@@ -134,6 +134,8 @@ static inline size_t mpz_max_num_bits(const mpz_t *z) { return z->len * MPZ_DIG_
 mp_int_t mpz_hash(const mpz_t *z);
 bool mpz_as_int_checked(const mpz_t *z, mp_int_t *value);
 bool mpz_as_uint_checked(const mpz_t *z, mp_uint_t *value);
+bool mpz_as_int64_checked(const mpz_t *i, uint64_t *value);
+bool mpz_as_uint64_checked(const mpz_t *i, uint64_t *value);
 void mpz_as_bytes(const mpz_t *z, bool big_endian, size_t len, byte *buf);
 #if MICROPY_PY_BUILTINS_FLOAT
 mp_float_t mpz_as_float(const mpz_t *z);

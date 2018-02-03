@@ -673,7 +673,7 @@ STATIC mp_obj_t esp_callback(size_t n_args, const mp_obj_t *args)
     }
 
 	if (wifi_mutex) xSemaphoreTake(wifi_mutex, 1000);
-    if (MP_OBJ_IS_FUN(args[1])) {
+    if ((MP_OBJ_IS_FUN(args[1])) || (MP_OBJ_IS_METH(args[1]))) {
 		event_callback = args[1];
     }
     else event_callback = NULL;

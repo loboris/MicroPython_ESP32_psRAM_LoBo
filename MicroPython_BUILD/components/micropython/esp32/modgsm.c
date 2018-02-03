@@ -254,7 +254,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_gsm_readSMS_obj, 1, 2, mod_gsm_re
 //-----------------------------------------------------------------
 STATIC mp_obj_t mod_gsm_SMS_cb(size_t n_args, const mp_obj_t *args)
 {
-    if (MP_OBJ_IS_FUN(args[0])) {
+    if ((MP_OBJ_IS_FUN(args[0])) || (MP_OBJ_IS_METH(args[0]))) {
 		int interval = 60;
     	if (n_args > 1) interval = mp_obj_get_int(args[1]);
 		if ((interval < 5) || (interval > 86400)) return mp_const_false;

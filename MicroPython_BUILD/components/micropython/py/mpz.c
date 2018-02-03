@@ -1614,6 +1614,47 @@ bool mpz_as_uint_checked(const mpz_t *i, mp_uint_t *value) {
     return true;
 }
 
+bool mpz_as_int64_checked(const mpz_t *i, uint64_t *value) {
+    uint64_t val = 0;
+    mpz_dig_t *d = i->dig + i->len;
+
+    while (d-- > i->dig) {
+        if (val > (~(LONG_WORD_MSBIT_HIGH) >> DIG_SIZE)) {
+            // will overflow
+            return false;
+        }
+        val = (val << DIG_SIZE) | *d;
+    }
+
+    if (i->neg != 0) {
+        val = -val;
+    }
+
+    *value = val;
+    return true;
+}
+
+bool mpz_as_uint64_checked(const mpz_t *i, uint64_t *value) {
+    if (i->neg != 0) {
+        // can't represent signed values
+        return false;
+    }
+
+    uint64_t val = 0;
+    mpz_dig_t *d = i->dig + i->len;
+
+    while (d-- > i->dig) {
+        if (val > (~(LONG_WORD_MSBIT_HIGH) >> (DIG_SIZE - 1))) {
+            // will overflow
+            return false;
+        }
+        val = (val << DIG_SIZE) | *d;
+    }
+
+    *value = val;
+    return true;
+}
+
 // writes at most len bytes to buf (so buf should be zeroed before calling)
 void mpz_as_bytes(const mpz_t *z, bool big_endian, size_t len, byte *buf) {
     byte *b = buf;
