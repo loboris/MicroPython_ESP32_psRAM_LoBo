@@ -26,12 +26,19 @@
 #ifndef MICROPY_INCLUDED_ESP32_MODNETWORK_H
 #define MICROPY_INCLUDED_ESP32_MODNETWORK_H
 
+//#define INCLUDE_PROBEREQRECVED
+
 enum { PHY_LAN8720, PHY_TLK110 };
 
 typedef struct _wlan_if_obj_t {
     mp_obj_base_t base;
     int if_id;
 } wlan_if_obj_t;
+
+#ifdef INCLUDE_PROBEREQRECVED
+typedef void (*wifi_sta_rx_probe_req_t)(const uint8_t *frame, int len, int rssi);
+extern esp_err_t esp_wifi_set_sta_rx_probe_req(wifi_sta_rx_probe_req_t cb);
+#endif
 
 extern const mp_obj_type_t wlan_if_type;
 

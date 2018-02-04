@@ -166,8 +166,34 @@ static bool wifi_sta_connected = false;
 static uint8_t _isConnected = 0;
 
 static mp_obj_t event_callback = NULL;
+static mp_obj_t probereq_callback = NULL;
 static QueueHandle_t wifi_mutex = NULL;
 
+#ifdef INCLUDE_PROBEREQRECVED
+
+static QueueHandle_t probereq_mutex = NULL;
+
+//------------------------------------------------------------------------
+static void processPROBEREQRECVED(const uint8_t *frame, int len, int rssi)
+{
+	if (probereq_callback != NULL) {
+		if (probereq_mutex) xSemaphoreTake(probereq_mutex, 1000);
+		//mp_obj_t tuple[3];
+		mp_obj_dict_t *dct = mp_obj_new_dict(0);
+		mp_obj_dict_store(dct, mp_obj_new_str("rssi", 4, false), mp_obj_new_int(rssi));
+		mp_obj_dict_store(dct, mp_obj_new_str("len", 3, false), mp_obj_new_int(len));
+		mp_obj_dict_store(dct, mp_obj_new_str("frame", 5, false), mp_obj_new_str((const char*)frame, len, false));
+
+		//tuple[0] = mp_obj_new_int(SYSTEM_EVENT_AP_PROBEREQRECVED);
+		//tuple[1] = mp_obj_new_str("Receive probe request packet", 28, false);
+		//tuple[2] = dct;
+
+		mp_sched_schedule(probereq_callback, dct); //mp_obj_new_tuple(3, tuple));
+		if (probereq_mutex) xSemaphoreGive(probereq_mutex);
+	}
+}
+
+#endif
 
 //------------------------------------------------------
 static void processEvent_callback(system_event_t *event)
@@ -343,6 +369,7 @@ STATIC mp_obj_t get_wlan(size_t n_args, const mp_obj_t *args) {
         ESP_EXCEPTIONS( esp_wifi_set_mode(0) );
         ESP_EXCEPTIONS( esp_wifi_start() );
         ESP_LOGD("modnetwork", "Started");
+
         initialized = 1;
     }
 
@@ -368,6 +395,10 @@ STATIC mp_obj_t esp_initialize() {
 
         if (wifi_mutex == NULL) wifi_mutex = xSemaphoreCreateMutex();
 
+		#ifdef INCLUDE_PROBEREQRECVED
+        if (probereq_mutex == NULL) probereq_mutex = xSemaphoreCreateMutex();
+        esp_wifi_set_sta_rx_probe_req(processPROBEREQRECVED);
+		#endif
 		initialized = 1;
     }
     return mp_const_none;
@@ -683,6 +714,27 @@ STATIC mp_obj_t esp_callback(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_callback_obj, 1, 2, esp_callback);
 
+#ifdef INCLUDE_PROBEREQRECVED
+//------------------------------------------------------------------------
+STATIC mp_obj_t esp_probereq_callback(size_t n_args, const mp_obj_t *args)
+{
+    if (n_args == 1) {
+    	if (probereq_callback == NULL) return mp_const_false;
+    	return mp_const_true;
+    }
+
+	if (probereq_mutex) xSemaphoreTake(probereq_mutex, 1000);
+    if ((MP_OBJ_IS_FUN(args[1])) || (MP_OBJ_IS_METH(args[1]))) {
+		probereq_callback = args[1];
+    }
+    else probereq_callback = NULL;
+	if (probereq_mutex) xSemaphoreGive(probereq_mutex);
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_probereq_callback_obj, 1, 2, esp_probereq_callback);
+#endif
+
 STATIC const mp_map_elem_t wlan_if_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_active), (mp_obj_t)&esp_active_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_connect), (mp_obj_t)&esp_connect_obj },
@@ -693,6 +745,9 @@ STATIC const mp_map_elem_t wlan_if_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_config), (mp_obj_t)&esp_config_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_ifconfig), (mp_obj_t)&esp_ifconfig_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_eventCB), (mp_obj_t)&esp_callback_obj },
+	#ifdef INCLUDE_PROBEREQRECVED
+    { MP_OBJ_NEW_QSTR(MP_QSTR_probereqCB), (mp_obj_t)&esp_probereq_callback_obj },
+	#endif
 };
 
 STATIC MP_DEFINE_CONST_DICT(wlan_if_locals_dict, wlan_if_locals_dict_table);

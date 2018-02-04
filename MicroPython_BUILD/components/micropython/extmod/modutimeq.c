@@ -37,7 +37,7 @@
 
 #define DEBUG 0
 
-// the algorithm here is modelled on CPython's heapq.py
+// the algorithm here is modeled on CPython's heapq.py
 
 struct qentry {
     mp_uint_t time;
@@ -121,6 +121,7 @@ STATIC void heap_siftup(mp_obj_utimeq_t *heap, mp_uint_t pos) {
     heap_siftdown(heap, start_pos, pos);
 }
 
+//------------------------------------------------------------------------
 STATIC mp_obj_t mod_utimeq_heappush(size_t n_args, const mp_obj_t *args) {
     (void)n_args;
     mp_obj_t heap_in = args[0];
@@ -134,7 +135,8 @@ STATIC mp_obj_t mod_utimeq_heappush(size_t n_args, const mp_obj_t *args) {
     	mp_float_t time = mp_obj_float_get(args[1]);
         itime = (uint32_t)time;
     }
-    else itime = MP_OBJ_SMALL_INT_VALUE(args[1]);
+    else itime = mp_obj_get_int(args[1]);
+
     heap->items[l].time = itime;
     heap->items[l].id = utimeq_id++;
     heap->items[l].callback = args[2];
@@ -145,6 +147,7 @@ STATIC mp_obj_t mod_utimeq_heappush(size_t n_args, const mp_obj_t *args) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_utimeq_heappush_obj, 4, 4, mod_utimeq_heappush);
 
+//-----------------------------------------------------------------------
 STATIC mp_obj_t mod_utimeq_heappop(mp_obj_t heap_in, mp_obj_t list_ref) {
     mp_obj_utimeq_t *heap = get_heap(heap_in);
     if (heap->len == 0) {
@@ -156,7 +159,7 @@ STATIC mp_obj_t mod_utimeq_heappop(mp_obj_t heap_in, mp_obj_t list_ref) {
     }
 
     struct qentry *item = &heap->items[0];
-    ret->items[0] = MP_OBJ_NEW_SMALL_INT(item->time);
+    ret->items[0] = mp_obj_new_int(item->time);
     ret->items[1] = item->callback;
     ret->items[2] = item->args;
     heap->len -= 1;
@@ -170,6 +173,7 @@ STATIC mp_obj_t mod_utimeq_heappop(mp_obj_t heap_in, mp_obj_t list_ref) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(mod_utimeq_heappop_obj, mod_utimeq_heappop);
 
+//-----------------------------------------------------
 STATIC mp_obj_t mod_utimeq_peektime(mp_obj_t heap_in) {
     mp_obj_utimeq_t *heap = get_heap(heap_in);
     if (heap->len == 0) {
@@ -177,7 +181,7 @@ STATIC mp_obj_t mod_utimeq_peektime(mp_obj_t heap_in) {
     }
 
     struct qentry *item = &heap->items[0];
-    return MP_OBJ_NEW_SMALL_INT(item->time);
+    return mp_obj_new_int(item->time);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_utimeq_peektime_obj, mod_utimeq_peektime);
 
