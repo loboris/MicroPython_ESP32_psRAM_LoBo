@@ -352,6 +352,9 @@ check_Environment() {
         tar -xf esp-idf.tar.xz > /dev/null 2>&1
         if [ $? -ne 0 ]; then
             echo "unpacking 'esp-idf' FAILED"
+            if [ "${machine}" == "Win" ]; then
+                echo "On Windows, it may be a false error, run './BUILD.sh menuconfig' again!"
+            fi
             return 1
         fi
     fi

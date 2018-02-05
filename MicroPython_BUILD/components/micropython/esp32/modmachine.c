@@ -195,6 +195,11 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
     if (expiry > 0) {
         esp_deep_sleep_enable_timer_wakeup((uint64_t)(expiry * 1000));
     }
+    else {
+        if ((machine_rtc_config.ext0_pin < 0) && (machine_rtc_config.ext1_pins == 0) && (!machine_rtc_config.wake_on_touch))  {
+            mp_raise_ValueError("No other wake-up sources configured, sleep time cannot be 0 !");
+        }
+    }
 
     if (machine_rtc_config.ext0_pin != -1) {
         esp_deep_sleep_enable_ext0_wakeup(machine_rtc_config.ext0_pin, machine_rtc_config.ext0_level ? 1 : 0);
@@ -224,8 +229,8 @@ STATIC mp_obj_t machine_wake_reason (void) {
     mpsleep_wake_reason_t wake_reason = mpsleep_get_wake_reason();
     mp_obj_t tuple[2];
 
-    tuple[0] = mp_obj_new_int(wake_reason);
-    tuple[1] = mp_obj_new_int(reset_reason);
+    tuple[0] = mp_obj_new_int(reset_reason);
+    tuple[1] = mp_obj_new_int(wake_reason);
     return mp_obj_new_tuple(2, tuple);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(machine_wake_reason_obj, machine_wake_reason);

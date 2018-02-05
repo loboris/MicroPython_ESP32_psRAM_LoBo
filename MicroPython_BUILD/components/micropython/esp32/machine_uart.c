@@ -183,7 +183,7 @@ static void uart_event_task(void *pvParameters)
 									mp_obj_t tuple[3];
 									tuple[0] = mp_obj_new_int(self->uart_num+1);
 									tuple[1] = mp_obj_new_int(UART_CB_TYPE_DATA);
-									tuple[2] = mp_obj_new_str((const char*)dtmp, datasize, 0);
+									tuple[2] = mp_obj_new_str((const char*)dtmp, self->data_cb_size, 0);
 									mp_sched_schedule(self->data_cb, mp_obj_new_tuple(3, tuple));
 								}
 								else if (self->pattern_cb) {
