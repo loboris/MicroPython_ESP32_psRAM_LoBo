@@ -16,9 +16,11 @@ menu "MicroPython"
         default "GMT0BST"
         help
         Set the default time zone string used when updating the time from NTP server
-        You can use 'components/micropython/docs/zones.csvzones.csv'
+        You can use 'components/micropython/docs/zones.csv'
         file to find the time zone string.
-        Use the second entry for your Region/city as the value set here
+        Use the second entry for your Region/city as the value set here. Example:
+        For Zagreb, the zones.csv file contains :"Europe/Zagreb","CET-1CEST,M3.5.0,M10.5.0/3".
+        You should put "CET-1CEST,M3.5.0,M10.5.0/3" or "CET-1CEST" as Time zone.
 
     config MICROPY_USE_OTA
         bool "Use OTA partition layout"
@@ -269,6 +271,15 @@ menu "MicroPython"
 	        help
 	        Include Ftp support in Curl module
 	        Not including it may save ~24 KB of flash code space
+	
+	    config MICROPY_USE_MAIL
+	        bool "MAIL support in Curl module"
+	        depends on MICROPY_USE_CURL
+	        default y
+	        help
+	        Include Mail support in Curl module
+	        Mail support is based on 'quickmail' library which is licensed under GPL,
+	        so you may want to exclude it from the build
 	
 	    config MICROPY_USE_SSH
 	        bool "Use SSH module"

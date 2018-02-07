@@ -46,8 +46,11 @@
 #include "py/runtime.h"
 
 #include "libs/espcurl.h"
-#include "quickmail.h"
 #include "extmod/vfs_native.h"
+
+#ifdef CONFIG_MICROPY_USE_MAIL
+#include "quickmail.h"
+#endif
 
 //----------------------------------
 static int check_file(char *fname) {
@@ -300,6 +303,8 @@ STATIC mp_obj_t curl_POST(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(curl_POST_obj, 1, curl_POST);
 
+#ifdef CONFIG_MICROPY_USE_MAIL
+
 //---------------------------------------------------------------------------------------
 STATIC mp_obj_t curl_sendmail(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
@@ -433,6 +438,7 @@ STATIC mp_obj_t curl_sendmail(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(curl_sendmail_obj, 1, curl_sendmail);
 
+#endif // CONFIG_MICROPY_USE_MAIL
 
 #ifdef CONFIG_MICROPY_USE_CURLFTP
 
@@ -538,7 +544,11 @@ STATIC const mp_rom_map_elem_t curl_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_options),		MP_ROM_PTR(&curl_Options_obj) },
     { MP_ROM_QSTR(MP_QSTR_get),			MP_ROM_PTR(&curl_GET_obj) },
     { MP_ROM_QSTR(MP_QSTR_post),		MP_ROM_PTR(&curl_POST_obj) },
+
+	#ifdef CONFIG_MICROPY_USE_MAIL
     { MP_ROM_QSTR(MP_QSTR_sendmail),	MP_ROM_PTR(&curl_sendmail_obj) },
+	#endif
+
 	#ifdef CONFIG_MICROPY_USE_CURLFTP
     { MP_ROM_QSTR(MP_QSTR_ftp_get),		MP_ROM_PTR(&curl_FTP_GET_obj) },
     { MP_ROM_QSTR(MP_QSTR_ftp_put),		MP_ROM_PTR(&curl_FTP_PUT_obj) },
@@ -546,8 +556,10 @@ STATIC const mp_rom_map_elem_t curl_module_globals_table[] = {
 	#endif
 
 	// Constants
+	#ifdef CONFIG_MICROPY_USE_MAIL
 	{ MP_ROM_QSTR(MP_QSTR_SMTP),		MP_ROM_INT(QUICKMAIL_PROT_SMTP) },
     { MP_ROM_QSTR(MP_QSTR_SMTPS),		MP_ROM_INT(QUICKMAIL_PROT_SMTPS) },
+	#endif
 };
 STATIC MP_DEFINE_CONST_DICT(curl_module_globals, curl_module_globals_table);
 

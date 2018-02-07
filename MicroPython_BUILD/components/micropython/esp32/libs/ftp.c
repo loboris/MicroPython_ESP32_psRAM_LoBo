@@ -171,6 +171,7 @@ typedef enum {
     E_FTP_CMD_NOOP,
     E_FTP_CMD_QUIT,
     E_FTP_CMD_APPE,
+    E_FTP_CMD_NLST,
     E_FTP_NUM_FTP_CMDS
 } ftp_cmd_index_t;
 
@@ -185,12 +186,13 @@ static ftp_data_t ftp_data = {0};
 static char *ftp_path = NULL;
 static char *ftp_scratch_buffer = NULL;;
 static char *ftp_cmd_buffer = NULL;
+static uint8_t ftp_nlist = 0;
 static const ftp_cmd_t ftp_cmd_table[] = { { "FEAT" }, { "SYST" }, { "CDUP" }, { "CWD"  },
                                            { "PWD"  }, { "XPWD" }, { "SIZE" }, { "MDTM" },
                                            { "TYPE" }, { "USER" }, { "PASS" }, { "PASV" },
                                            { "LIST" }, { "RETR" }, { "STOR" }, { "DELE" },
                                            { "RMD"  }, { "MKD"  }, { "RNFR" }, { "RNTO" },
-                                           { "NOOP" }, { "QUIT" }, { "APPE" } };
+                                           { "NOOP" }, { "QUIT" }, { "APPE" }, { "NLST" } };
 
 // ==== PRIVATE FUNCTIONS ===================================================
 
@@ -279,7 +281,7 @@ static ftp_result_t ftp_open_dir_for_listing (const char *path) {
 }
 
 //---------------------------------------------------------------------------------
-static int ftp_print_eplf_item (char *dest, uint32_t destsize, struct dirent *de) {
+static int ftp_get_eplf_item (char *dest, uint32_t destsize, struct dirent *de) {
 
     char *type = (de->d_type & DT_DIR) ? "d" : "-";
 
@@ -293,7 +295,7 @@ static int ftp_print_eplf_item (char *dest, uint32_t destsize, struct dirent *de
 	int res = stat(fullname, &buf);
 	if (res < 0) {
 		buf.st_size = 0;
-		buf.st_atime = 946684800; // Jan 1, 2000
+		buf.st_mtime = 946684800; // Jan 1, 2000
 	}
 
 	char str_time[64];
@@ -306,11 +308,12 @@ static int ftp_print_eplf_item (char *dest, uint32_t destsize, struct dirent *de
     if ((buf.st_mtime + FTP_UNIX_SECONDS_180_DAYS) < now) strftime(str_time, 127, "%b %d %Y", tm_info);
     else strftime(str_time, 63, "%b %d %H:%M", tm_info);
 
-    return snprintf(dest, destsize, "%srw-rw-r--   1 root  root %9u %s %s\r\n", type, (uint32_t)buf.st_size, str_time, de->d_name);
+    if (ftp_nlist) return snprintf(dest, destsize, "%s\r\n", de->d_name);
+    return snprintf(dest, destsize, "%srw-rw-rw-   1 root  root %9u %s %s\r\n", type, (uint32_t)buf.st_size, str_time, de->d_name);
 }
 
 //---------------------------------------------------------------------------
-static int ftp_print_eplf_drive (char *dest, uint32_t destsize, char *name) {
+static int ftp_get_eplf_drive (char *dest, uint32_t destsize, char *name) {
     char *type = "d";
     struct tm *tm_info;
     time_t seconds;
@@ -319,7 +322,7 @@ static int ftp_print_eplf_drive (char *dest, uint32_t destsize, char *name) {
     char str_time[64];
     strftime(str_time, 63, "%b %d %Y", tm_info);
 
-    return snprintf(dest, destsize, "%srw-rw-r--   1 root  root %9u %s %s\r\n", type, 0, str_time, name);
+    return snprintf(dest, destsize, "%srw-rw-rw-   1 root  root %9u %s %s\r\n", type, 0, str_time, name);
 }
 
 //---------------------------------------------------------------------------------------
@@ -331,10 +334,10 @@ static ftp_result_t ftp_list_dir (char *list, uint32_t maxlistsize, uint32_t *li
 
     if (ftp_data.listroot) {
     	if (native_vfs_mounted[0]) {
-            next += ftp_print_eplf_drive((list + next), (maxlistsize - next), "flash");
+            next += ftp_get_eplf_drive((list + next), (maxlistsize - next), "flash");
     	}
     	if (native_vfs_mounted[1]) {
-            next += ftp_print_eplf_drive((list + next), (maxlistsize - next), "sd");
+            next += ftp_get_eplf_drive((list + next), (maxlistsize - next), "sd");
     	}
         *listsize = next;
         return E_FTP_RESULT_OK;
@@ -352,7 +355,7 @@ static ftp_result_t ftp_list_dir (char *list, uint32_t maxlistsize, uint32_t *li
 
 		// add the entry to the list
     	ESP_LOGD(FTP_TAG, "Add to dir list: %s", de->d_name);
-		next += ftp_print_eplf_item((list + next), (maxlistsize - next), de);
+		next += ftp_get_eplf_item((list + next), (maxlistsize - next), de);
         listcount++;
     }
     if (result == E_FTP_RESULT_OK) {
@@ -633,19 +636,20 @@ static void ftp_fix_path(char *pwd) {
 //-------------------------------------------------
 static void ftp_open_child (char *pwd, char *dir) {
     ESP_LOGD(FTP_TAG, "open_child: %s + %s", pwd, dir);
-    if (dir[0] == '/') {
-    	// ** absolute path
-        strcpy(pwd, dir);
+    if (strlen(dir) > 0) {
+		if (dir[0] == '/') {
+			// ** absolute path
+			strcpy(pwd, dir);
+		}
+		else {
+			// ** relative path
+			// add trailing '/' if needed
+			if ((strlen(pwd) > 1) && (pwd[strlen(pwd)-1] != '/') && (dir[0] != '/')) strcat(pwd, "/");
+			// append directory/file name
+			strcat(pwd, dir);
+		}
+	    ftp_fix_path(pwd);
     }
-    else {
-		// ** relative path
-		// add trailing '/' if needed
-		if ((strlen(pwd) > 1) && (pwd[strlen(pwd)-1] != '/') && (dir[0] != '/')) strcat(pwd, "/");
-		// append directory/file name
-		strcat(pwd, dir);
-    }
-
-    ftp_fix_path(pwd);
 	ESP_LOGD(FTP_TAG, "open_child, New pwd: %s", pwd);
 }
 
@@ -685,7 +689,8 @@ static void ftp_close_child (char *pwd) {
 //-----------------------------------------------------------
 static void remove_fname_from_path (char *pwd, char *fname) {
     ESP_LOGD(FTP_TAG, "remove_fname_from_path: %s - %s", pwd, fname);
-	char *xpwd = strstr(pwd, fname);
+    if (strlen(fname) == 0) return;
+    char *xpwd = strstr(pwd, fname);
 	if (xpwd == NULL) return;
 
 	xpwd[0] = '\0';
@@ -696,12 +701,24 @@ static void remove_fname_from_path (char *pwd, char *fname) {
 
 // ==== Param functions =================================================
 
-//----------------------------------------------------------------------
-static void ftp_pop_param(char **str, char *param, bool stop_on_space) {
-    while (**str != '\r' && **str != '\n' && **str != '\0') {
-        if (stop_on_space && (**str == ' ')) {
-            break;
+//------------------------------------------------------------------------------------------
+static void ftp_pop_param(char **str, char *param, bool stop_on_space, bool stop_on_newline)
+{
+	char lastc = '\0';
+    while (**str != '\0') {
+        if (stop_on_space && (**str == ' ')) break;
+        if ((**str == '\r') || (**str == '\n')) {
+        	if (!stop_on_newline) {
+                (*str)++;
+                continue;
+        	}
+        	else break;
         }
+        if ((**str == '/') && (lastc == '/')) {
+            (*str)++;
+            continue;
+        }
+        lastc = **str;
         *param++ = **str;
         (*str)++;
     }
@@ -711,7 +728,7 @@ static void ftp_pop_param(char **str, char *param, bool stop_on_space) {
 //--------------------------------------------------
 static ftp_cmd_index_t ftp_pop_command(char **str) {
     char _cmd[FTP_CMD_SIZE_MAX];
-    ftp_pop_param (str, _cmd, true);
+    ftp_pop_param (str, _cmd, true, true);
     stoupper (_cmd);
     for (ftp_cmd_index_t i = 0; i < E_FTP_NUM_FTP_CMDS; i++) {
         if (!strcmp (_cmd, ftp_cmd_table[i].cmd)) {
@@ -726,7 +743,7 @@ static ftp_cmd_index_t ftp_pop_command(char **str) {
 // Get file name from parameter and append to ftp_path
 //-------------------------------------------------------
 static void ftp_get_param_and_open_child(char **bufptr) {
-    ftp_pop_param(bufptr, ftp_scratch_buffer, false);
+    ftp_pop_param(bufptr, ftp_scratch_buffer, false, false);
     ftp_open_child(ftp_path, ftp_scratch_buffer);
     ftp_data.closechild = true;
 }
@@ -741,10 +758,13 @@ static void ftp_process_cmd (void) {
 	struct stat buf;
 	int res;
 
+	memset(bufptr, 0, FTP_MAX_PARAM_SIZE + FTP_CMD_SIZE_MAX);
     ftp_data.closechild = false;
+
     // use the reply buffer to receive new commands
     result = ftp_recv_non_blocking(ftp_data.c_sd, ftp_cmd_buffer, FTP_MAX_PARAM_SIZE + FTP_CMD_SIZE_MAX, &len);
     if (result == E_FTP_RESULT_OK) {
+    	ftp_cmd_buffer[len] = '\0';
         // bufptr is moved as commands are being popped
         ftp_cmd_index_t cmd = ftp_pop_command(&bufptr);
         if (!ftp_data.loggin.passvalid &&
@@ -770,26 +790,38 @@ static void ftp_process_cmd (void) {
             ftp_send_reply(250, NULL);
             break;
         case E_FTP_CMD_CWD:
-            {
-                ftp_pop_param (&bufptr, ftp_scratch_buffer, false);
-                ftp_open_child (ftp_path, ftp_scratch_buffer);
-                if ((ftp_path[0] == '/') && (ftp_path[1] == '\0')) {
-                    ftp_data.dp = NULL;
-                    ftp_send_reply(250, NULL);
-                }
-                else {
-                	ftp_data.dp = opendir(ftp_path);
-                    if (ftp_data.dp != NULL) {
-                        closedir(ftp_data.dp);
-                        ftp_data.dp = NULL;
-                        ftp_send_reply(250, NULL);
-                    }
-                    else {
-                        ftp_close_child (ftp_path);
-                        ftp_send_reply(550, NULL);
-                    }
-                }
-            }
+			ftp_pop_param (&bufptr, ftp_scratch_buffer, false, false);
+
+			if (strlen(ftp_scratch_buffer) > 0) {
+				if ((ftp_scratch_buffer[0] == '.') && (ftp_scratch_buffer[1] == '\0')) {
+					ftp_data.dp = NULL;
+					ftp_send_reply(250, NULL);
+					break;
+				}
+				if ((ftp_scratch_buffer[0] == '.') && (ftp_scratch_buffer[1] == '.') && (ftp_scratch_buffer[2] == '\0')) {
+					ftp_close_child (ftp_path);
+		            ftp_send_reply(250, NULL);
+		            break;
+				}
+				else ftp_open_child (ftp_path, ftp_scratch_buffer);
+			}
+
+			if ((ftp_path[0] == '/') && (ftp_path[1] == '\0')) {
+				ftp_data.dp = NULL;
+				ftp_send_reply(250, NULL);
+			}
+			else {
+				ftp_data.dp = opendir(ftp_path);
+				if (ftp_data.dp != NULL) {
+					closedir(ftp_data.dp);
+					ftp_data.dp = NULL;
+					ftp_send_reply(250, NULL);
+				}
+				else {
+					ftp_close_child (ftp_path);
+					ftp_send_reply(550, NULL);
+				}
+			}
             break;
         case E_FTP_CMD_PWD:
         case E_FTP_CMD_XPWD:
@@ -834,14 +866,14 @@ static void ftp_process_cmd (void) {
             ftp_send_reply(200, NULL);
             break;
         case E_FTP_CMD_USER:
-            ftp_pop_param (&bufptr, ftp_scratch_buffer, true);
+            ftp_pop_param (&bufptr, ftp_scratch_buffer, true, true);
             if (!memcmp(ftp_scratch_buffer, ftp_user, MAX(strlen(ftp_scratch_buffer), strlen(ftp_user)))) {
                 ftp_data.loggin.uservalid = true && (strlen(ftp_user) == strlen(ftp_scratch_buffer));
             }
             ftp_send_reply(331, NULL);
             break;
         case E_FTP_CMD_PASS:
-            ftp_pop_param (&bufptr, ftp_scratch_buffer, true);
+            ftp_pop_param (&bufptr, ftp_scratch_buffer, true, true);
             if (!memcmp(ftp_scratch_buffer, ftp_pass, MAX(strlen(ftp_scratch_buffer), strlen(ftp_pass))) &&
                     ftp_data.loggin.uservalid) {
                 ftp_data.loggin.passvalid = true && (strlen(ftp_pass) == strlen(ftp_scratch_buffer));
@@ -870,77 +902,106 @@ static void ftp_process_cmd (void) {
                     ftp_data.substate = E_FTP_STE_SUB_LISTEN_FOR_DATA;
                 	ESP_LOGD(FTP_TAG, "Data socket created");
                     ftp_send_reply(227, (char *)ftp_data.dBuffer);
-                } else {
+                }
+                else {
                 	ESP_LOGW(FTP_TAG, "Error creating data socket");
                     ftp_send_reply(425, NULL);
                 }
             }
             break;
         case E_FTP_CMD_LIST:
+       	case E_FTP_CMD_NLST:
+            ftp_get_param_and_open_child(&bufptr);
+            if (cmd == E_FTP_CMD_LIST) ftp_nlist = 0;
+        	else ftp_nlist = 1;
             if (ftp_open_dir_for_listing(ftp_path) == E_FTP_RESULT_CONTINUE) {
                 ftp_data.state = E_FTP_STE_CONTINUE_LISTING;
                 ftp_send_reply(150, NULL);
-            } else {
-                ftp_send_reply(550, NULL);
             }
+            else ftp_send_reply(550, NULL);
             break;
         case E_FTP_CMD_RETR:
         	ftp_data.total = 0;
         	ftp_data.time = 0;
             ftp_get_param_and_open_child(&bufptr);
-            if (ftp_open_file(ftp_path, "rb")) {
-                ftp_data.state = E_FTP_STE_CONTINUE_FILE_TX;
-	            vTaskDelay(50 / portTICK_PERIOD_MS);
-                ftp_send_reply(150, NULL);
-            } else {
-                ftp_data.state = E_FTP_STE_END_TRANSFER;
-                ftp_send_reply(550, NULL);
+            if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+				if (ftp_open_file(ftp_path, "rb")) {
+					ftp_data.state = E_FTP_STE_CONTINUE_FILE_TX;
+					vTaskDelay(20 / portTICK_PERIOD_MS);
+					ftp_send_reply(150, NULL);
+				}
+				else {
+					ftp_data.state = E_FTP_STE_END_TRANSFER;
+					ftp_send_reply(550, NULL);
+				}
+            }
+            else {
+				ftp_data.state = E_FTP_STE_END_TRANSFER;
+				ftp_send_reply(550, NULL);
             }
             break;
         case E_FTP_CMD_APPE:
         	ftp_data.total = 0;
         	ftp_data.time = 0;
             ftp_get_param_and_open_child(&bufptr);
-			if (ftp_open_file(ftp_path, "ab")) {
-				ftp_data.state = E_FTP_STE_CONTINUE_FILE_RX;
-	            vTaskDelay(50 / portTICK_PERIOD_MS);
-				ftp_send_reply(150, NULL);
-			} else {
+            if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+				if (ftp_open_file(ftp_path, "ab")) {
+					ftp_data.state = E_FTP_STE_CONTINUE_FILE_RX;
+					vTaskDelay(20 / portTICK_PERIOD_MS);
+					ftp_send_reply(150, NULL);
+				}
+				else {
+					ftp_data.state = E_FTP_STE_END_TRANSFER;
+					ftp_send_reply(550, NULL);
+				}
+            }
+            else {
 				ftp_data.state = E_FTP_STE_END_TRANSFER;
 				ftp_send_reply(550, NULL);
-			}
+            }
             break;
         case E_FTP_CMD_STOR:
         	ftp_data.total = 0;
         	ftp_data.time = 0;
             ftp_get_param_and_open_child(&bufptr);
-			if (ftp_open_file(ftp_path, "wb")) {
-				ftp_data.state = E_FTP_STE_CONTINUE_FILE_RX;
-	            vTaskDelay(50 / portTICK_PERIOD_MS);
-				ftp_send_reply(150, NULL);
-			} else {
+            if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+				if (ftp_open_file(ftp_path, "wb")) {
+					ftp_data.state = E_FTP_STE_CONTINUE_FILE_RX;
+					vTaskDelay(20 / portTICK_PERIOD_MS);
+					ftp_send_reply(150, NULL);
+				}
+				else {
+					ftp_data.state = E_FTP_STE_END_TRANSFER;
+					ftp_send_reply(550, NULL);
+				}
+            }
+            else {
 				ftp_data.state = E_FTP_STE_END_TRANSFER;
 				ftp_send_reply(550, NULL);
-			}
+            }
             break;
         case E_FTP_CMD_DELE:
         case E_FTP_CMD_RMD:
             ftp_get_param_and_open_child(&bufptr);
-            if (unlink(ftp_path) >= 0) {
-                vTaskDelay(50 / portTICK_PERIOD_MS);
-                ftp_send_reply(250, NULL);
-            } else {
-                ftp_send_reply(550, NULL);
+            if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+				if (unlink(ftp_path) >= 0) {
+					vTaskDelay(20 / portTICK_PERIOD_MS);
+					ftp_send_reply(250, NULL);
+				}
+				else ftp_send_reply(550, NULL);
             }
+            else ftp_send_reply(250, NULL);
             break;
         case E_FTP_CMD_MKD:
             ftp_get_param_and_open_child(&bufptr);
-            if (mkdir(ftp_path, 0755) == 0) {
-                vTaskDelay(50 / portTICK_PERIOD_MS);
-                ftp_send_reply(250, NULL);
-            } else {
-                ftp_send_reply(550, NULL);
+            if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+				if (mkdir(ftp_path, 0755) == 0) {
+					vTaskDelay(20 / portTICK_PERIOD_MS);
+					ftp_send_reply(250, NULL);
+				}
+				else ftp_send_reply(550, NULL);
             }
+            else ftp_send_reply(250, NULL);
             break;
         case E_FTP_CMD_RNFR:
             ftp_get_param_and_open_child(&bufptr);

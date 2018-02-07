@@ -7,7 +7,11 @@
 COMPONENT_ADD_INCLUDEDIRS := .  genhdr py esp32 lib lib/utils lib/mp-readline extmod extmod/crypto-algorithms lib/netutils drivers/dht \
 							 lib/timeutils  lib/berkeley-db-1.xx/include lib/berkeley-db-1.xx/btree \
 							 lib/berkeley-db-1.xx/db lib/berkeley-db-1.xx/hash lib/berkeley-db-1.xx/man lib/berkeley-db-1.xx/mpool lib/berkeley-db-1.xx/recno \
-							 ../curl/include ../curl/lib ../zlib ../libssh2/include ../quickmail ../espmqtt/include
+							 ../curl/include ../curl/lib ../zlib ../libssh2/include ../espmqtt/include
+ifdef CONFIG_MICROPY_USE_MAIL
+COMPONENT_ADD_INCLUDEDIRS += ../quickmail
+endif
+
 COMPONENT_PRIV_INCLUDEDIRS := .  genhdr py esp32 lib
 
 BUILD = $(BUILD_DIR_BASE)
@@ -44,7 +48,6 @@ FROZEN_MPY_DIR = $(COMPONENT_PATH)/esp32/modules
 ESPCOMP = $(IDF_PATH)/components
 MP_EXTRA_INC += -I.
 MP_EXTRA_INC += -I$(COMPONENT_PATH)
-MP_EXTRA_INC += -I$(PROJECT_PATH)/components/quickmail
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/curl/include
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/libssh2/include
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/zlib
@@ -99,6 +102,10 @@ MP_EXTRA_INC += -I$(ESPCOMP)/heap/include
 MP_EXTRA_INC += -I$(ESPCOMP)/openssl/include
 MP_EXTRA_INC += -I$(ESPCOMP)/app_update/include
 MP_EXTRA_INC += -I$(ESPCOMP)/mdns/include
+
+ifdef CONFIG_MICROPY_USE_MAIL
+MP_EXTRA_INC += -I$(PROJECT_PATH)/components/quickmail
+endif
 
 # CPP macro
 # ------------
