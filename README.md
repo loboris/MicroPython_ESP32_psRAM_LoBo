@@ -1,6 +1,94 @@
-# MicroPython for ESP32
+# ESP32 Template Plus
 
-# with support for 4MB of psRAM
+This repository contains an esp-idt template on steroids: in a few minutes you can have a fully functional build to flash your ESP32 with, and to jumpstart your own project.
+
+It is a mash-up of other repos:
+- https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
+- https://github.com/espressif/arduino-esp32
+- https://github.com/m5stack/M5Stack
+- https://github.com/tomsuch/M5StackSAM
+- https://github.com/yanbe/esp32-ota-server
+
+Plus other additions I cherry picked up and there. In order to import future improvements, I mantain some bridge repos on my account.
+
+I made it to test my M5Stack and it works good for me. I hope you enjoy it too.
+
+## Index
+1. Install instructions
+2. Features
+3. Status
+
+## 1. Install instructions
+
+1. Clone:
+
+git clone https://github.com/mfp20/esp-idf-template-plus.git
+
+2. Subclone:
+
+git submodule update --init --recursive
+
+3. Configure:
+
+./build.sh menuconfig
+
+4. Build:
+
+./build.sh
+
+5. Flash:
+
+./build.sh flash
+
+6. Enjoy!
+
+## 2. Features
+
+* MicroPython core based on latest build from [main Micropython repository](https://github.com/micropython/micropython)
+* added changes needed to build for ESP32 with psRAM
+* Default configuration has **2MB** of MicroPython heap, **20KB** of MicroPython stack, **~200KB** of free DRAM heap for C modules and functions
+* MicroPython can be built in **unicore** (FreeRTOS & MicroPython task running only on the first ESP32 core, or **dualcore** configuration (MicroPython task running on ESP32 **App** core)
+* ESP32 Flash can be configured in any mode, **QIO**, **QOUT**, **DIO**, **DOUT**
+* **BUILD.sh** script is provided to make **building** MicroPython firmware as **easy** as possible
+* Internal Fat filesystem is built with esp-idf **wear leveling** driver, so there is less danger of damaging the flash with frequent writes.
+* **SPIFFS** filesystem is supported and can be used instead of FatFS in SPI Flash. Configurable via **menuconfig**
+* Flexible automatic and/or manual filesystem configuration
+* **sdcard** support is included which uses esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For imformation on how to connect sdcard see the documentation.
+* Files **timestamp** is correctly set to system time both on internal fat filesysten and on sdcard
+* **Native ESP32 VFS** support for spi Flash & sdcard filesystems.
+* **RTC Class** is added to machine module, including methods for synchronization of system time to **ntp** server, **deepsleep**, **wakeup** from deepsleep **on external pin** level, ...
+* **Time zone** can be configured via **menuconfig** and is used when syncronizing time from NTP server
+* Built-in **ymodem module** for fast transfer of text/binary files to/from host
+* Some additional frozen modules are added, like **pye** editor, **urequests**, **functools**, **logging**, ...
+* **Btree** module included, can be Enabled/Disabled via **menuconfig**
+* **_threads** module greatly improved, inter-thread **notifications** and **messaging** included
+* **Neopixel** module using ESP32 **RMT** peripheral with many new features
+* **DHT** module implemented using ESP32 RMT peripheral
+* **1-wire** module implemented using ESP32 RMT peripheral
+* **i2c** module uses ESP32 hardware i2c driver
+* **spi** module uses ESP32 hardware spi driver
+* **adc** module improved, new functions added
+* **pwm** module, ESP32 hardware based
+* **timer** module improved, new timer types and features
+* **curl** module added, many client protocols including FTP and eMAIL
+* **ssh** module added with sftp/scp support and _exec_ function to execute program on server
+* **display** module added with full support for spi TFT displays
+* **mqtt** module added, implemented in C, runs in separate task
+* **mDNS** module added, implemented in C, runs in separate task
+* **telnet** module added, connect to **REPL via WiFi** using telnet protocol
+* **ftp** server module added, runs as separate ESP32 task
+* **GSM/PPPoS** support, connect to the Internet via GSM module
+* **OTA Update** supported, various partitions layouts
+* **Eclipse** project files included. To include it into Eclipse goto File->Import->Existing Projects into Workspace->Select *esp-idf-template-plus* directory->Finish. **Rebuild index**.
+
+## 3. Status
+
+It builds on **Linux** but should be fine on **MacOS** and **Windows** as well. Please try and report back!
+The default image runs MicroPhyton on M5Stack. The other processes (Arduino and OTA Server) are created but not started yet.
+
+# TO BE CONTINUED ...
+
+# OLD README
 
 <br>
 
@@ -50,42 +138,6 @@ This way many features not available in standard ESP32 MicroPython are enabled, 
 
 ### Features
 
-* MicroPython core based on latest build from [main Micropython repository](https://github.com/micropython/micropython)
-* added changes needed to build for ESP32 with psRAM
-* Default configuration has **2MB** of MicroPython heap, **20KB** of MicroPython stack, **~200KB** of free DRAM heap for C modules and functions
-* MicroPython can be built in **unicore** (FreeRTOS & MicroPython task running only on the first ESP32 core, or **dualcore** configuration (MicroPython task running on ESP32 **App** core)
-* ESP32 Flash can be configured in any mode, **QIO**, **QOUT**, **DIO**, **DOUT**
-* **BUILD.sh** script is provided to make **building** MicroPython firmware as **easy** as possible
-* Internal Fat filesystem is built with esp-idf **wear leveling** driver, so there is less danger of damaging the flash with frequent writes.
-* **SPIFFS** filesystem is supported and can be used instead of FatFS in SPI Flash. Configurable via **menuconfig**
-* Flexible automatic and/or manual filesystem configuration
-* **sdcard** support is included which uses esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For imformation on how to connect sdcard see the documentation.
-* Files **timestamp** is correctly set to system time both on internal fat filesysten and on sdcard
-* **Native ESP32 VFS** support for spi Flash & sdcard filesystems.
-* **RTC Class** is added to machine module, including methods for synchronization of system time to **ntp** server, **deepsleep**, **wakeup** from deepsleep **on external pin** level, ...
-* **Time zone** can be configured via **menuconfig** and is used when syncronizing time from NTP server
-* Built-in **ymodem module** for fast transfer of text/binary files to/from host
-* Some additional frozen modules are added, like **pye** editor, **urequests**, **functools**, **logging**, ...
-* **Btree** module included, can be Enabled/Disabled via **menuconfig**
-* **_threads** module greatly improved, inter-thread **notifications** and **messaging** included
-* **Neopixel** module using ESP32 **RMT** peripheral with many new features
-* **DHT** module implemented using ESP32 RMT peripheral
-* **1-wire** module implemented using ESP32 RMT peripheral
-* **i2c** module uses ESP32 hardware i2c driver
-* **spi** module uses ESP32 hardware spi driver
-* **adc** module improved, new functions added
-* **pwm** module, ESP32 hardware based
-* **timer** module improved, new timer types and features
-* **curl** module added, many client protocols including FTP and eMAIL
-* **ssh** module added with sftp/scp support and _exec_ function to execute program on server
-* **display** module added with full support for spi TFT displays
-* **mqtt** module added, implemented in C, runs in separate task
-* **mDNS** module added, implemented in C, runs in separate task
-* **telnet** module added, connect to **REPL via WiFi** using telnet protocol
-* **ftp** server module added, runs as separate ESP32 task
-* **GSM/PPPoS** support, connect to the Internet via GSM module
-* **OTA Update** supported, various partitions layouts
-* **Eclipse** project files included. To include it into Eclipse goto File->Import->Existing Projects into Workspace->Select root directory->[select *MicroPython_BUILD* directory]->Finish. **Rebuild index**.
 
 ---
 
