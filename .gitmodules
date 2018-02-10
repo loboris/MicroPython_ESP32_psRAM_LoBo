@@ -1,0 +1,6 @@
+[submodule "components/ota-server"]
+	path = components/ota-server
+	url = https://github.com/yanbe/esp32-ota-server.git
+[submodule "components/arduino"]
+	path = components/arduino
+	url = https://github.com/espressif/arduino-esp32.git
