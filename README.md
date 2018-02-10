@@ -1,4 +1,6 @@
-# ESP32 Template Plus
+# ESP32 Template Plus #
+
+## Work In Progress!!! The code in this repo should be considered alpha and not used in production environments. ##
 
 This repository contains an esp-idt template on steroids: in a few minutes you can have a fully functional build to flash your ESP32 with, and to jumpstart your own project.
 
@@ -13,54 +15,58 @@ Plus other additions I cherry picked up and there. In order to import future imp
 
 I made it to test my tiny [M5Stack](http://www.m5stack.com/) and it works good for me. I hope you enjoy it too.
 
-## Index
+## Index ##
 1. Install instructions
 2. Features
 3. Status
 4. References/Docs
 
-## 1. Install instructions
+## 1. Install instructions ##
 
 1. Clone:
 
-git clone https://github.com/mfp20/esp-idf-template-plus.git
+`git clone https://github.com/mfp20/esp-idf-template-plus.git`
 
 2. Subclone:
 
-git submodule update --init --recursive
+`git submodule update --init --recursive`
 
 3. Configure:
 
-./build.sh menuconfig
+`./build.sh menuconfig`
 
 4. Build:
 
-./build.sh
+`./build.sh`
 
 5. Flash:
 
-./build.sh flash
+`./build.sh flash`
 
 6. Enjoy!
 
-## 2. Features
+## 2. Features ##
 
+### 2.1. Major add-ons ###
 * Includes the latest **MicroPython** build from [main Micropython repository](https://github.com/micropython/micropython). Courtesy of [Loboris](https://github.com/loboris).
 * Includes the latest **Arduino's ESP32 libraries** to seamless run Arduino code on the ESP32 boards.
 * Includes an **OTA push server** to update remote devices.
 * Includes code to **send raw 802.11 packets and monitor mode**.
-* Includes **menu-driven configuration and a build.sh script** to make as **easy** as possible building the firmware. The regular esp-idf menuconfig system can be used for configuration of Micropython, Arduino and OTA Server options because they are built-in as esp-idf components. No manual *sdkconfig.h* editing and tweaking is necessary. Courtesy of [Loboris](https://github.com/loboris). 
+* Includes **menu-driven configuration and a build.sh script** to make as **easy** as possible building the firmware. The regular esp-idf menuconfig system can be used for configuration of Micropython, Arduino and OTA Server options because they are built-in as esp-idf components. No manual *sdkconfig.h* editing and tweaking is necessary. Courtesy of [Loboris](https://github.com/loboris).
 
-* Supports ESP32 boards **with and without psRAM**. MicroPython works great on ESP32, but the most serious issue is still (as on most other MicroPython boards) limited amount of free memory left after boot (~100KB). This repository contains all the tools and sources necessary to build working MicroPython firmware which can fully use the advantages of 4MB (or more) of psRAM. Flash memory is limited as well, but on ESP32 both RAM and FLASH can be expanded up to **16MB**, making even more valuable the chance to use psRAM to exploit more complex applications installed on the expanded flash memory. Courtesy of [Loboris](https://github.com/loboris).
+### 2.2. Other Features ###
 * Supports both **unicore** (MicroPython, Arduino and OTA Server tasks running only on the first ESP32 core) and **dualcore** (MicroPython task running on ESP32 App core, all the others on the Pro core) configurations. User can choose the core to run each task.
+* Supports ESP32 boards **with and without psRAM**. MicroPython works great on ESP32, but the most serious issue is still (as on most other MicroPython boards) limited amount of free memory left after boot (~100KB). This repository contains all the tools and sources necessary to build working MicroPython firmware which can fully use the advantages of 4MB (or more) of psRAM. Flash memory is limited as well, but on ESP32 both RAM and FLASH can be expanded up to **16MB**, making even more valuable the chance to use psRAM to exploit more complex applications installed on the expanded flash memory. Courtesy of [Loboris](https://github.com/loboris).
+* Default configuration has **2MB** of MicroPython heap, **20KB** of MicroPython stack, **~200KB** of free DRAM heap for C modules and functions.
 * Supports all flash memory access modes: QIO, QOUT, DIO, DOUT. Defaults to **QIO, 80Mhz**.
-* Internal Fat filesystem is built with esp-idf **wear leveling** driver, so there is less danger of damaging the flash with frequent writes.
-* Default configuration has **2MB** of MicroPython heap, **20KB** of MicroPython stack, **~200KB** of free DRAM heap for C modules and functions
-* **SPIFFS** filesystem is supported and can be used instead of FatFS in SPI Flash. Configurable via **menuconfig**
-* Flexible automatic and/or manual filesystem configuration
+* Supports **Fat filesystem with esp-idf wear leveling driver**, so there is less danger of damaging the flash with frequent writes.
+* Supports **SPIFFS filesystem** and it can be used instead of FatFS in SPI Flash.
 * **sdcard** support is included which uses esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For imformation on how to connect sdcard see the documentation.
 * Files **timestamp** is correctly set to system time both on internal fat filesysten and on sdcard
 * **Native ESP32 VFS** support for spi Flash & sdcard filesystems.
+* Flexible automatic and/or manual filesystem configuration.
+
+### 2.3. Included modules ###
 * **RTC Class** is added to machine module, including methods for synchronization of system time to **ntp** server, **deepsleep**, **wakeup** from deepsleep **on external pin** level, ...
 * **Time zone** can be configured via **menuconfig** and is used when syncronizing time from NTP server
 * Built-in **ymodem module** for fast transfer of text/binary files to/from host
@@ -86,12 +92,12 @@ git submodule update --init --recursive
 * **OTA Update** supported, various partitions layouts
 * **Eclipse** project files included. To include it into Eclipse goto File->Import->Existing Projects into Workspace->Select *esp-idf-template-plus* directory->Finish. **Rebuild index**.
 
-## 3. Status
+## 3. Status ##
 
 It builds on **Linux** but should be fine on **MacOS** and **Windows** as well. Please try and report back!
 The default image runs MicroPhyton on M5Stack. The other processes (Arduino and OTA Server) are created but not started yet.
 
-### 3.1. Hardware support
+### 3.1. Hardware support ###
 
 | Board             | Micropython   | Arduino | Others |
 | ----------------- |:-------------:| -------:| ------:|
@@ -110,20 +116,12 @@ Currently, there are several modules & development boards that ship with 4MB of 
 * **ALB32-WROVER** _module_ (4 MB SPIRAM & 4/8/16 MB Flash) from [AnalogLamb](https://www.analoglamb.com/product/alb32-wrover-esp32-module-with-64mb-flash-and-32mb-psram/).
 * **S01**, **L01** and **G01** _OEM modules_ from [Pycom](https://pycom.io/webshop#oem-products).
 
-## 4. References/Docs
+## 4. References/Docs ##
 
 * [Loboris' Wiki](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki), mostly focused on the Micropython part.
 * Micropython examples on [Lobori's repo](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/tree/master/MicroPython_BUILD/components/micropython/esp32/modules_examples).
 
-
-# TO BE CONTINUED ...
-
-# OLD README
-
----
-
 ### Example terminal session
-
 
 ```
 I (0) cpu_start: App cpu up.
