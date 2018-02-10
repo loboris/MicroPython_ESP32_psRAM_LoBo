@@ -1,19 +1,34 @@
-menu "MicroPython"
+menuconfig ENABLE_MICROPYTHON
+	bool "MicroPython Configuration"
+	default "y"
+
+	config AUTOSTART_MICROPYTHON
+	    bool "Autostart Micropython on boot"
+	    default "y"
+	 	depends on ENABLE_MICROPYTHON
+	    help
+    	Enabling this option will start Micropython on boot.
+        If disabled the memory is allocated, and the task is created 
+        but it is suspended waiting for resume.
+
     config MICROPY_HW_BOARD_NAME
         string "Board name"
         default "ESP32 board"
+	 	depends on ENABLE_MICROPYTHON
         help
-        Hardware board mame
+        Hardware board mame.
 
     config MICROPY_HW_MCU_NAME
         string "MCU name"
         default "ESP32"
+	 	depends on ENABLE_MICROPYTHON
         help
-        Hardware MCU mame
+        Hardware MCU mame.
 
     config MICROPY_TIMEZONE
         string "Time zone"
         default "GMT0BST"
+	 	depends on ENABLE_MICROPYTHON
         help
         Set the default time zone string used when updating the time from NTP server
         You can use 'components/micropython/docs/zones.csv'
@@ -25,19 +40,22 @@ menu "MicroPython"
     config MICROPY_USE_OTA
         bool "Use OTA partition layout"
         default n
+	 	depends on ENABLE_MICROPYTHON
         help
         Use OTA partition layout and include OTA module into build
 
     config GPIO_INPUT_FORCE_FACTORY
         bool "Use GPIO2 to force boot from Factory partition"
+	 	depends on ENABLE_MICROPYTHON
 		depends on MICROPY_USE_OTA
-        default no
+        default n
         help
         If OTA layout is enabled and OTA update has been executed
         the system will boot from one of the OTA partition
         To force boot from Factory partition GPIO2 must be high for 3 seconds during boot
 
     menu "System settings"
+	 	depends on ENABLE_MICROPYTHON
 		config MICRO_PY_LOG_LEVEL
 		    int
 		    default 0 if MICRO_PY_LOG_LEVEL0
@@ -196,6 +214,7 @@ menu "MicroPython"
     endmenu
 
     menu "Modules"
+	 	depends on ENABLE_MICROPYTHON
 	    config MICROPY_PY_FRAMEBUF
 	        bool "Enable framebuffer"
 	        default n
@@ -358,6 +377,7 @@ menu "MicroPython"
 	    endmenu
 	endmenu
     menu "File systems"
+	 	depends on ENABLE_MICROPYTHON
         config MICROPY_FATFS_MAX_OPEN_FILES
             int "Maximum number of opened files"
             range 4 24
@@ -380,6 +400,7 @@ menu "MicroPython"
     endmenu
 
     menu "SD Card configuration"
+	 	depends on ENABLE_MICROPYTHON
 		config SDCARD_MODE
 		    int
 		    default 1 if SDCARD_MODE1
@@ -433,4 +454,3 @@ menu "MicroPython"
             help
             Pin used as SPI CS
     endmenu
-endmenu

@@ -90,6 +90,11 @@ int MainTaskCore = 0;
 
 //===============================
 void mp_task(void *pvParameter) {
+#if CONFIG_AUTOSTART_MICROPYTHON
+#else
+	vTaskSuspend( NULL );
+#endif
+
     volatile uint32_t sp = (uint32_t)get_sp();
 
 	#ifdef CONFIG_MICROPY_USE_TASK_WDT
@@ -227,9 +232,7 @@ soft_reset:
 
 
 //============================
-void micropython_entry(void) {
-    nvs_flash_init();
-
+TaskHandle_t micropython_entry(void) {
     // === Set esp32 log levels while running MicroPython ===
 	esp_log_level_set("*", CONFIG_MICRO_PY_LOG_LEVEL);
 	esp_log_level_set("wifi", 1);
@@ -281,6 +284,8 @@ void micropython_entry(void) {
 			MainTaskHandle = xTaskCreateStaticPinnedToCore(&mp_task, "mp_task", MP_TASK_STACK_LEN, NULL, MP_TASK_PRIORITY, &mp_task_stack[0], &mp_task_tcb, 1);
 		#endif
 	#endif
+
+	return MainTaskHandle;
 }
 
 //-----------------------------

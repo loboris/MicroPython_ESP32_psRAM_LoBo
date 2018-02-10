@@ -156,7 +156,7 @@ set_partitions() {
         fi
         
         echo "# -------------------------------------------------------"  > partitions_mpy.csv
-        echo "# -    Partition layout generaded by BUILD.sh script    -" >> partitions_mpy.csv
+        echo "# -    Partition layout generaded by build.sh script    -" >> partitions_mpy.csv
         echo "# -------------------------------------------------------" >> partitions_mpy.csv
         echo "# Name,         Type, SubType, Offset,  Size,       Flags" >> partitions_mpy.csv
         echo "# -------------------------------------------------------" >> partitions_mpy.csv
@@ -199,7 +199,7 @@ set_partitions() {
         fi
 
         echo "# -------------------------------------------------------"  > partitions_mpy.csv
-        echo "# -    Partition layout generaded by BUILD.sh script    -" >> partitions_mpy.csv
+        echo "# -    Partition layout generaded by build.sh script    -" >> partitions_mpy.csv
         echo "# -------------------------------------------------------" >> partitions_mpy.csv
         echo "# Name,         Type, SubType, Offset,  Size,       Flags" >> partitions_mpy.csv
         echo "# -------------------------------------------------------" >> partitions_mpy.csv
@@ -299,7 +299,7 @@ check_Environment() {
     fi
 
 
-    cd Tools
+    cd tools
     # -----------------------------------------
     # _psram directories are not needed anymore
     # -----------------------------------------
@@ -353,7 +353,7 @@ check_Environment() {
         if [ $? -ne 0 ]; then
             echo "unpacking 'esp-idf' FAILED"
             if [ "${machine}" == "Win" ]; then
-                echo "On Windows, it may be a false error, run './BUILD.sh menuconfig' again!"
+                echo "On Windows, it may be a false error, run './build.sh menuconfig' again!"
             fi
             return 1
         fi
@@ -379,6 +379,7 @@ check_Environment() {
             return 1
         fi
     fi
+    cd ${BUILD_BASE_DIR}
     return 0
 }
 
@@ -509,7 +510,7 @@ checkCommand() {
     # Test if valid sdkconfig exists
     if [ "${arg}" == "all" ] || [ "${arg}" == "clean" ]; then
         if [ ! -f "sdkconfig" ]; then
-            echo "'sdkconfig' NOT FOUND, RUN ./BUILD.sh menuconfig FIRST."
+            echo "'sdkconfig' NOT FOUND, RUN ./build.sh menuconfig FIRST."
             echo ""
             return 1
         fi

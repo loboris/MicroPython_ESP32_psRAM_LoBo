@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # #################################################################
-# This script makes it easy to build MicroPython firmware for ESP32
+# This script makes it easy to build the firmware for ESP32
 # #################################################################
 
 # Usage:
-#   ./BUILD.sh [<options>] [<command> ... <command>]
+#   ./build.sh [<options>] [<command> ... <command>]
 
 # Commands:
 #                     - run the build, create MicroPython firmware
@@ -40,7 +40,8 @@
 
 
 # #################################################################
-# Author: Boris Lovosevic; https://github.com/loboris; 11/2017
+# Author: Boris Lovosevic; https://github.com/loboris ; 11/2017
+# Janitor: mfp20; https://github.com/mfp20 ; 02/2018
 # #################################################################
 
 
@@ -65,7 +66,7 @@ BUILD_BASE_DIR=${PWD}
 # ---------------------------------------
 # Include functions used in build process
 # ---------------------------------------
-. "build_func.sh"
+. "functions.sh"
 # ---------------------------------------
 
 
@@ -87,8 +88,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-cd ../
-
 # -----------------------------------
 # --- Check the build environment ---
 # -----------------------------------
@@ -97,25 +96,20 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# return to base build directory
-cd ${BUILD_BASE_DIR}
-
 # Original OS PATH is used for building
 # mpycross, mkspiffs and mkfatfs
 export orig_PATH=${PATH}
 # ----------------------------------
 # --- SET XTENSA & ESP-IDF PATHS ---
 # ----------------------------------
-cd ../
+
 # Add Xtensa toolchain path to system path, and export path to esp-idf
-export xtensa_PATH=${PWD}/Tools/xtensa-esp32-elf/bin:$PATH
+export xtensa_PATH=${BUILD_BASE_DIR}/tools/xtensa-esp32-elf/bin:$PATH
 export PATH=${xtensa_PATH}
-export IDF_PATH=${PWD}/Tools/esp-idf
+export IDF_PATH=${BUILD_BASE_DIR}/tools/esp-idf
 
 export HOST_PLATFORM=${machine}
 export CROSS_COMPILE=xtensa-esp32-elf-
-
-cd ${BUILD_BASE_DIR}
 
 # -----------------------------
 # Create partitions layout file
@@ -181,8 +175,8 @@ do
     fi
 
     if [ "${arg}" == "flash" ]; then
-        if [ ! -f "build/MicroPython.bin" ]; then
-            echo "'build/MicroPython.bin' not found"
+        if [ ! -f "build/firmware.bin" ]; then
+            echo "'build/firmware.bin' not found"
             echo "The firmware must be built before flashing!"
             echo ""
             exit 1
@@ -208,7 +202,7 @@ do
         if [ "${arg}" == "all" ]; then
             echo "--------------------------------"
             echo "Build complete."
-            echo "You can now run ./BUILD.sh flash"
+            echo "You can now run ./build.sh flash"
             echo "to deploy the firmware to ESP32"
             echo "--------------------------------"
         fi

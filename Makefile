@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := MicroPython
+PROJECT_NAME := firmware
 
 # ##########################################################################
 # Variables for creating/flashing spiffs image file
@@ -79,5 +79,21 @@ copyfatfs:
 	@echo "$(INTERNALFS_IMAGE_COMPONENT_PATH)/fatfs_image.img"
 	@echo "-----------------------------"
 	$(ESPTOOLPY_WRITE_FLASH) $(CONFIG_MICROPY_INTERNALFS_START) $(INTERNALFS_IMAGE_COMPONENT_PATH)/fatfs_image.img
+
+otafs:
+	@echo "----------------------------"
+	@echo "Sending the image ..."
+	@echo "----------------------------"
+	@echo "$(INTERNALFS_IMAGE_COMPONENT_PATH)/spiffs_image.img"
+	@echo "-----------------------------"
+	curl ${ESP32_IP}:8032 --data-binary @- < $(BUILD_DIR_BASE)/spiffs_image.img
+
+otafatfs:
+	@echo "----------------------------"
+	@echo "Sending the image ..."
+	@echo "----------------------------"
+	@echo "$(INTERNALFS_IMAGE_COMPONENT_PATH)/fatfs_image.img"
+	@echo "-----------------------------"
+	curl ${ESP32_IP}:8032 --data-binary @- < $(BUILD_DIR_BASE)/fatfs_image.img
 
 include $(IDF_PATH)/make/project.mk

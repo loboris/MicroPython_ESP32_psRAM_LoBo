@@ -1,0 +1,43 @@
+choice
+	prompt "Select hw type"
+	config ESP32
+		bool "ESP32"
+		help
+			Generic ESP32 board.
+	config M5STACK
+		bool "M5Stack"
+		help
+			M5Stack Core ESP32 Gen1.
+endchoice
+config HW_TYPE
+	int
+    default 0 if ESP32
+    default 1 if M5STACK
+
+menuconfig ENABLE_WIFI
+    bool "Enable WiFi on boot"
+    select LWIP_SO_RCVBUF
+    select ETHERNET
+    select WIFI_ENABLED
+    select ESP32_PHY_CALIBRATION_AND_DATA_STORAGE
+    select MEMMAP_SMP
+    default "y"
+    
+config WIFI_SSID
+    string ""
+    default "WIFI"
+	depends on ENABLE_WIFI
+    help
+        The SSID it will connect on boot.
+
+config WIFI_PASSWORD
+    string ""
+    default "WIFIpassword"
+	depends on ENABLE_WIFI
+    help
+        The SSID's password to connect.
+
+config WIFI_AUTOCONNECT
+    bool "Connect on boot"
+	depends on ENABLE_WIFI
+    default "y"
