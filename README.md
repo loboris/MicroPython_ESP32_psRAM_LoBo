@@ -44,13 +44,16 @@ git submodule update --init --recursive
 
 ## 2. Features
 
-* MicroPython core based on latest build from [main Micropython repository](https://github.com/micropython/micropython)
-* added changes needed to build for ESP32 with psRAM
-* Default configuration has **2MB** of MicroPython heap, **20KB** of MicroPython stack, **~200KB** of free DRAM heap for C modules and functions
-* MicroPython can be built in **unicore** (FreeRTOS & MicroPython task running only on the first ESP32 core, or **dualcore** configuration (MicroPython task running on ESP32 **App** core)
-* ESP32 Flash can be configured in any mode, **QIO**, **QOUT**, **DIO**, **DOUT**
-* **BUILD.sh** script is provided to make **building** MicroPython firmware as **easy** as possible
+* Includes the latest **MicroPython** build from [main Micropython repository](https://github.com/micropython/micropython). Courtesy of (Loboris)[https://github.com/loboris].
+* Includes the latest **Arduino's ESP32 libraries** to seamless run Arduino code on the ESP32 boards.
+* Includes an **OTA push server** to update remote devices.
+* Includes code to **send raw 802.11 packets and monitor mode**.
+* Includes **menu-driven configuration and a build.sh script** to make as **easy** as possible building the firmware.
+* Supports ESP32 boards with **psRAM**. Courtesy of (Loboris)[https://github.com/loboris].
+* Supports both **unicore** (MicroPython, Arduino and OTA Server tasks running only on the first ESP32 core) and **dualcore** (MicroPython task running on ESP32 App core, all the others on the Pro core) configurations. User can choose the core to run each task.
+* Supports all flash memory access modes: QIO, QOUT, DIO, DOUT. Defaults to **QIO, 80Mhz**.
 * Internal Fat filesystem is built with esp-idf **wear leveling** driver, so there is less danger of damaging the flash with frequent writes.
+* Default configuration has **2MB** of MicroPython heap, **20KB** of MicroPython stack, **~200KB** of free DRAM heap for C modules and functions
 * **SPIFFS** filesystem is supported and can be used instead of FatFS in SPI Flash. Configurable via **menuconfig**
 * Flexible automatic and/or manual filesystem configuration
 * **sdcard** support is included which uses esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For imformation on how to connect sdcard see the documentation.
