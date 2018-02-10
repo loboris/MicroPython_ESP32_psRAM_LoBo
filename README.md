@@ -11,12 +11,13 @@ It is a mash-up of other repos:
 
 Plus other additions I cherry picked up and there. In order to import future improvements, I mantain some bridge repos on my account.
 
-I made it to test my M5Stack and it works good for me. I hope you enjoy it too.
+I made it to test my tiny [M5Stack](http://www.m5stack.com/) and it works good for me. I hope you enjoy it too.
 
 ## Index
 1. Install instructions
 2. Features
 3. Status
+4. References/Docs
 
 ## 1. Install instructions
 
@@ -48,8 +49,9 @@ git submodule update --init --recursive
 * Includes the latest **Arduino's ESP32 libraries** to seamless run Arduino code on the ESP32 boards.
 * Includes an **OTA push server** to update remote devices.
 * Includes code to **send raw 802.11 packets and monitor mode**.
-* Includes **menu-driven configuration and a build.sh script** to make as **easy** as possible building the firmware. Courtesy of [Loboris](https://github.com/loboris).
-* Supports ESP32 boards with **psRAM**. Courtesy of [Loboris](https://github.com/loboris).
+* Includes **menu-driven configuration and a build.sh script** to make as **easy** as possible building the firmware. The regular esp-idf menuconfig system can be used for configuration of Micropython, Arduino and OTA Server options because they are built-in as esp-idf components. No manual *sdkconfig.h* editing and tweaking is necessary. Courtesy of [Loboris](https://github.com/loboris). 
+
+* Supports ESP32 boards **with and without psRAM**. MicroPython works great on ESP32, but the most serious issue is still (as on most other MicroPython boards) limited amount of free memory left after boot (~100KB). This repository contains all the tools and sources necessary to build working MicroPython firmware which can fully use the advantages of 4MB (or more) of psRAM. Flash memory is limited as well, but on ESP32 both RAM and FLASH can be expanded up to **16MB**, making even more valuable the chance to use psRAM to exploit more complex applications installed on the expanded flash memory. Courtesy of [Loboris](https://github.com/loboris).
 * Supports both **unicore** (MicroPython, Arduino and OTA Server tasks running only on the first ESP32 core) and **dualcore** (MicroPython task running on ESP32 App core, all the others on the Pro core) configurations. User can choose the core to run each task.
 * Supports all flash memory access modes: QIO, QOUT, DIO, DOUT. Defaults to **QIO, 80Mhz**.
 * Internal Fat filesystem is built with esp-idf **wear leveling** driver, so there is less danger of damaging the flash with frequent writes.
@@ -89,23 +91,14 @@ git submodule update --init --recursive
 It builds on **Linux** but should be fine on **MacOS** and **Windows** as well. Please try and report back!
 The default image runs MicroPhyton on M5Stack. The other processes (Arduino and OTA Server) are created but not started yet.
 
-# TO BE CONTINUED ...
+### 3.1. Hardware support
 
-# OLD README
+| Board             | Micropython   | Arduino | Others |
+| ----------------- |:-------------:| -------:| ------:|
+| M5Stack           | [works](https://github.com/mfp20)     | WiP     | WiP    |
+| ESP-WROVER-KIT v3 | [works](https://github.com/loboris)     | unknown | unknown|
 
-<br>
-
-> This repository can be used to build MicroPython for ESP32 boards/modules with **psRAM** as well as for ESP32 boards/modules **without psRAM.**<br><br>
-> *Building on* **Linux**, **MacOS** *and* **Windows** (including **Linux Subsystem on Windows 10**) *is supported*.<br><br>
-> MicroPython works great on ESP32, but the most serious issue is still (as on most other MicroPython boards) limited amount of free memory.<br>
-> This repository contains all the tools and sources necessary to **build working MicroPython firmware** which can fully use the advantages of **4MB** (or more) of **psRAM**.<br>
-> It is **huge difference** between MicroPython running with **less than 100KB** of free memory and running with **4MB** of free memory.
-
-<br>
-
-ESP32 can use external **SPIRAM** (psRAM) to expand available RAM up to 16MB.
-
-Currently, there are several modules & development boards which incorporates **4MB** of psRAM:<br>
+Currently, there are several modules & development boards that ship with 4MB of psRAM, some examples:<br>
 
 * [**M5Stack**](http://www.m5stack.com) _Development Kit_ [version with psRAM](https://www.aliexpress.com/store/product/M5Stack-NEWEST-4M-PSRAM-ESP32-Development-Board-with-MPU9250-9DOF-Sensor-Color-LCD-for-Arduino-Micropython/3226069_32847906756.html?spm=2114.12010608.0.0.1ba0ee41gOPji)
 * **TTGO T8 V1.1** _board_, available at [eBay](https://www.ebay.com/itm/TTGO-T8-V1-1-ESP32-4MB-PSRAM-TF-CARD-3D-ANTENNA-WiFi-bluetooth/152891206854?hash=item239906acc6:g:7QkAAOSwMfhadD85)
@@ -117,126 +110,15 @@ Currently, there are several modules & development boards which incorporates **4
 * **ALB32-WROVER** _module_ (4 MB SPIRAM & 4/8/16 MB Flash) from [AnalogLamb](https://www.analoglamb.com/product/alb32-wrover-esp32-module-with-64mb-flash-and-32mb-psram/).
 * **S01**, **L01** and **G01** _OEM modules_ from [Pycom](https://pycom.io/webshop#oem-products).
 
----
+## 4. References/Docs
 
-[Wiki pages](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki) with detailed documentation specific to this **MicroPython** port are available.
-
-Some examples can be found in [modules_examples](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/tree/master/MicroPython_BUILD/components/micropython/esp32/modules_examples) directory.
-
----
-
-This repository contains all the tools and sources necessary to **build working MicroPython firmware** which can fully use the advantages of **4MB** (or more) of **psRAM**
-
-It is **huge difference** between MicroPython running with **less than 100KB** of free memory and running with **4MB** of free memory.
-
----
-
-## **The MicroPython firmware is built as esp-idf component**
-
-This means the regular esp-idf **menuconfig** system can be used for configuration. Besides the ESP32 configuration itself, many MicroPython options can also be configured via **menuconfig**.
-
-This way many features not available in standard ESP32 MicroPython are enabled, like unicore/dualcore, all Flash speed/mode options etc. No manual *sdkconfig.h* editing and tweaking is necessary.
-
----
-
-### Features
+* [Loboris' Wiki](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki), mostly focused on the Micropython part.
+* Micropython examples on [Lobori's repo](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/tree/master/MicroPython_BUILD/components/micropython/esp32/modules_examples).
 
 
----
+# TO BE CONTINUED ...
 
-
-### How to Build
-
----
-
-Detailed instructions on **MicroPython** building process are available in the [Wiki](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki/build).
-
----
-
-
-#### Using file systems
-
-Detailed information about using MicroPython file systems are available in the [Wiki](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki/filesystems).
-
----
-
-
-### Some examples
-
-Using new machine methods and RTC:
-
-```python
-import machine
-
-rtc = machine.RTC()
-
-rtc.init((2017, 6, 12, 14, 35, 20))
-
-rtc.now()
-
-rtc.ntp_sync(server="<ntp_server>" [,update_period=])
-  # <ntp_server> can be empty string, then the default server is used ("pool.ntp.org")
-
-rtc.synced()
-  # returns True if time synchronized to NTP server
-
-rtc.wake_on_ext0(Pin, level)
-rtc.wake_on_ext1(Pin, level)
-  # wake up from deepsleep on pin level
-
-machine.deepsleep(10000)
-ESP32: DEEP SLEEP
-
-# ...
-# ...
-
-Reset reason: Deepsleep wake-up
-Wakeup source: RTC wake-up
-    uPY stack: 19456 bytes
-     uPY heap: 3073664/5664/3068000 bytes (in SPIRAM using malloc)
-
-MicroPython ESP32_LoBo_v3.1.0 - 2017-01-03 on ESP32 board with ESP32
-Type "help()" for more information.
-
-machine.wake_reason()
-  # returns tuple with reset & wakeup reasons
-machine.wake_description()
-  # returns tuple with strings describing reset & wakeup reasons
-
-```
-
-Using sdcard module:
-
-```python
-import uos
-
-uos.mountsd()
-uos.listdir('/sd')
-```
-
-Working directory can be changed to root of the sd card automatically on mount:
-
-```python
->>> import uos
->>> uos.mountsd(True)
----------------------
- Mode:  SD (4bit)
- Name: NCard
- Type: SDHC/SDXC
-Speed: default speed (25 MHz)
- Size: 15079 MB
-  CSD: ver=1, sector_size=512, capacity=30881792 read_bl_len=9
-  SCR: sd_spec=2, bus_width=5
-
->>> uos.listdir()
-['overlays', 'bcm2708-rpi-0-w.dtb', ......
->>>
-```
-
----
-
-Tested on **ESP-WROVER-KIT v3**
-![Tested on](https://raw.githubusercontent.com/loboris/MicroPython_ESP32_psRAM_LoBo/master/Documents/ESP-WROVER-KIT_v3_small.jpg)
+# OLD README
 
 ---
 
