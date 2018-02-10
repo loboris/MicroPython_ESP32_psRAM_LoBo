@@ -44,12 +44,12 @@ git submodule update --init --recursive
 
 ## 2. Features
 
-* Includes the latest **MicroPython** build from [main Micropython repository](https://github.com/micropython/micropython). Courtesy of (Loboris)[https://github.com/loboris].
+* Includes the latest **MicroPython** build from [main Micropython repository](https://github.com/micropython/micropython). Courtesy of [Loboris](https://github.com/loboris).
 * Includes the latest **Arduino's ESP32 libraries** to seamless run Arduino code on the ESP32 boards.
 * Includes an **OTA push server** to update remote devices.
 * Includes code to **send raw 802.11 packets and monitor mode**.
-* Includes **menu-driven configuration and a build.sh script** to make as **easy** as possible building the firmware.
-* Supports ESP32 boards with **psRAM**. Courtesy of (Loboris)[https://github.com/loboris].
+* Includes **menu-driven configuration and a build.sh script** to make as **easy** as possible building the firmware. Courtesy of [Loboris](https://github.com/loboris).
+* Supports ESP32 boards with **psRAM**. Courtesy of [Loboris](https://github.com/loboris).
 * Supports both **unicore** (MicroPython, Arduino and OTA Server tasks running only on the first ESP32 core) and **dualcore** (MicroPython task running on ESP32 App core, all the others on the Pro core) configurations. User can choose the core to run each task.
 * Supports all flash memory access modes: QIO, QOUT, DIO, DOUT. Defaults to **QIO, 80Mhz**.
 * Internal Fat filesystem is built with esp-idf **wear leveling** driver, so there is less danger of damaging the flash with frequent writes.
