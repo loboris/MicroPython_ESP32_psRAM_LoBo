@@ -278,12 +278,15 @@ In any case is always possible to solder psRAM and/or extra flash yourself. Thos
 
 ### 2.2. Customize ###
 
-The project is 99% open source and mostly MIT/Apache licenses. The only binary blobs are the infamous radio craps: wifi, BT, GSM, ... as usual.
+The project is 99% open source and mostly MIT/Apache licenses. The only binary blobs are the infamous radio craps: wifi, BT, GSM, ... as usual. It means you can customize anything at wish.
+
 The directory structure is fairly straight forward:
-- esp32-project-template/main: contains the main.c file with the app_main() function that it is run at boot. It initializes the hw, the ota server task, and runs both arduino and micropython tasks. The arduino task in turn set the menu on display where to choose (using the hw buttons) one of the apps.c app to run on display.
-- esp32-project-template/components: contains the esp-idf components.
-- esp32-project-template/tools: contains the ESP32 sdk, xtensa buildchains for Linux/MacOS/Windows included.
-- esp32-project-template/docs: self-explanatory.
+- esp32-template-plus/main: contains the main.c file with the app_main() function that it is run at boot. It initializes the hw, the ota server task, and runs both arduino and micropython tasks. The arduino task in turn sets the menu on display where to choose (using the hw buttons) one of the apps.c app to run on display.
+- esp32-template-plus/main/ino: contains ino.h and ino.c, stubs to inject your custom arduino app. Just copy your .ino app in that folder, renaming the setup/loop file as ino.c and create its header file ino.h containing the setup() and loop() function prototypes; note that setup() and loop() must be static functions. To make it work in place of the default app menu, you must choose "Custom" in the menuconfig. To make it work togheter with the default app menu, you must choose "Both" in the menuconfig.
+- esp32-template-plus/components: contains the esp-idf components.
+- esp32-template-plus/tools: contains the ESP32 sdk, xtensa buildchains for Linux/MacOS/Windows included.
+- esp32-template-plus/firmwares: contains prebuilt firmware images and their configuration files (sdkconfig and partitions.csv).
+- esp32-template-plus/docs: self-explanatory.
 
 <a name="res"/>
 
@@ -297,9 +300,10 @@ In order to merge future revisions, I mantain some bridge repos on my account. S
 - https://github.com/yanbe/esp32-ota-server
 - plus other additions I cherry picked up and there.
 
-You can find some docs at: 
-- [Loboris' Wiki](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki), mostly focused on the Micropython part.
-- Micropython examples on [Lobori's repo](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/tree/master/MicroPython_BUILD/components/micropython/esp32/modules_examples).
+You can find docs at:
+- Espressif's [esp-idf](https://github.com/espressif/esp-idf) sdk; and it's [manual](https://esp-idf.readthedocs.io/en/latest/). 
+- Loboris' [wiki](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki), mostly focused on the Micropython part; [examples](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/tree/master/MicroPython_BUILD/components/micropython/esp32/modules_examples) included.
+- M5Stack's [website](http://www.m5stack.com/).
 
 <a name="todo"/>
 

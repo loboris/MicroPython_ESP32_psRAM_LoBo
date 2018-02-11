@@ -4,3 +4,6 @@
 [submodule "components/arduino"]
 	path = components/arduino
 	url = https://github.com/mfp20/arduino-esp32.git
+[submodule "main/M5StackSAM"]
+	path = main/M5StackSAM
+	url = https://github.com/mfp20/M5StackSAM.git

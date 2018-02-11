@@ -76,6 +76,11 @@ static void wifi_init(void)
 #endif
 
 // Arduino
+static void ardus(){
+}
+static void ardul(){
+}
+
 /*
 #include <M5Stack.h>
 #include <Wire.h>
@@ -89,7 +94,7 @@ M5SAM MyMenu;
 void dummy(){
 }
 
-void setup() {
+static void ardus() {
   M5.begin();
   M5.lcd.setBrightness(195);
   Serial.begin(115200);
@@ -138,7 +143,7 @@ void setup() {
   MyMenu.show();
 }
 
-void loop() {
+static void ardul() {
   M5.update();
   if(M5.BtnC.wasPressed())MyMenu.up();
   if(M5.BtnA.wasPressed())MyMenu.down();
@@ -151,7 +156,8 @@ void loop() {
 extern TaskHandle_t otaserver_entry(void);
 #endif
 #if CONFIG_ENABLE_ARDUINO
-extern TaskHandle_t arduino_entry(void);
+f_ptr_t ar = {ardus,ardul};
+extern TaskHandle_t arduino_entry(f_ptr_t);
 #endif
 #if CONFIG_ENABLE_MICROPYTHON
 extern TaskHandle_t micropython_entry(void);
@@ -169,8 +175,16 @@ void app_main(void) {
 #endif
 
 #ifdef CONFIG_ENABLE_ARDUINO
-    // TODO: modify arduino_entry to accept 2 functions (setup,loop) as parameters
-    TaskHandle_t ardt = arduino_entry();
+#if ARDUINOAPP == 0
+    TaskHandle_t ardt = arduino_entry(ar);
+#elif ARDUINOAPP == 1
+#include "ino/ino.h"
+    TaskHandle_t ardt = arduino_entry({setup, loop});
+#else
+    TaskHandle_t ar1t = arduino_entry(ar);
+#include "ino/ino.h"
+    TaskHandle_t ar2t = arduino_entry({setup, loop});
+#endif
 #endif
 
 #if CONFIG_ENABLE_MICROPYTHON
