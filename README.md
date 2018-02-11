@@ -1,7 +1,5 @@
 # ESP32 Template Plus #
 
-## Work In Progress!!! The code in this repo should be considered alpha and not used in production environments. ##
-
 This repository contains an esp-idt template on steroids: in a few minutes you can have a fully functional build to flash your ESP32 with, and to jumpstart your own project.
 I made it to test my tiny [M5Stack](http://www.m5stack.com/) and it works good for me. I hope you enjoy it too.
 
@@ -11,15 +9,16 @@ The idea is to use the Pro Core for managing the device using the wide range of 
 
 ## Table of Contents ##
 * 1. [Features & Status](#fands)
-..* 1.1. [Current terminal session](#terminal)
-..* 1.2. [Features](#features)
-..* 1.3. [Hardware](#hw)
+  * 1.1. [Current terminal session](#terminal)
+  * 1.2. [Features](#features)
+  * 1.3. [Hardware](#hw)
 * 2. [Documentation](#docs)
-..* 2.1. [Install](#install)
-..* 2.2. [External resources](#res)
+  * 2.1. [Install](#install)
+  * 2.2. [External resources](#res)
 * 3. [TODOs](#todo)
 
 <a name="fands"/>
+
 ## 1. Features & Status ##
 
 Currently it builds on **Linux** but should be fine on **MacOS** and **Windows** as well. Please try and report back!
@@ -27,6 +26,7 @@ Currently it builds on **Linux** but should be fine on **MacOS** and **Windows**
 The default image runs MicroPhyton on M5Stack. The other processes (Arduino and OTA Server) are created but not started yet.
 
 <a name="terminal"/>
+
 ### 1.1. Current terminal session ###
 
 ```
@@ -111,6 +111,7 @@ Largest free block: 1048532
 ```
 
 <a name="features"/>
+
 ### 1.2. Features ###
 
 The following is a features matrix to help you understand what the deal is:
@@ -123,18 +124,17 @@ The following is a features matrix to help you understand what the deal is:
 | Ok | Easy conf | Includes **menu-driven configuration and a template.sh script** to make as **easy** as possible building the firmware. The regular esp-idf menuconfig system can be used for configuration of Micropython, Arduino and OTA Server options because they are built-in as esp-idf components. No manual *sdkconfig.h* editing and tweaking is necessary. Courtesy of [Loboris](https://github.com/loboris). |
 | Ok | CPU | Supports both **unicore** (MicroPython, Arduino and OTA Server tasks running only on the first ESP32 core) and **dualcore** (MicroPython task running on ESP32 App core, all the others on the Pro core) configurations. User can choose the core to run each task. |
 | Ok | Memory | Supports ESP32 boards **with and without psRAM**. MicroPython works great on ESP32, but the most serious issue is still (as on most other MicroPython boards) limited amount of free memory left after boot (~100KB). This repository contains all the tools and sources necessary to build working MicroPython firmware which can fully use the advantages of 4MB (or more) of psRAM. Flash memory is limited as well, but on ESP32 both RAM and FLASH can be expanded up to **16MB**, making even more valuable the chance to use psRAM to exploit more complex applications installed on the expanded flash memory. Courtesy of [Loboris](https://github.com/loboris). |
-| Ok | Flash | - Supports all flash memory access modes: QIO, QOUT, DIO, DOUT. Defaults to **QIO, 80Mhz**.
-- Flexible automatic and/or manual filesystem configuration.
-- Supports **Fat filesystem with esp-idf wear leveling driver**, so there is less danger of damaging the flash with frequent writes.
-- Supports **SPIFFS filesystem** and it can be used instead of FatFS in SPI Flash.
-- **sdcard** support is included which uses esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For imformation on how to connect sdcard see the documentation.
-- Files **timestamp** is correctly set to system time both on internal fat filesysten and on sdcard
-- **Native ESP32 VFS** support for spi Flash & sdcard filesystems. |
+| Ok | Flash | Supports all flash memory access modes: QIO, QOUT, DIO, DOUT. Defaults to **QIO, 80Mhz**. |
+| Ok | Flash | Supports **SPIFFS filesystem** and it can be used instead of FatFS in SPI Flash.
+| Ok | Flash | Supports **Fat filesystem with esp-idf wear leveling driver**, so there is less danger of damaging the flash with frequent writes.
+| Ok | Flash | Supports **SD card**; it uses esp-idf's SDMMC driver and it can work in **SD mode** (*1-bit* and *4-bit*) and **SPI mode** (sd card can be connected to any pins). |
+| Ok | Flash | **Native ESP32 VFS** support for spi Flash & sdcard filesystems. |
+| Ok | Flash | Proper files **timestamp** management both on internal fat filesysten and on sdcard |
+| Ok | Flash | Flexible automatic and/or manual filesystem configuration. |
 | WiP | Raw WiFi | Includes code to **send raw 802.11 packets and monitor raw packets**. |
+| Ok | Time | **RTC Class** is added to machine module, including methods for synchronization of system time to **ntp** server, **deepsleep**, **wakeup** from deepsleep **on external pin** level, ...
+| Ok | Time | **Time zone** can be configured via **menuconfig** and is used when syncronizing time from NTP server
 
-
-| Ok | **RTC Class** is added to machine module, including methods for synchronization of system time to **ntp** server, **deepsleep**, **wakeup** from deepsleep **on external pin** level, ...
-| Ok | **Time zone** can be configured via **menuconfig** and is used when syncronizing time from NTP server
 | Ok | Built-in **ymodem module** for fast transfer of text/binary files to/from host
 | Ok | Some additional frozen modules are added, like **pye** editor, **urequests**, **functools**, **logging**, ...
 | Ok | **Btree** module included, can be Enabled/Disabled via **menuconfig**
@@ -159,6 +159,7 @@ The following is a features matrix to help you understand what the deal is:
 | Ok | **Eclipse** project files included. To include it into Eclipse goto File->Import->Existing Projects into Workspace->Select *esp-idf-template-plus* directory->Finish. **Rebuild index**.
 
 <a name="hw"/>
+
 ### 1.3. Hardware ###
 
 Currently, there are several modules & development boards that ship with psRAM, some examples:
@@ -181,9 +182,11 @@ Espressif maintains [a more detailed list of ESP32 boards on the market](http://
 | ESP-WROVER-KIT v3 | [works](https://github.com/loboris)     | unknown | unknown|
 
 <a name="docs"/>
+
 ## 2. Documentation ##
 
 <a name="install"/>
+
 ### 2.1. Install ###
 
 1. Clone:
@@ -209,6 +212,7 @@ Espressif maintains [a more detailed list of ESP32 boards on the market](http://
 6. Enjoy!
 
 <a name="res"/>
+
 ### 2.2. External resources ###
 
 In order to merge future revisions, I mantain some bridge repos on my account. Source repos:
