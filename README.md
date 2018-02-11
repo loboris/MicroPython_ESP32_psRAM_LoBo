@@ -6,9 +6,10 @@ I made it to test my tiny [M5Stack](http://www.m5stack.com/) and it works good f
 The idea is to use the Pro Core for hw management using the wide range of C-like Arduino libs (tft, audio, buttons, GPIO pins, ota ...) and leave the App Core for uPython black magic. But:
 - the buildchain is just a very flexible barebone that can be confugured at wish.
 - more and more uPython libs and c-wrappers are available every day.
+
 In other words: defaults for M5Stack but it is pretty easy for you to customize it at wish.
 
-Most of the awesome features listed below are from [Loboris Micropython and psRAM](https://github.com/loboris) repo. I just reworked/cleaned his repo and glued some more stuff on top (see [2.2. External resources](#res)).
+Most of the awesome features listed below are from [Loboris Micropython and psRAM](https://github.com/loboris) repo. I just reworked/cleaned his repo and glued some more stuff on top (see [External resources](#res)).
 
 ## Table of Contents ##
 * 1. [Features & Status](#fands)
@@ -127,7 +128,7 @@ I (133) wifi: wifi driver task: 3ffc4a84, prio:23, stack:4096
 I (138) wifi: Init static rx buffer num: 8
 I (142) wifi: Init dynamic rx buffer num: 16
 I (146) wifi: wifi power manager task: 0x3ffcfa50 prio: 21 stack: 2560
-I (256) wifi: mode : sta (30:ae:a4:49:ba:20)
+I (256) wifi: mode : sta (XX:XX:XX:XX:XX:XX)
 
 Internal FS (SPIFFS): Mounted on partition 'internalfs' [size: 196608; Flash address: 0x3CE000]
 ----------------
@@ -173,7 +174,7 @@ Largest free block: 60956
 The following is a features table (with current status) to help you understand what the deal is:
 
 | Staus | Feature   | Description |
-| ---   |:-------------:| -------:|
+|:---:|:-------------:|:-------|
 | Ok | Easy conf | Includes **menu-driven configuration and a template.sh script** to make as **easy** as possible building the firmware. The regular esp-idf menuconfig system can be used for configuration of Micropython, Arduino and OTA Server options because they are built-in as esp-idf components. No manual *sdkconfig.h* editing and tweaking is necessary. |
 | Ok | OTA pull | **OTA Update** supported, various partitions layouts. |
 | WiP | OTA push | Includes an **OTA push server**. |
