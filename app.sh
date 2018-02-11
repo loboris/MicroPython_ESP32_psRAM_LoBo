@@ -5,7 +5,7 @@
 # #################################################################
 
 # Usage:
-#   ./build.sh [<options>] [<command> ... <command>]
+#   ./app.sh [<options>] [<command> ... <command>]
 
 # Commands:
 #                     - run the build, create MicroPython firmware
@@ -202,7 +202,7 @@ do
         if [ "${arg}" == "all" ]; then
             echo "--------------------------------"
             echo "Build complete."
-            echo "You can now run ./build.sh flash"
+            echo "You can now run ./app.sh flash"
             echo "to deploy the firmware to ESP32"
             echo "--------------------------------"
         fi

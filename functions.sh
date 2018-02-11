@@ -156,7 +156,7 @@ set_partitions() {
         fi
         
         echo "# -------------------------------------------------------"  > partitions_mpy.csv
-        echo "# -    Partition layout generaded by build.sh script    -" >> partitions_mpy.csv
+        echo "# -    Partition layout generaded by app.sh script    -" >> partitions_mpy.csv
         echo "# -------------------------------------------------------" >> partitions_mpy.csv
         echo "# Name,         Type, SubType, Offset,  Size,       Flags" >> partitions_mpy.csv
         echo "# -------------------------------------------------------" >> partitions_mpy.csv
@@ -199,7 +199,7 @@ set_partitions() {
         fi
 
         echo "# -------------------------------------------------------"  > partitions_mpy.csv
-        echo "# -    Partition layout generaded by build.sh script    -" >> partitions_mpy.csv
+        echo "# -    Partition layout generaded by app.sh script    -" >> partitions_mpy.csv
         echo "# -------------------------------------------------------" >> partitions_mpy.csv
         echo "# Name,         Type, SubType, Offset,  Size,       Flags" >> partitions_mpy.csv
         echo "# -------------------------------------------------------" >> partitions_mpy.csv
@@ -353,7 +353,7 @@ check_Environment() {
         if [ $? -ne 0 ]; then
             echo "unpacking 'esp-idf' FAILED"
             if [ "${machine}" == "Win" ]; then
-                echo "On Windows, it may be a false error, run './build.sh menuconfig' again!"
+                echo "On Windows, it may be a false error, run './app.sh menuconfig' again!"
             fi
             return 1
         fi
@@ -510,7 +510,7 @@ checkCommand() {
     # Test if valid sdkconfig exists
     if [ "${arg}" == "all" ] || [ "${arg}" == "clean" ]; then
         if [ ! -f "sdkconfig" ]; then
-            echo "'sdkconfig' NOT FOUND, RUN ./build.sh menuconfig FIRST."
+            echo "'sdkconfig' NOT FOUND, RUN ./app.sh menuconfig FIRST."
             echo ""
             return 1
         fi
