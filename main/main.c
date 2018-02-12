@@ -1,85 +1,10 @@
 /*
  * Copyleft (c) 2018 mfp20; https://github.com/mfp20
  *
- * esp-idf template with added features mainly tailored for M5Stack core hw:
- * - uPython with external SPIRAM support (loboris; https://github.com/loboris )
- * - wifi raw packet stub functions (Jeija; https://github.com/Jeija )
- * - wifi push OTA stub component (yanbe; https://github.com/yanbe )
- * - arduino-esp32 libs stub (code by Espressif)
- * - arduino M5Stack lib ( https://github.com/m5stack )
- * - arduino Simple Application Menu lib (tomsuch's M5StackSAM; https://github.com/tomsuch )
- * - example apps for M5StackSAM
+ * esp-idf template with added features
  */
 
-#include <string.h>
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "esp_event.h"
-#include "esp_event_loop.h"
-#include "esp_wifi.h"
-
-#include "nvs_flash.h"
-
-#include "Arduino.h"
-#include "80211raw.h"
-#include "ota_server.h"
-
-// WIFI
-#if CONFIG_ENABLE_WIFI
-
-static EventGroupHandle_t wifi_event_group;
-static const int CONNECTED_BIT = BIT0;
-
-static esp_err_t event_handler(void *ctx, system_event_t *event)
-{
-    switch(event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        esp_wifi_connect();
-        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    default:
-        break;
-    }
-    return ESP_OK;
-}
-
-#define WIFI_SSID CONFIG_WIFI_SSID
-#define WIFI_PASSWORD CONFIG_WIFI_PASSWORD
-
-static void wifi_init(void)
-{
-    tcpip_adapter_init();
-    wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    wifi_config_t sta_config = {
-        .sta = {
-            .ssid = WIFI_SSID,
-            .password = WIFI_PASSWORD,
-            .bssid_set = false
-        }
-    };
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &sta_config) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
-}
-#endif
-
-// Arduino
-static void ardus(){
-}
-static void ardul(){
-}
+#include "templateplus.h"
 
 /*
 #include <M5Stack.h>
@@ -93,8 +18,10 @@ M5SAM MyMenu;
 
 void dummy(){
 }
+*/
 
-static void ardus() {
+void setup() {
+/*
   M5.begin();
   M5.lcd.setBrightness(195);
   Serial.begin(115200);
@@ -141,58 +68,20 @@ static void ardus() {
   MyMenu.addMenuItem(3,"RETURN","<","OK",">",0,dummy);
 
   MyMenu.show();
+*/
 }
 
-static void ardul() {
+void loop() {
+/*
   M5.update();
   if(M5.BtnC.wasPressed())MyMenu.up();
   if(M5.BtnA.wasPressed())MyMenu.down();
   if(M5.BtnB.wasPressed())MyMenu.execute();
-}
 */
-
-// MAIN
-#if CONFIG_ENABLE_OTA
-extern TaskHandle_t otaserver_entry(void);
-#endif
-#if CONFIG_ENABLE_ARDUINO
-f_ptr_t ar = {ardus,ardul};
-extern TaskHandle_t arduino_entry(f_ptr_t);
-#endif
-#if CONFIG_ENABLE_MICROPYTHON
-extern TaskHandle_t micropython_entry(void);
-#endif
+}
 
 void app_main(void) {
-	ESP_ERROR_CHECK( nvs_flash_init() );
-
-#if CONFIG_ENABLE_WIFI
-	wifi_init();
-#endif
-
-#if CONFIG_ENABLE_OTA
-    TaskHandle_t otat = otaserver_entry();
-#endif
-
-#ifdef CONFIG_ENABLE_ARDUINO
-#if ARDUINOAPP == 0
-    TaskHandle_t ardt = arduino_entry(ar);
-#elif ARDUINOAPP == 1
-#include "ino/ino.h"
-    TaskHandle_t ardt = arduino_entry({setup, loop});
-#else
-    TaskHandle_t ar1t = arduino_entry(ar);
-#include "ino/ino.h"
-    TaskHandle_t ar2t = arduino_entry({setup, loop});
-#endif
-#endif
-
-#if CONFIG_ENABLE_MICROPYTHON
-    TaskHandle_t upyt = micropython_entry();
-#endif
-
-#if CONFIG_WIFI_AUTOCONNECT
-	xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
-	vTaskResume(otat);
-#endif
+	static f_ptr_t ino = {setup, loop};
+	initTemplateplus(ino);
 }
+

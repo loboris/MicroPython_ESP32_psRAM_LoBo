@@ -7,9 +7,9 @@ The idea is to use the Pro Core for hw management using the wide range of C-like
 - the buildchain is just a very flexible barebone that can be confugured at wish.
 - more and more uPython libs and c-wrappers are available every day.
 
-In other words: defaults for M5Stack but it is pretty easy for you to customize it at wish.
+In other words: defaults for M5Stack but it is pretty easy for you to customize it at wish. Memory is the only real limit, on boards without psRAM.
 
-Most of the awesome features listed below are from [Loboris Micropython and psRAM](https://github.com/loboris) repo. I just reworked/cleaned his repo and glued some more stuff on top (see [External resources](#res)).
+Most of the awesome features listed below are from [Loboris uPython and psRAM](https://github.com/loboris) repo. I just reworked/cleaned his repo and glued some more stuff on top (see [External resources](#res)).
 
 ## Table of Contents ##
 * 1. [Features & Status](#fands)
@@ -175,7 +175,7 @@ The following is a features table (with current status) to help you understand w
 
 | Staus | Feature   | Description |
 |:---:|:-------------:|:-------|
-| Ok | Easy conf | Includes **menu-driven configuration and a template.sh script** to make as **easy** as possible building the firmware. The regular esp-idf menuconfig system can be used for configuration of Micropython, Arduino and OTA Server options because they are built-in as esp-idf components. No manual *sdkconfig.h* editing and tweaking is necessary. |
+| Ok | Easy conf | Includes **menu-driven configuration and a template.sh script** to make as **easy** as possible building the firmware. The regular esp-idf menuconfig system can be used for configuration of uPython, Arduino and OTA Server options because they are built-in as esp-idf components. No manual *sdkconfig.h* editing and tweaking is necessary. |
 | Ok | OTA pull | **OTA Update** supported, various partitions layouts. |
 | WiP | OTA push | Includes an **OTA push server**. |
 | Ok | CPU | Supports both **unicore** (MicroPython, Arduino and OTA Server tasks running only on the first ESP32 core) and **dualcore** (MicroPython task running on ESP32 App core, all the others on the Pro core) configurations. User can choose the core to run each task. |
@@ -192,7 +192,7 @@ The following is a features table (with current status) to help you understand w
 | WiP | Raw WiFi | Includes code to **send raw 802.11 packets and monitor raw packets**. |
 | WiP | Arduino | Includes the latest **Arduino's ESP32 libraries** to seamless run Arduino code on the ESP32 boards. |
 | WiP | Arduino | Includes C-like (Arduino) display menu and system utilities (battery monitor, timer, ...). |
-| Ok | uPython | Includes the latest **MicroPython** build from [main Micropython repository](https://github.com/micropython/micropython). |
+| Ok | uPython | Includes the latest **MicroPython** build from [main uPython repository](https://github.com/micropython/micropython). |
 | Ok | uPython | **Ymodem** module for fast transfer of text/binary files to/from host. |
 | Ok | uPython | **Btree** module included, can be Enabled/Disabled via **menuconfig** . |
 | Ok | uPython | **_threads** module greatly improved, inter-thread **notifications** and **messaging** included |
@@ -221,7 +221,7 @@ The following is a features table (with current status) to help you understand w
 
 Currently, there are several modules & development boards that ship with psRAM, some examples:
 
-* [**M5Stack**](http://www.m5stack.com) _Development Kit_ [version with psRAM](https://www.aliexpress.com/store/product/M5Stack-NEWEST-4M-PSRAM-ESP32-Development-Board-with-MPU9250-9DOF-Sensor-Color-LCD-for-Arduino-Micropython/3226069_32847906756.html?spm=2114.12010608.0.0.1ba0ee41gOPji)
+* [**M5Stack**](http://www.m5stack.com) _Development Kit_ [version with psRAM](https://www.aliexpress.com/store/product/M5Stack-NEWEST-4M-PSRAM-ESP32-Development-Board-with-MPU9250-9DOF-Sensor-Color-LCD-for-Arduino-uPython/3226069_32847906756.html?spm=2114.12010608.0.0.1ba0ee41gOPji)
 * **TTGO T8 V1.1** _board_, available at [eBay](https://www.ebay.com/itm/TTGO-T8-V1-1-ESP32-4MB-PSRAM-TF-CARD-3D-ANTENNA-WiFi-bluetooth/152891206854?hash=item239906acc6:g:7QkAAOSwMfhadD85)
 * **ESP-WROVER-KIT** _boards_ from Espressif, available from [ElectroDragon](http://www.electrodragon.com/product/esp32-wrover-kit/), [AnalogLamb](https://www.analoglamb.com/product/esp-wrover-kit-esp32-wrover-module/), ...
 * **WiPy 3.0** _board_ from [Pycom](https://pycom.io/product/wipy-3/).
@@ -233,7 +233,7 @@ Currently, there are several modules & development boards that ship with psRAM, 
 
 Espressif maintains [a more detailed list of ESP32 boards on the market](http://esp32.net/#Hardware). Following the boards I'm aware of working with this code:
 
-| Board             | Micropython   | Arduino | Others |
+| Board             | uPython   | Arduino | Others |
 | ----------------- |:-------------:| -------:| ------:|
 | M5Stack           | [works](https://github.com/mfp20)     | WiP     | WiP    |
 | ESP-WROVER-KIT v3 | [works](https://github.com/loboris)     | unknown | unknown|
@@ -281,12 +281,12 @@ In any case is always possible to solder psRAM and/or extra flash yourself. Thos
 The project is 99% open source and mostly MIT/Apache licenses. The only binary blobs are the infamous radio craps: wifi, BT, GSM, ... as usual. It means you can customize anything at wish.
 
 The directory structure is fairly straight forward:
-- esp32-template-plus/main: contains the main.c file with the app_main() function that it is run at boot. It initializes the hw, the ota server task, and runs both arduino and micropython tasks. The arduino task in turn sets the menu on display where to choose (using the hw buttons) one of the apps.c app to run on display.
-- esp32-template-plus/main/ino: contains ino.h and ino.c, stubs to inject your custom arduino app. Just copy your .ino app in that folder, renaming the setup/loop file as ino.c and create its header file ino.h containing the setup() and loop() function prototypes; note that setup() and loop() must be static functions. To make it work in place of the default app menu, you must choose "Custom" in the menuconfig. To make it work togheter with the default app menu, you must choose "Both" in the menuconfig.
-- esp32-template-plus/components: contains the esp-idf components.
-- esp32-template-plus/tools: contains the ESP32 sdk, xtensa buildchains for Linux/MacOS/Windows included.
+- esp32-template-plus/main: contains the main.c file with the app_main() function that it is run at boot. It initializes the hw, the ota server task, and runs both arduino and micropython tasks. The default arduino task in turn sets the menu on display where to choose (using the hw buttons) one of the apps.c app to run on display. In order to drop in a custom arduino app to replace the default one, just edit the two setup/loop functions in main.c.
+- esp32-template-plus/components: contains the esp-idf app components.
+- esp32-template-plus/tools: contains the ESP32 sdk, xtensa buildchains for Linux/MacOS/Windows included. Keep in mind that the esp-idf included has been patched by Loboris to enable some uPython features. At 2018/02/09 the build [failed](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/issues/61) (SPIFFS component) using Espressif's vanilla sdk.
 - esp32-template-plus/firmwares: contains prebuilt firmware images and their configuration files (sdkconfig and partitions.csv).
 - esp32-template-plus/docs: self-explanatory.
+
 
 <a name="res"/>
 
@@ -302,8 +302,10 @@ In order to merge future revisions, I mantain some bridge repos on my account. S
 
 You can find docs at:
 - Espressif's [esp-idf](https://github.com/espressif/esp-idf) sdk; and it's [manual](https://esp-idf.readthedocs.io/en/latest/). 
-- Loboris' [wiki](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki), mostly focused on the Micropython part; [examples](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/tree/master/MicroPython_BUILD/components/micropython/esp32/modules_examples) included.
+- Loboris' [wiki](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki), mostly focused on the uPython part; [examples](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/tree/master/MicroPython_BUILD/components/micropython/esp32/modules_examples) included.
 - M5Stack's [website](http://www.m5stack.com/).
+- Yanbe's [ota server](https://github.com/yanbe/esp32-ota-server)
+- Jeija's [802.11 raw packets sending/monitoring](https://github.com/Jeija/esp32-80211-tx)
 
 <a name="todo"/>
 
