@@ -1,0 +1,11 @@
+# -------------------------------------------------------
+# Name,         Type, SubType, Offset,  Size,       Flags
+# -------------------------------------------------------
+nvs,            data, nvs,     0x9000,   16K,
+otadata,        data, ota,     0xd000,	 8K,
+phy_init,       data, phy,     0xf000,   4K,
+factory,    	app,  factory, 0x10000,  1280K,
+boot1,    	    app,  ota_0,   ,         1280K,
+boot2,		    app,  ota_1,   ,         1280K,
+eeprom,         data, 0x99,    ,         4k,
+internalfs,	    data, spiffs,  ,         166K,
