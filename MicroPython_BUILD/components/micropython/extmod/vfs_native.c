@@ -1,9 +1,9 @@
 /*
- * This file is part of the Micro Python project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,8 +28,6 @@
  * Originally created by SHA2017 Badge Team (https://github.com/SHA2017-badge/micropython-esp32)
  *
  * Modified by LoBo (https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo)
- *
- * Added support for SD Card and some changes to make it work (hopefully) better
  *
  */
 
@@ -103,6 +101,21 @@ STATIC const byte fresult_to_errno_table[20] = {
 #define mp_obj_native_vfs_t fs_user_mount_t
 
 STATIC const char *TAG = "vfs_native";
+
+sdcard_config_t sdcard_config = {
+		CONFIG_SDCARD_MODE,
+#if CONFIG_SDCARD_MODE == 1
+		CONFIG_SDCARD_CLK,
+		CONFIG_SDCARD_MOSI,
+		CONFIG_SDCARD_MISO,
+		CONFIG_SDCARD_CS
+#else
+		-1,
+		-1,
+		-1,
+		-1
+#endif
+};
 
 bool native_vfs_mounted[2] = {false, false};
 STATIC sdmmc_card_t *sdmmc_card;
@@ -674,40 +687,48 @@ STATIC void sdcard_print_info(const sdmmc_card_t* card, int mode)
 //-------------------------
 static void _sdcard_mount()
 {
-    mp_int_t card_mode = 3;
+    esp_err_t ret;
 
-    // Configure sdmmc interface
-	#if defined(CONFIG_SDCARD_MODE1)
-    	// Use SPI SD mode
+	esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+        .format_if_mount_failed = false,
+        .max_files = CONFIG_MICROPY_FATFS_MAX_OPEN_FILES
+    };
+
+	// Configure sdmmc interface
+	if (sdcard_config.mode == 1) {
+    	// Use SPI mode
 		sdmmc_host_t host = SDSPI_HOST_DEFAULT();
 		sdspi_slot_config_t slot_config = SDSPI_SLOT_CONFIG_DEFAULT();
-		//host.slot = VSPI_HOST;
-	    gpio_pad_select_gpio(CONFIG_SDCARD_MISO);
-	    gpio_pad_select_gpio(CONFIG_SDCARD_MOSI);
-	    gpio_pad_select_gpio(CONFIG_SDCARD_CLK);
-	    gpio_pad_select_gpio(CONFIG_SDCARD_CS);
-	    gpio_set_direction(CONFIG_SDCARD_MISO, GPIO_MODE_INPUT);
-	    gpio_set_pull_mode(CONFIG_SDCARD_MISO, GPIO_PULLUP_ONLY);
-	    gpio_set_pull_mode(CONFIG_SDCARD_CLK, GPIO_PULLUP_ONLY);
-	    gpio_set_pull_mode(CONFIG_SDCARD_MOSI, GPIO_PULLUP_ONLY);
-	    gpio_set_pull_mode(CONFIG_SDCARD_CS, GPIO_PULLUP_ONLY);
-	    slot_config.gpio_miso = CONFIG_SDCARD_MISO;
-	    slot_config.gpio_mosi = CONFIG_SDCARD_MOSI;
-	    slot_config.gpio_sck  = CONFIG_SDCARD_CLK;
-	    slot_config.gpio_cs   = CONFIG_SDCARD_CS;
-	    card_mode = 1;
-	#else
+		host.slot = VSPI_HOST;
+
+		slot_config.dma_channel = 2;
+	    gpio_pad_select_gpio(sdcard_config.miso);
+	    gpio_pad_select_gpio(sdcard_config.mosi);
+	    gpio_pad_select_gpio(sdcard_config.clk);
+	    gpio_pad_select_gpio(sdcard_config.cs);
+	    gpio_set_direction(sdcard_config.miso, GPIO_MODE_INPUT);
+	    gpio_set_pull_mode(sdcard_config.miso, GPIO_PULLUP_ONLY);
+	    gpio_set_pull_mode(sdcard_config.clk, GPIO_PULLUP_ONLY);
+	    gpio_set_pull_mode(sdcard_config.mosi, GPIO_PULLUP_ONLY);
+	    gpio_set_pull_mode(sdcard_config.cs, GPIO_PULLUP_ONLY);
+	    slot_config.gpio_miso = sdcard_config.miso;
+	    slot_config.gpio_mosi = sdcard_config.mosi;
+	    slot_config.gpio_sck  = sdcard_config.clk;
+	    slot_config.gpio_cs   = sdcard_config.cs;
+	    ret = esp_vfs_fat_sdmmc_mount(VFS_NATIVE_SDCARD_MOUNT_POINT, &host, &slot_config, &mount_config, &sdmmc_card);
+	}
+	else {
 		sdmmc_host_t host = SDMMC_HOST_DEFAULT();
 		sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-		#if defined(CONFIG_SDCARD_MODE2)
+		if (sdcard_config.mode == 1) {
 	        // Use 1-line SD mode
 		    gpio_set_pull_mode(2, GPIO_PULLUP_ONLY);
 		    gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
 		    gpio_set_pull_mode(15, GPIO_PULLUP_ONLY);
 	        host.flags = SDMMC_HOST_FLAG_1BIT;
 	        slot_config.width = 1;
-		    card_mode = 2;
-		#else
+		}
+		else {
 	        // Use 4-line SD mode
 	        gpio_set_pull_mode(2, GPIO_PULLUP_ONLY);
 	        gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
@@ -715,16 +736,10 @@ static void _sdcard_mount()
 	        gpio_set_pull_mode(4, GPIO_PULLUP_ONLY);
 	        gpio_set_pull_mode(12, GPIO_PULLUP_ONLY);
 	        gpio_set_pull_mode(13, GPIO_PULLUP_ONLY);
-		    card_mode = 3;
-		#endif
-	#endif
+		}
+	    ret = esp_vfs_fat_sdmmc_mount(VFS_NATIVE_SDCARD_MOUNT_POINT, &host, &slot_config, &mount_config, &sdmmc_card);
+	}
 
-	esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-        .format_if_mount_failed = false,
-        .max_files = CONFIG_MICROPY_FATFS_MAX_OPEN_FILES
-    };
-
-    esp_err_t ret = esp_vfs_fat_sdmmc_mount(VFS_NATIVE_SDCARD_MOUNT_POINT, &host, &slot_config, &mount_config, &sdmmc_card);
     if (ret != ESP_OK) {
         if (ret == ESP_FAIL) {
             ESP_LOGE(TAG, "Failed to mount filesystem on SDcard.");
@@ -741,13 +756,12 @@ static void _sdcard_mount()
         else {
             ESP_LOGE(TAG, "Failed to initialize SDcard (%d).", ret);
         }
-		#if defined(CONFIG_SDCARD_MODE1)
-        sdspi_host_deinit();
-		#endif
-		mp_raise_OSError(MP_EIO);
+    	if (sdcard_config.mode == 1) sdspi_host_deinit();
+
+    	mp_raise_OSError(MP_EIO);
     }
 	ESP_LOGV(TAG, "SDCard FATFS mounted.");
-    sdcard_print_info(sdmmc_card, card_mode);
+    sdcard_print_info(sdmmc_card, sdcard_config.mode);
 	native_vfs_mounted[VFS_NATIVE_TYPE_SDCARD] = true;
 }
 
@@ -862,9 +876,7 @@ STATIC mp_obj_t native_vfs_umount(mp_obj_t self_in) {
 
 	if ((self->device == VFS_NATIVE_TYPE_SDCARD) && (native_vfs_mounted[self->device])) {
 		esp_err_t ret = esp_vfs_fat_sdmmc_unmount();
-		#if defined(CONFIG_SDCARD_MODE1)
-		sdspi_host_deinit();
-		#endif
+		if (sdcard_config.mode == 1) sdspi_host_deinit();
 	    if (ret != ESP_OK) {
             ESP_LOGE(TAG, "Failed to unmount filesystem on SDcard (%d).", ret);
 			mp_raise_OSError(MP_EIO);
@@ -898,22 +910,24 @@ int internalUmount()
     return res;
 }
 
-//-----------------
-int externalUmount()
+//-------------------
+void externalUmount()
 {
-	int res = 0;
     if (native_vfs_mounted[VFS_NATIVE_TYPE_SDCARD]) {
     	esp_vfs_fat_sdmmc_unmount();
-    	if (res) res = 0;
-		#if defined(CONFIG_SDCARD_MODE1)
-		sdspi_host_deinit();
-		#endif
+    	if (sdcard_config.mode == 1) sdspi_host_deinit();
 		native_vfs_mounted[VFS_NATIVE_TYPE_SDCARD] = false;
     }
-
-    return res;
 }
 
+//-------------------------------------
+bool file_noton_spi_sdcard(char *fname)
+{
+	if (sdcard_config.mode == 1) {
+		if (strstr(fname, VFS_NATIVE_SDCARD_MOUNT_POINT)) return false;
+	}
+    return true;
+}
 
 //-------------------------------------
 int mount_vfs(int type, char *chdir_to)

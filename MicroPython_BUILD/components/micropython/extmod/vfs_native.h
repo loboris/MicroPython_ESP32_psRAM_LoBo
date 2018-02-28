@@ -1,9 +1,9 @@
 /*
- * This file is part of the Micro Python project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,47 +29,9 @@
  *
  * Modified by LoBo (https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo)
  *
- * Added support for SD Card and some changes to make it work better
- *
  */
 
 // ======== CD Card support ===========================================================================
-
-/*
- * Using SDCard with sdmmc driver connection:
-
-ESP32 pin     | SD card pin    | SPI pin | Notes
---------------|----------------|---------|------------
-              |      SD    uSD |         |
---------------|----------------|---------|------------
-GPIO14 (MTMS) | CLK  5     5   | SCK     | 10k pullup in SD mode
-GPIO15 (MTDO) | CMD  2     3   | MOSI    | 10k pullup, both in SD and SPI modes
-GPIO2         | D0   7     7   | MISO    | 10k pullup in SD mode, pull low to go into download mode (see note below!)
-GPIO4         | D1   8     8   | N/C     | not used in 1-line SD mode; 10k pullup in 4-line SD mode
-GPIO12 (MTDI) | D2   9     1   | N/C     | not used in 1-line SD mode; 10k pullup in 4-line SD mode (see note below!)
-GPIO13 (MTCK) | D3   1     2   | CS      | not used in 1-line SD mode, but card's D3 pin must have a 10k pullup
-N/C           | CD             |         | optional, not used
-N/C           | WP             |         | optional, not used
-VDD     3.3V  | VSS  4      4  |
-GND     GND   | GND  3&6    6  |
-
-SDcard pinout                 uSDcard pinout
-                 Contacts view
- _________________             1 2 3 4 5 6 7 8
-|                 |            _______________
-|                 |           |# # # # # # # #|
-|                 |           |               |
-|                 |           |               |
-|                 |           /               |
-|                 |          /                |
-|                 |         |_                |
-|                 |           |               |
-|                #|          /                |
-|# # # # # # # # /          |                 |
-|_______________/           |                 |
- 8 7 6 5 4 3 2 1 9          |_________________|
-
- */
 
 #include "py/lexer.h"
 #include "py/obj.h"
@@ -93,7 +55,16 @@ typedef struct _fs_user_mount_t {
     mp_int_t device;
 } fs_user_mount_t;
 
+typedef struct _sdcard_config_t {
+	uint8_t	mode;
+    int8_t	clk;
+    int8_t	mosi;
+    int8_t	miso;
+    int8_t	cs;
+} sdcard_config_t;
+
 extern const mp_obj_type_t mp_native_vfs_type;
+extern sdcard_config_t sdcard_config;
 
 bool native_vfs_mounted[2];
 
@@ -108,6 +79,8 @@ MP_DECLARE_CONST_FUN_OBJ_KW(mp_builtin_open_obj);
 //MP_DECLARE_CONST_FUN_OBJ_2(native_vfs_chdir_obj);
 
 int internalUmount();
-int externalUmount();
+void externalUmount();
+
+bool file_noton_spi_sdcard(char *fname);
 
 mp_obj_t native_vfs_ilistdir2(struct _fs_user_mount_t *vfs, const char *path, bool is_str_type);

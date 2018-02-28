@@ -1,11 +1,12 @@
 /*
- * This file is part of the MicroPython project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * Development of the code in this file was sponsored by Microbric Pty Ltd
  *
  * The MIT License (MIT)
  *
  * Copyright (c) 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -51,7 +52,17 @@
 #endif
 
 uint32_t mp_hal_wdg_rst_tmo = 0;
-long mp_hal_ticks_base = 0;
+uint64_t mp_hal_ticks_base = 0;
+
+static bool stdin_disable = false;
+static char stdin_enable_pattern[16] = "";
+
+//--------------------------------
+void disableStdin(const char *pat)
+{
+	snprintf(stdin_enable_pattern, 15, "%s", pat);
+	stdin_disable = true;
+}
 
 //---------------------
 void mp_hal_reset_wdt()
@@ -91,6 +102,8 @@ int mp_hal_stdin_rx_chr(uint32_t timeout)
 {
 	uint64_t wait_end = mp_hal_ticks_ms() + timeout;
 	int c = -1;
+	char pattern[16];
+	uint8_t pattern_idx = 0;
 
     for (;;) {
 		#ifdef CONFIG_MICROPY_USE_TASK_WDT
@@ -129,6 +142,18 @@ int mp_hal_stdin_rx_chr(uint32_t timeout)
 	            return -1;
     		}
 			#endif
+
+    		if (stdin_disable) {
+    			if (strlen(stdin_enable_pattern) > 0) {
+					// Check stdin enable pattern
+					pattern[pattern_idx++] = c;
+					pattern[pattern_idx] = '\0';
+					if (strstr(stdin_enable_pattern, pattern) == stdin_enable_pattern) {
+						if (strlen(stdin_enable_pattern) == strlen(pattern)) stdin_disable = false;
+					}
+    			}
+    			return -1;
+    		}
     		return c;
     	}
 
@@ -237,10 +262,10 @@ void mp_hal_stdout_tx_strn_cooked(const char *str, uint32_t len) {
 	#endif
 }
 
-//------------------
-long getTicks_base()
+//----------------------
+uint64_t getTicks_base()
 {
-	long ticks_base = 0;
+	uint64_t ticks_base = 0;
 	if (sntp_mutex) {
 		if (xSemaphoreTake(sntp_mutex, 1000 / portTICK_PERIOD_MS) == pdTRUE) {
 			ticks_base = mp_hal_ticks_base;
@@ -251,20 +276,30 @@ long getTicks_base()
 	return ticks_base;
 }
 
+//-------------------------------------
+void setTicks_base(uint64_t ticks_base)
+{
+	if (sntp_mutex) {
+		if (xSemaphoreTake(sntp_mutex, 1000 / portTICK_PERIOD_MS) == pdTRUE) {
+			mp_hal_ticks_base = ticks_base;
+			xSemaphoreGive(sntp_mutex);
+		}
+	}
+	else mp_hal_ticks_base = ticks_base;
+}
+
 //------------------------------
 uint64_t mp_hal_ticks_ms(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    long sec = tv.tv_sec - getTicks_base();
-    return ((uint64_t)sec * 1000) + ((uint64_t)tv.tv_usec / 1000);
+    return ((((uint64_t)tv.tv_sec * 1000000) + (uint64_t)tv.tv_usec) - getTicks_base()) / 1000;
 }
 
 //------------------------------
 uint64_t mp_hal_ticks_us(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    long sec = tv.tv_sec - getTicks_base();
-    return ((uint64_t)sec * 1000000) + (uint64_t)tv.tv_usec;
+    return ((((uint64_t)tv.tv_sec * 1000000) + (uint64_t)tv.tv_usec) - getTicks_base());
 }
 
 /*
@@ -286,13 +321,13 @@ int mp_hal_delay_ms(uint32_t ms)
 	esp_task_wdt_reset();
 	#endif
 
-	if (ms <= 10) {
-		// For delays up to 10 ms we use blocking delay
+	if (ms <= 2) {
+		// For delays up to 2 ms we use blocking delay
 	    ets_delay_us(ms * 1000);
 	    return ms;
 	}
 
-	long tticks_base = getTicks_base();
+	uint64_t tticks_base = getTicks_base();
 	struct timeval tv;
     gettimeofday(&tv, NULL);
     uint32_t tstart = ((uint32_t)tv.tv_sec * 1000) + ((uint32_t)tv.tv_usec / 1000);

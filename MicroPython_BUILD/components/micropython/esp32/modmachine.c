@@ -1,5 +1,5 @@
 /*
- * This file is part of the MicroPython project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * Development of the code in this file was sponsored by Microbric Pty Ltd
  *
@@ -7,6 +7,7 @@
  *
  * Copyright (c) 2013-2015 Damien P. George
  * Copyright (c) 2016 Paul Sokolovsky
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -498,6 +499,49 @@ STATIC mp_obj_t mod_machine_logto_esp () {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_machine_logto_esp_obj, mod_machine_logto_esp);
 
+extern uint8_t temprature_sens_read();
+
+//-----------------------------------
+STATIC mp_obj_t mod_machine_tsens() {
+/*
+	SET_PERI_REG_BITS(SENS_SAR_MEAS_WAIT2_REG, SENS_FORCE_XPD_SAR, 3, SENS_FORCE_XPD_SAR_S);
+    SET_PERI_REG_BITS(SENS_SAR_TSENS_CTRL_REG, SENS_TSENS_CLK_DIV, 10, SENS_TSENS_CLK_DIV_S);
+    CLEAR_PERI_REG_MASK(SENS_SAR_TSENS_CTRL_REG, SENS_TSENS_POWER_UP);
+    CLEAR_PERI_REG_MASK(SENS_SAR_TSENS_CTRL_REG, SENS_TSENS_DUMP_OUT);
+    SET_PERI_REG_MASK(SENS_SAR_TSENS_CTRL_REG, SENS_TSENS_POWER_UP_FORCE);
+    SET_PERI_REG_MASK(SENS_SAR_TSENS_CTRL_REG, SENS_TSENS_POWER_UP);
+    ets_delay_us(100);
+    SET_PERI_REG_MASK(SENS_SAR_TSENS_CTRL_REG, SENS_TSENS_DUMP_OUT);
+    ets_delay_us(5);
+    //while(REG_GET_FIELD(SENS_SAR_SLAVE_ADDR3_REG, SENS_TSENS_RDY_OUT) == 0) {
+    //    ;
+    //}
+    int res = GET_PERI_REG_BITS2(SENS_SAR_SLAVE_ADDR3_REG, SENS_TSENS_OUT, SENS_TSENS_OUT_S);
+
+    // (res - 32) / 1.8 --> temperature in C
+    return MP_OBJ_NEW_SMALL_INT(res);
+*/
+	int temper = temprature_sens_read();
+	float ftemper = (float)(temper -32) / 1.8;
+
+	mp_obj_t tuple[2];
+
+    tuple[0] = mp_obj_new_int_from_uint(temper);
+    tuple[1] = mp_obj_new_float(ftemper);
+    return mp_obj_new_tuple(2, tuple);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_machine_tsens_obj, mod_machine_tsens);
+
+//--------------------------------------------------------------
+STATIC mp_obj_t mod_machine_stdin_disable(mp_obj_t pattern_in) {
+	const char *pattern = mp_obj_str_get_str(pattern_in);
+	if (strlen(pattern) >= 16) {
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "pattern string too long (15 chars allowed)"));
+	}
+	disableStdin(pattern);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_machine_stdin_disable_obj, mod_machine_stdin_disable);
 
 //===============================================================
 STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
@@ -515,6 +559,7 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_wake_reason),			MP_ROM_PTR(&machine_wake_reason_obj) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_wake_description),	MP_ROM_PTR(&machine_wake_desc_obj) },
     { MP_ROM_QSTR(MP_QSTR_heap_info),				MP_ROM_PTR(&machine_heap_info_obj) },
+    { MP_ROM_QSTR(MP_QSTR_stdin_disable),			MP_ROM_PTR(&mod_machine_stdin_disable_obj) },
 
     { MP_OBJ_NEW_QSTR(MP_QSTR_nvs_setint),			MP_ROM_PTR(&mod_machine_nvs_set_int_obj) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_nvs_getint),			MP_ROM_PTR(&mod_machine_nvs_get_int_obj) },
@@ -542,6 +587,7 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_time_pulse_us),			MP_ROM_PTR(&machine_time_pulse_us_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_random),					MP_ROM_PTR(&machine_random_obj) },
+    { MP_ROM_QSTR(MP_QSTR_internal_temp),			MP_ROM_PTR(&mod_machine_tsens_obj) },
 
 	{ MP_ROM_QSTR(MP_QSTR_Timer),					MP_ROM_PTR(&machine_timer_type) },
     { MP_ROM_QSTR(MP_QSTR_Pin),						MP_ROM_PTR(&machine_pin_type) },

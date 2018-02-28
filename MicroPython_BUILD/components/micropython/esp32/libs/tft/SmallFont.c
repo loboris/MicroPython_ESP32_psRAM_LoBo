@@ -3,16 +3,6 @@
 // Font size    : 8x12 pixels
 // Memory usage : 1144 bytes
 
-#if defined(__AVR__)
-	#include <avr/pgmspace.h>
-	#define fontdatatype const uint8_t
-#elif defined(__PIC32MX__)
-	#define PROGMEM
-	#define fontdatatype const unsigned char
-#elif defined(__arm__)
-	#define PROGMEM
-	#define fontdatatype const unsigned char
-#endif
 
 const unsigned char tft_SmallFont[1144] =
 {

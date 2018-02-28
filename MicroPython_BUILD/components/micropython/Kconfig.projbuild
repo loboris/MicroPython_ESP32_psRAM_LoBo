@@ -222,7 +222,7 @@ menu "MicroPython"
 	        Display module includes support for various SPI TFT displays
 	
 	    config MICROPY_USE_EVE
-	        bool "Use EVE display module"
+	        bool "Use EVE display module (experimental, do not enable)"
 	        default n
 	        help
 	        Include EVE display module into build
@@ -240,6 +240,15 @@ menu "MicroPython"
 	        default n
 	        help
 	        Include Ethernet (network.LAN) module into build
+	
+	    config MICROPY_USE_BLUETOOTH
+	        bool "Use Bluetooth module (experimental, do not enable)"
+	        depends on BT_ENABLED
+	        default n
+	        help
+	        Include Bluetooth module into build
+	        When using Bluetooth ~72 KB more RAM will be used,
+	        it is not recommended to use it on boards without psRAM!
 	
 	    config MICROPY_USE_MDNS
 	        bool "Use mDNS module"

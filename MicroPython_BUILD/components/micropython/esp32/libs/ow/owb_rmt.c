@@ -1,6 +1,7 @@
 /*
 Created by Chris Morgan based on the nodemcu project driver.
 Copyright 2017 Chris Morgan <chmorgan@gmail.com>
+Copyright (c) 2018 LoBo (https://github.com/loboris)
 
 Ported to ESP32 RMT peripheral for low-level signal generation by Arnim Laeuger.
 

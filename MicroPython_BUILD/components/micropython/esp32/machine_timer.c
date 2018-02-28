@@ -1,5 +1,5 @@
 /*
- * This file is part of the MicroPython project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
@@ -218,7 +218,7 @@ STATIC void machine_timer_isr(void *self_in)
     if (self->debug_pin >= 0) gpio_set_level(self->debug_pin, (self->event_num & 1));
     self->event_num++;
 
-    if ((self->callback) && (mp_sched_schedule(self->callback, self))) self->cb_num++;
+    if ((self->callback) && (mp_sched_schedule(self->callback, self, NULL))) self->cb_num++;
 }
 
 //----------------------------------------------
@@ -245,7 +245,7 @@ STATIC void machine_ext_timer_isr(void *self_in)
 				    extmr->event_num++;
 					if (extmr->counter == extmr->alarm) {
 						// Schedule the callback execution
-						if ((extmr->callback) && (mp_sched_schedule(extmr->callback, extmr))) {
+						if ((extmr->callback) && (mp_sched_schedule(extmr->callback, extmr, NULL))) {
 							extmr->cb_num++;
 							self->cb_num++;
 						}

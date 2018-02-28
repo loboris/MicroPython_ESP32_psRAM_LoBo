@@ -1,10 +1,27 @@
-/* PPPoS Client Example with GSM (tested with Telit GL865-DUAL-V3)
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
+/*
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
+ *
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
 
 #include "sdkconfig.h"
@@ -551,7 +568,7 @@ static void enableAllInitCmd()
 static void checkSMS()
 {
 	if ((New_SMS_cb) && (SMS_check_interval > 0) && (doCheckSMS)) {
-		// Check for new SMS
+		// Check for new SMS and schedule MicroPython callback function
 		uint8_t dbg = debug;
 		debug = 0;
 		if (sms_timer > SMS_check_interval) {
@@ -559,12 +576,23 @@ static void checkSMS()
 			SMS_indexes indexes;
 			int nmsg = smsCount(SMS_LIST_NEW, &indexes, SMS_SORT_NONE);
 			if (nmsg > 0) {
-				mp_obj_t msgidx_tuple[nmsg];
-				for (int i=0; i<nmsg; i++) {
-					msgidx_tuple[i] = mp_obj_new_int(indexes.idx[i]);
+				if (nmsg > 100) nmsg = 100;
+				// Create a string containing SMS indexes
+				char sidx[4];
+				char *sindexes = calloc(nmsg*3, 1);
+				if (sindexes) {
+					for (int i=0; i<nmsg; i++) {
+						sprintf(sidx, "%d;", indexes.idx[i]);
+						strcat(sindexes, sidx);
+					}
+					mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_SINGLE);
+					if (!carg) goto end;
+					if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(sindexes), (const uint8_t *)sindexes, NULL)) goto end;
+
+					mp_sched_schedule(New_SMS_cb, mp_const_none, carg);
+end:
+					free(sindexes);
 				}
-				mp_obj_t msg = mp_obj_new_tuple(nmsg, msgidx_tuple);
-				mp_sched_schedule(New_SMS_cb, msg);
 			}
 		}
 		else sms_timer += 100;

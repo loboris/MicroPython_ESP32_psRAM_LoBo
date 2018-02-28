@@ -40,7 +40,7 @@ uint8_t vera18[] PROGMEM =
 to:
 
 ```
-unsigned char vera18[] =
+const unsigned char vera18[] =
 ```
 
 The font name (**vera18** here) will be different for different font, you can change it to any other name.

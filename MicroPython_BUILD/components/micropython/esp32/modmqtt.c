@@ -1,9 +1,9 @@
 /*
- * This file is part of the Micro Python project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2017 Boris Lovosevic (https://github.com/loboris)
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -83,7 +83,12 @@ STATIC void connected_cb(void *self, void *params)
 {
     mqtt_client *client = (mqtt_client *)self;
 
-    if (client->settings->mpy_connected_cb) mp_sched_schedule(client->settings->mpy_connected_cb, mp_obj_new_str(client->name, strlen(client->name), 0));
+    if (client->settings->mpy_connected_cb) {
+		mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_SINGLE);
+		if (!carg) return;
+		if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(client->name), (const uint8_t *)client->name, NULL)) return;
+		mp_sched_schedule(client->settings->mpy_connected_cb, mp_const_none, carg);
+    }
 }
 
 //---------------------------------------------------
@@ -91,7 +96,12 @@ STATIC void disconnected_cb(void *self, void *params)
 {
     mqtt_client *client = (mqtt_client *)self;
 
-    if (client->settings->mpy_disconnected_cb) mp_sched_schedule(client->settings->mpy_disconnected_cb, mp_obj_new_str(client->name, strlen(client->name), 0));
+    if (client->settings->mpy_disconnected_cb) {
+		mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_SINGLE);
+		if (!carg) return;
+		if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(client->name), (const uint8_t *)client->name, NULL)) return;
+		mp_sched_schedule(client->settings->mpy_disconnected_cb, mp_const_none, carg);
+    }
 }
 
 //-------------------------------------------------
@@ -101,12 +111,16 @@ STATIC void subscribed_cb(void *self, void *params)
     const char *topic = (const char *)params;
 
     if (client->settings->mpy_subscribed_cb) {
-    	mp_obj_t tuple[2];
-    	tuple[0] = mp_obj_new_str(client->name, strlen(client->name), 0);
-    	if (topic) tuple[1] = mp_obj_new_str(topic, strlen(topic), 0);
-    	else tuple[1] = mp_obj_new_str("?", 1, 0);
-
-    	mp_sched_schedule(client->settings->mpy_subscribed_cb, mp_obj_new_tuple(2, tuple));
+    	mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_TUPLE);
+    	if (carg == NULL) return;
+   		if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(client->name), (const uint8_t *)client->name, NULL)) return;
+   		if (topic) {
+   	   		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, strlen(topic), (const uint8_t *)topic, NULL)) return;
+   		}
+   		else {
+   	   		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, 1, (const uint8_t *)"?", NULL)) return;
+   		}
+    	mp_sched_schedule(client->settings->mpy_subscribed_cb, mp_const_none, carg);
     }
 }
 
@@ -117,12 +131,16 @@ STATIC void unsubscribed_cb(void *self, void *params)
     const char *topic = (const char *)params;
 
     if (client->settings->mpy_unsubscribed_cb) {
-    	mp_obj_t tuple[2];
-    	tuple[0] = mp_obj_new_str(client->name, strlen(client->name), 0);
-    	if (topic) tuple[1] = mp_obj_new_str(topic, strlen(topic), 0);
-    	else tuple[1] = mp_obj_new_str("?", 1, 0);;
-
-    	mp_sched_schedule(client->settings->mpy_unsubscribed_cb, mp_obj_new_tuple(2, tuple));
+    	mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_TUPLE);
+    	if (carg == NULL) return;
+   		if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(client->name), (const uint8_t *)client->name, NULL)) return;
+   		if (topic) {
+   	   		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, strlen(topic), (const uint8_t *)topic, NULL)) return;
+   		}
+   		else {
+   	   		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, 1, (const uint8_t *)"?", NULL)) return;
+   		}
+    	mp_sched_schedule(client->settings->mpy_unsubscribed_cb, mp_const_none, carg);
     }
 }
 
@@ -133,11 +151,16 @@ STATIC void published_cb(void *self, void *params)
     const char *type = (const char *)params;
 
     if (client->settings->mpy_published_cb) {
-		mp_obj_t tuple[2];
-		tuple[0] = mp_obj_new_str(client->name, strlen(client->name), 0);
-		if (type) tuple[1] = mp_obj_new_str(type, strlen(type), 0);
-		else tuple[1] = mp_obj_new_str("?", 1, 0);
-    	mp_sched_schedule(client->settings->mpy_published_cb, mp_obj_new_tuple(2, tuple));
+    	mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_TUPLE);
+    	if (carg == NULL) return;
+   		if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(client->name), (const uint8_t *)client->name, NULL)) return;
+   		if (type) {
+   	   		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, strlen(type), (const uint8_t *)type, NULL)) return;
+   		}
+   		else {
+   	   		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, 1, (const uint8_t *)"?", NULL)) return;
+   		}
+    	mp_sched_schedule(client->settings->mpy_published_cb, mp_const_none, carg);
     }
 }
 
@@ -150,13 +173,13 @@ STATIC void data_cb(void *self, void *params)
     mqtt_event_data_t *event_data = (mqtt_event_data_t *)params;
 
 	if (event_data->data_offset == 0) {
-		// First block of data
+		// *** First block of data
 		if (client->msgbuf != NULL) free(client->msgbuf);
 		if (client->topicbuf != NULL) free(client->topicbuf);
 		client->msgbuf = NULL;
 		client->topicbuf = NULL;
 		if (event_data->data_length < event_data->data_total_length) {
-			// more data will follow, allocate the data buffer and copy the first part
+			// === more data will follow, allocate the data buffer and copy the first part ===
 			client->topicbuf = malloc(event_data->topic_length + 1);
 			if (client->topicbuf) {
 				memcpy(client->topicbuf, event_data->topic, event_data->topic_length);
@@ -176,27 +199,30 @@ STATIC void data_cb(void *self, void *params)
 			}
 		}
 		else {
-			// all data received, we can schedule the callback function now
-			mp_obj_t tuple[3];
-			tuple[0] = mp_obj_new_str(client->name, strlen(client->name), 0);
-			tuple[1] = mp_obj_new_str(event_data->topic, event_data->topic_length, 0);
-			tuple[2] = mp_obj_new_str(event_data->data, event_data->data_length, 0);
-			mp_sched_schedule(client->settings->mpy_data_cb, mp_obj_new_tuple(3, tuple));
+			// === all data received, we can schedule the callback function now ===
+			mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_TUPLE);
+			if (!carg) return;
+			if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(client->name), (const uint8_t *)client->name, NULL)) return;
+			if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, event_data->topic_length, (const uint8_t *)event_data->topic, NULL)) return;
+			if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_STR, event_data->data_length, (const uint8_t *)event_data->data, NULL)) return;
+			mp_sched_schedule(client->settings->mpy_data_cb, mp_const_none, carg);
 		}
 	}
 	else {
 		if ((client->topicbuf) && (client->msgbuf)) {
-			// more payload data arrived, add to buffer
+			// === more payload data arrived, add to buffer ===
 			int new_len = event_data->data_offset + event_data->data_length;
 			memcpy(client->msgbuf + event_data->data_offset, event_data->data, event_data->data_length);
 			client->msgbuf[new_len] = 0;
 			if (new_len >= event_data->data_total_length) {
-				// all data received, we can schedule the callback function now
-				mp_obj_t tuple[3];
-				tuple[0] = mp_obj_new_str(client->name, strlen(client->name), 0);
-				tuple[1] = mp_obj_new_str((const char*)client->topicbuf, strlen((const char *)client->topicbuf), 0);
-				tuple[2] = mp_obj_new_str((const char*)client->msgbuf, event_data->data_total_length, 0);
-				mp_sched_schedule(client->settings->mpy_data_cb, mp_obj_new_tuple(3, tuple));
+				// === all data received, we can schedule the callback function now ===
+				mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_TUPLE);
+				if (!carg) goto freebufs;
+				if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(client->name), (const uint8_t *)client->name, NULL)) goto freebufs;
+				if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, strlen((const char *)client->topicbuf), client->topicbuf, NULL)) goto freebufs;
+				if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_STR, event_data->data_total_length, client->msgbuf, NULL)) goto freebufs;
+				mp_sched_schedule(client->settings->mpy_data_cb, mp_const_none, carg);
+freebufs:
 				// Free the buffers
 				free(client->msgbuf);
 				free(client->topicbuf);
@@ -205,7 +231,7 @@ STATIC void data_cb(void *self, void *params)
 			}
 		}
 		else {
-			// more payload data arrived, but there is no data buffers ??
+			// more payload data arrived, but there is no data buffers allocated (!?)
 			if (client->msgbuf != NULL) free(client->msgbuf);
 			if (client->topicbuf != NULL) free(client->topicbuf);
 			client->msgbuf = NULL;
@@ -441,7 +467,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mqtt_config_obj, 1, mqtt_op_config);
 STATIC mp_obj_t mqtt_op_subscribe(mp_obj_t self_in, mp_obj_t topic_in)
 {
     mqtt_obj_t *self = self_in;
-    if (checkClient(self)) return mp_const_none;
+    if (checkClient(self)) return mp_const_false;
 
     const char *topic = mp_obj_str_get_str(topic_in);
     int wait = 2000;
@@ -459,7 +485,7 @@ MP_DEFINE_CONST_FUN_OBJ_2(mqtt_subscribe_obj, mqtt_op_subscribe);
 STATIC mp_obj_t mqtt_op_unsubscribe(mp_obj_t self_in, mp_obj_t topic_in)
 {
     mqtt_obj_t *self = self_in;
-    if (checkClient(self)) return mp_const_none;
+    if (checkClient(self)) return mp_const_false;
 
     const char *topic = mp_obj_str_get_str(topic_in);
     int wait = 2000;
@@ -477,7 +503,7 @@ MP_DEFINE_CONST_FUN_OBJ_2(mqtt_unsubscribe_obj, mqtt_op_unsubscribe);
 STATIC mp_obj_t mqtt_op_publish(mp_obj_t self_in, mp_obj_t topic_in, mp_obj_t msg_in)
 {
     mqtt_obj_t *self = self_in;
-    if (checkClient(self)) return mp_const_none;
+    if (checkClient(self)) return mp_const_false;
 
     size_t len;
     const char *topic = mp_obj_str_get_str(topic_in);

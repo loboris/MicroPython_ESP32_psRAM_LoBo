@@ -1,5 +1,5 @@
 /*
- * This file is part of the MicroPython project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * Development of the code in this file was sponsored by Microbric Pty Ltd
  * and Mnemote Pty Ltd
@@ -8,6 +8,7 @@
  *
  * Copyright (c) 2016, 2017 Nick Moore @mnemote
  * Copyright (c) 2017 "Eric Poulsen" <eric@zyxod.com>
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Based on esp8266/modnetwork.c which is Copyright (c) 2015 Paul Sokolovsky
  * And the ESP IDF example code which is Public Domain / CC0
@@ -152,15 +153,21 @@ static inline void esp_exceptions(esp_err_t e) {
 
 #define ESP_EXCEPTIONS(x) do { esp_exceptions(x); } while (0);
 
+// global variables
+bool wifi_sta_isconnected = false;
+bool wifi_sta_has_ipaddress = false;
+bool wifi_sta_changed_ipaddress = false;
+bool wifi_ap_isconnected = false;
+
 const mp_obj_type_t wlan_if_type;
 const wlan_if_obj_t wlan_sta_obj = {{&wlan_if_type}, WIFI_IF_STA};
 const wlan_if_obj_t wlan_ap_obj = {{&wlan_if_type}, WIFI_IF_AP};
 
-//static wifi_config_t wifi_ap_config = {{{0}}};
-static wifi_config_t wifi_sta_config = {{{0}}};
+//static wifi_config_t wifi_ap_config = { 0 };
+static wifi_config_t wifi_sta_config = { 0 };
 
 // Set to "true" if the STA interface is requested to be connected by the
-// user, used for automatic reassociation.
+// user, used for automatic reconnect.
 static bool wifi_sta_connected = false;
 
 static uint8_t _isConnected = 0;
@@ -169,8 +176,6 @@ static mp_obj_t event_callback = NULL;
 static mp_obj_t probereq_callback = NULL;
 static QueueHandle_t wifi_mutex = NULL;
 
-#ifdef INCLUDE_PROBEREQRECVED
-
 static QueueHandle_t probereq_mutex = NULL;
 
 //------------------------------------------------------------------------
@@ -178,103 +183,156 @@ static void processPROBEREQRECVED(const uint8_t *frame, int len, int rssi)
 {
 	if (probereq_callback != NULL) {
 		if (probereq_mutex) xSemaphoreTake(probereq_mutex, 1000);
-		//mp_obj_t tuple[3];
-		mp_obj_dict_t *dct = mp_obj_new_dict(0);
-		mp_obj_dict_store(dct, mp_obj_new_str("rssi", 4, false), mp_obj_new_int(rssi));
-		mp_obj_dict_store(dct, mp_obj_new_str("len", 3, false), mp_obj_new_int(len));
-		mp_obj_dict_store(dct, mp_obj_new_str("frame", 5, false), mp_obj_new_str((const char*)frame, len, false));
 
-		//tuple[0] = mp_obj_new_int(SYSTEM_EVENT_AP_PROBEREQRECVED);
-		//tuple[1] = mp_obj_new_str("Receive probe request packet", 28, false);
-		//tuple[2] = dct;
+		mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_DICT);
+		if (!carg) goto end;
+		if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_INT, rssi, NULL, "rssi")) goto end;
+		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_INT, len, NULL, "len")) goto end;
+		if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_STR, len, frame, "frame")) goto end;
 
-		mp_sched_schedule(probereq_callback, dct); //mp_obj_new_tuple(3, tuple));
+		mp_sched_schedule(probereq_callback, mp_const_none, carg);
+end:
 		if (probereq_mutex) xSemaphoreGive(probereq_mutex);
 	}
 }
 
-#endif
-
 //------------------------------------------------------
 static void processEvent_callback(system_event_t *event)
 {
-	if (event_callback == NULL) return;
 	if (event->event_id >= SYSTEM_EVENT_MAX) return;
 
-	mp_obj_t tuple[3];
-	tuple[0] = mp_obj_new_int(event->event_id);
-	tuple[1] = mp_obj_new_str(wifi_events[event->event_id], strlen(wifi_events[event->event_id]), false);
-	tuple[2] = mp_const_none;
+	mp_sched_carg_t *carg = NULL;
+	if (event_callback) {
+		carg = make_cargs(MP_SCHED_CTYPE_TUPLE);
+		if (carg == NULL) return;
+		if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_INT, event->event_id, NULL, NULL)) return;
+		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, strlen(wifi_events[event->event_id]), (const uint8_t *)wifi_events[event->event_id], NULL)) return;
+	}
+
 	switch (event->event_id) {
 		case SYSTEM_EVENT_STA_CONNECTED: {
-				mp_obj_dict_t *dct = mp_obj_new_dict(0);
 				system_event_sta_connected_t *info = (system_event_sta_connected_t *)&event->event_info;
-            	mp_obj_dict_store(dct, mp_obj_new_str("ssid", 4, false), mp_obj_new_str((const char*)info->ssid, info->ssid_len, false));
-            	mp_obj_dict_store(dct, mp_obj_new_str("channel", 7, false), mp_obj_new_int(info->channel));
-            	tuple[2] = dct;
+				wifi_sta_isconnected = true;
+				if (event_callback) {
+					mp_sched_carg_t *darg = make_cargs(MP_SCHED_CTYPE_DICT);
+					if (!carg) break;
+					if (!make_carg_entry(darg, 0, MP_SCHED_ENTRY_TYPE_STR, info->ssid_len, info->ssid, "ssid")) break;
+					if (!make_carg_entry(darg, 1, MP_SCHED_ENTRY_TYPE_INT, info->channel, NULL, "channel")) break;
+					if (!make_carg_entry_carg(carg, 2, darg)) break;
+				}
 				break;
 			}
 		case SYSTEM_EVENT_STA_DISCONNECTED: {
-				mp_obj_dict_t *dct = mp_obj_new_dict(0);
 				system_event_sta_disconnected_t *info = (system_event_sta_disconnected_t *)&event->event_info;
-            	mp_obj_dict_store(dct, mp_obj_new_str("ssid", 4, false), mp_obj_new_str((const char*)info->ssid, info->ssid_len, false));
-            	mp_obj_dict_store(dct, mp_obj_new_str("reason", 6, false), mp_obj_new_int(info->reason));
-            	tuple[2] = dct;
+				wifi_sta_isconnected = false;
+				wifi_sta_has_ipaddress = false;
+				if (event_callback) {
+					mp_sched_carg_t *darg = make_cargs(MP_SCHED_CTYPE_DICT);
+					if (!carg) break;
+					if (!make_carg_entry(darg, 0, MP_SCHED_ENTRY_TYPE_STR, info->ssid_len, info->ssid, "ssid")) break;
+					if (!make_carg_entry(darg, 1, MP_SCHED_ENTRY_TYPE_INT, info->reason, NULL, "reason")) break;
+					if (!make_carg_entry_carg(carg, 2, darg)) break;
+				}
 				break;
 			}
+		case SYSTEM_EVENT_AP_START: {
+			wifi_ap_isconnected = true;
+			break;
+		}
+		case SYSTEM_EVENT_AP_STOP: {
+			wifi_ap_isconnected = false;
+			break;
+		}
 		case SYSTEM_EVENT_AP_STACONNECTED: {
-				mp_obj_dict_t *dct = mp_obj_new_dict(0);
 				system_event_ap_staconnected_t *info = (system_event_ap_staconnected_t *)&event->event_info;
-            	mp_obj_dict_store(dct, mp_obj_new_str("mac", 3, false), mp_obj_new_bytes(info->mac, 6));
-            	mp_obj_dict_store(dct, mp_obj_new_str("aid", 3, false), mp_obj_new_int(info->aid));
-            	tuple[2] = dct;
+				if (event_callback) {
+					mp_sched_carg_t *darg = make_cargs(MP_SCHED_CTYPE_DICT);
+					if (!carg) break;
+					if (!make_carg_entry(darg, 0, MP_SCHED_ENTRY_TYPE_BYTES, 6, info->mac, "mac")) break;
+					if (!make_carg_entry(darg, 1, MP_SCHED_ENTRY_TYPE_INT, info->aid, NULL, "aid")) break;
+					if (!make_carg_entry_carg(carg, 2, darg)) break;
+				}
 				break;
 			}
 		case SYSTEM_EVENT_AP_STADISCONNECTED: {
-				mp_obj_dict_t *dct = mp_obj_new_dict(0);
 				system_event_ap_stadisconnected_t *info = (system_event_ap_stadisconnected_t *)&event->event_info;
-            	mp_obj_dict_store(dct, mp_obj_new_str("mac", 3, false), mp_obj_new_bytes(info->mac, 6));
-            	mp_obj_dict_store(dct, mp_obj_new_str("aid", 3, false), mp_obj_new_int(info->aid));
-            	tuple[2] = dct;
+				if (event_callback) {
+					mp_sched_carg_t *darg = make_cargs(MP_SCHED_CTYPE_DICT);
+					if (!carg) break;
+					if (!make_carg_entry(darg, 0, MP_SCHED_ENTRY_TYPE_BYTES, 6, info->mac, "mac")) break;
+					if (!make_carg_entry(darg, 1, MP_SCHED_ENTRY_TYPE_INT, info->aid, NULL, "aid")) break;
+					if (!make_carg_entry_carg(carg, 2, darg)) break;
+				}
 				break;
 			}
 		case SYSTEM_EVENT_AP_PROBEREQRECVED: {
-				mp_obj_dict_t *dct = mp_obj_new_dict(0);
 				system_event_ap_probe_req_rx_t *info = (system_event_ap_probe_req_rx_t *)&event->event_info;
-            	mp_obj_dict_store(dct, mp_obj_new_str("rssi", 4, false), mp_obj_new_int(info->rssi));
-            	mp_obj_dict_store(dct, mp_obj_new_str("mac", 3, false), mp_obj_new_bytes(info->mac, 6));
-            	tuple[2] = dct;
+				if (event_callback) {
+					mp_sched_carg_t *darg = make_cargs(MP_SCHED_CTYPE_DICT);
+					if (!carg) break;
+					if (!make_carg_entry(darg, 0, MP_SCHED_ENTRY_TYPE_INT, info->rssi, NULL, "rssi")) break;
+					if (!make_carg_entry(darg, 1, MP_SCHED_ENTRY_TYPE_BYTES, 6, info->mac, "mac")) break;
+					if (!make_carg_entry_carg(carg, 2, darg)) break;
+				}
 				break;
 			}
 		case SYSTEM_EVENT_STA_GOT_IP: {
-				mp_obj_dict_t *dct = mp_obj_new_dict(0);
 				system_event_sta_got_ip_t *info = (system_event_sta_got_ip_t *)&event->event_info;
-				mp_obj_dict_store(dct, mp_obj_new_str("ip", 2, false), netutils_format_ipv4_addr((uint8_t*)&info->ip_info.ip, NETUTILS_BIG));
-				mp_obj_dict_store(dct, mp_obj_new_str("changed", 7, false), mp_obj_new_bool(info->ip_changed));
-            	tuple[2] = dct;
+				wifi_sta_has_ipaddress = true;
+				wifi_sta_changed_ipaddress = info->ip_changed;
+				if (event_callback) {
+					mp_sched_carg_t *darg = make_cargs(MP_SCHED_CTYPE_DICT);
+					if (!carg) break;
+					char ip_str[16];
+					mp_uint_t ip_len;
+					uint8_t *ip = (uint8_t*)&info->ip_info.ip;
+					ip_len = snprintf(ip_str, 16, "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
+
+					if (!make_carg_entry(darg, 0, MP_SCHED_ENTRY_TYPE_STR, ip_len, (const uint8_t *)ip_str, "ip")) break;
+					if (!make_carg_entry(darg, 1, MP_SCHED_ENTRY_TYPE_BOOL, info->ip_changed, NULL, "changed")) break;
+					if (!make_carg_entry_carg(carg, 2, darg)) break;
+				}
+				break;
+			}
+		case SYSTEM_EVENT_STA_LOST_IP: {
+				system_event_sta_got_ip_t *info = (system_event_sta_got_ip_t *)&event->event_info;
+				wifi_sta_has_ipaddress = false;
+				wifi_sta_changed_ipaddress = true;
 				break;
 			}
 		case SYSTEM_EVENT_SCAN_DONE: {
-				mp_obj_dict_t *dct = mp_obj_new_dict(0);
 				system_event_sta_scan_done_t *info = (system_event_sta_scan_done_t *)&event->event_info;
-            	mp_obj_dict_store(dct, mp_obj_new_str("status", 6, false), mp_obj_new_int(info->status));
-            	mp_obj_dict_store(dct, mp_obj_new_str("number", 6, false), mp_obj_new_int(info->number));
-            	mp_obj_dict_store(dct, mp_obj_new_str("scan_id", 7, false), mp_obj_new_int(info->scan_id));
-            	tuple[2] = dct;
+				if (event_callback) {
+					mp_sched_carg_t *darg = make_cargs(MP_SCHED_CTYPE_DICT);
+					if (!carg) break;
+					if (!make_carg_entry(darg, 0, MP_SCHED_ENTRY_TYPE_INT, info->status, NULL, "status")) break;
+					if (!make_carg_entry(darg, 1, MP_SCHED_ENTRY_TYPE_INT, info->number, NULL, "number")) break;
+					if (!make_carg_entry(darg, 2, MP_SCHED_ENTRY_TYPE_INT, info->scan_id, NULL, "scan_id")) break;
+					if (!make_carg_entry_carg(carg, 2, darg)) break;
+				}
 				break;
 			}
 		case SYSTEM_EVENT_STA_AUTHMODE_CHANGE: {
-				mp_obj_dict_t *dct = mp_obj_new_dict(0);
 				system_event_sta_authmode_change_t *info = (system_event_sta_authmode_change_t *)&event->event_info;
-            	mp_obj_dict_store(dct, mp_obj_new_str("old_mode", 8, false), mp_obj_new_int(info->old_mode));
-            	mp_obj_dict_store(dct, mp_obj_new_str("new_mode", 8, false), mp_obj_new_int(info->new_mode));
-            	tuple[2] = dct;
+				if (event_callback) {
+					mp_sched_carg_t *darg = make_cargs(MP_SCHED_CTYPE_DICT);
+					if (!carg) break;
+					if (!make_carg_entry(darg, 0, MP_SCHED_ENTRY_TYPE_INT, info->old_mode, NULL, "old_mode")) break;
+					if (!make_carg_entry(darg, 1, MP_SCHED_ENTRY_TYPE_INT, info->new_mode, NULL, "new_mode")) break;
+					if (!make_carg_entry_carg(carg, 2, darg)) break;
+				}
 				break;
 			}
 		default:
 			break;
 	}
-	mp_sched_schedule(event_callback, mp_obj_new_tuple(3, tuple));
+	if (carg) {
+		if (carg->n < 3) {
+			// the 3rd tuple item was not added, add it now
+			if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_NONE, 0, NULL, NULL)) return;
+		}
+		mp_sched_schedule(event_callback, mp_const_none, carg);
+	}
 }
 
 // This function is called by the system-event task and so runs in a different
@@ -337,7 +395,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 	mdns_handle_system_event(ctx, event);
 	#endif
 
-	// Handle events callback
+	// === Handle events callbacks ===
 	processEvent_callback(event);
 
 	if (wifi_mutex) xSemaphoreGive(wifi_mutex);
@@ -351,6 +409,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 }
 */
 
+//---------------------------------------------------
 STATIC void require_if(mp_obj_t wlan_if, int if_no) {
     wlan_if_obj_t *self = MP_OBJ_TO_PTR(wlan_if);
     if (self->if_id != if_no) {
@@ -358,6 +417,7 @@ STATIC void require_if(mp_obj_t wlan_if, int if_no) {
     }
 }
 
+//-------------------------------------------------------------
 STATIC mp_obj_t get_wlan(size_t n_args, const mp_obj_t *args) {
     static int initialized = 0;
     if (!initialized) {
@@ -381,9 +441,11 @@ STATIC mp_obj_t get_wlan(size_t n_args, const mp_obj_t *args) {
     } else {
         mp_raise_ValueError("invalid WLAN interface identifier");
     }
+    return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(get_wlan_obj, 0, 1, get_wlan);
 
+//--------------------------------
 STATIC mp_obj_t esp_initialize() {
     static int initialized = 0;
     if (!initialized) {
@@ -393,13 +455,13 @@ STATIC mp_obj_t esp_initialize() {
         ESP_EXCEPTIONS( esp_event_loop_init(event_handler, NULL) );
         ESP_LOGD("modnetwork", "esp_event_loop_init done");
 
+        // create mutex's
         if (wifi_mutex == NULL) wifi_mutex = xSemaphoreCreateMutex();
-
-		#ifdef INCLUDE_PROBEREQRECVED
         if (probereq_mutex == NULL) probereq_mutex = xSemaphoreCreateMutex();
+        // add probe requests handler
         esp_wifi_set_sta_rx_probe_req(processPROBEREQRECVED);
-		#endif
-		initialized = 1;
+
+        initialized = 1;
     }
     return mp_const_none;
 }
@@ -409,6 +471,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(esp_initialize_obj, esp_initialize);
 #error WIFI_MODE_STA and WIFI_MODE_AP are supposed to be bitfields!
 #endif
 
+//---------------------------------------------------------------
 STATIC mp_obj_t esp_active(size_t n_args, const mp_obj_t *args) {
 
     wlan_if_obj_t *self = MP_OBJ_TO_PTR(args[0]);
@@ -424,10 +487,14 @@ STATIC mp_obj_t esp_active(size_t n_args, const mp_obj_t *args) {
 
     return (mode & bit) ? mp_const_true : mp_const_false;
 }
-
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_active_obj, 1, 2, esp_active);
 
+//----------------------------------------------------------------
 STATIC mp_obj_t esp_connect(size_t n_args, const mp_obj_t *args) {
+
+    wifi_mode_t mode;
+    ESP_EXCEPTIONS(esp_wifi_get_mode(&mode));
+    if ((mode & WIFI_MODE_STA) == 0) return mp_const_none;
 
     mp_uint_t len;
     const char *p;
@@ -439,6 +506,7 @@ STATIC mp_obj_t esp_connect(size_t n_args, const mp_obj_t *args) {
         memcpy(wifi_sta_config.sta.password, p, MIN(len, sizeof(wifi_sta_config.sta.password)));
         ESP_EXCEPTIONS( esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_sta_config) );
     }
+
     MP_THREAD_GIL_EXIT();
     ESP_EXCEPTIONS( esp_wifi_connect() );
     MP_THREAD_GIL_ENTER();
@@ -446,23 +514,23 @@ STATIC mp_obj_t esp_connect(size_t n_args, const mp_obj_t *args) {
 
     return mp_const_none;
 }
-
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_connect_obj, 1, 7, esp_connect);
 
+//------------------------------------------------
 STATIC mp_obj_t esp_disconnect(mp_obj_t self_in) {
     wifi_sta_connected = false;
     ESP_EXCEPTIONS( esp_wifi_disconnect() );
     return mp_const_none;
 }
-
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_disconnect_obj, esp_disconnect);
 
+//--------------------------------------------
 STATIC mp_obj_t esp_status(mp_obj_t self_in) {
     return mp_const_none;
 }
-
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_status_obj, esp_status);
 
+//------------------------------------------
 STATIC mp_obj_t esp_scan(mp_obj_t self_in) {
     // check that STA mode is active
     wifi_mode_t mode;
@@ -498,9 +566,9 @@ STATIC mp_obj_t esp_scan(mp_obj_t self_in) {
     }
     return list;
 }
-
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_scan_obj, esp_scan);
 
+//-------------------------------------------------
 STATIC mp_obj_t esp_isconnected(mp_obj_t self_in) {
     wlan_if_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (self->if_id == WIFI_IF_STA) {
@@ -516,6 +584,7 @@ STATIC mp_obj_t esp_isconnected(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_isconnected_obj, esp_isconnected);
 
+//-----------------------------------------------------------------
 STATIC mp_obj_t esp_ifconfig(size_t n_args, const mp_obj_t *args) {
     wlan_if_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     tcpip_adapter_ip_info_t info;
@@ -543,18 +612,20 @@ STATIC mp_obj_t esp_ifconfig(size_t n_args, const mp_obj_t *args) {
             // etc...
             uint32_t* m = (uint32_t*)&info.netmask;
             *m = htonl(0xffffffff << (32 - mp_obj_get_int(items[1])));
-        } else {
+        }
+        else {
             netutils_parse_ipv4_addr(items[1], (void*)&info.netmask, NETUTILS_BIG);
         }
         netutils_parse_ipv4_addr(items[2], (void*)&info.gw, NETUTILS_BIG);
         netutils_parse_ipv4_addr(items[3], (void*)&dns_info.ip, NETUTILS_BIG);
         // To set a static IP we have to disable DHCP first
-        if (self->if_id == WIFI_IF_STA || self->if_id == ESP_IF_ETH) {
+        if ((self->if_id == WIFI_IF_STA) || (self->if_id == ESP_IF_ETH)) {
             esp_err_t e = tcpip_adapter_dhcpc_stop(self->if_id);
             if (e != ESP_OK && e != ESP_ERR_TCPIP_ADAPTER_DHCP_ALREADY_STOPPED) _esp_exceptions(e);
             ESP_EXCEPTIONS(tcpip_adapter_set_ip_info(self->if_id, &info));
             ESP_EXCEPTIONS(tcpip_adapter_set_dns_info(self->if_id, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
-        } else if (self->if_id == WIFI_IF_AP) {
+        }
+        else if (self->if_id == WIFI_IF_AP) {
             esp_err_t e = tcpip_adapter_dhcps_stop(WIFI_IF_AP);
             if (e != ESP_OK && e != ESP_ERR_TCPIP_ADAPTER_DHCP_ALREADY_STOPPED) _esp_exceptions(e);
             ESP_EXCEPTIONS(tcpip_adapter_set_ip_info(WIFI_IF_AP, &info));
@@ -564,9 +635,9 @@ STATIC mp_obj_t esp_ifconfig(size_t n_args, const mp_obj_t *args) {
         return mp_const_none;
     }
 }
-
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_ifconfig_obj, 1, 2, esp_ifconfig);
 
+//---------------------------------------------------------------------------------
 STATIC mp_obj_t esp_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs) {
     if (n_args != 1 && kwargs->used != 0) {
         mp_raise_TypeError("either pos or kw args are allowed");
@@ -646,9 +717,8 @@ STATIC mp_obj_t esp_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs
     }
 
     // Get config
-
     if (n_args != 2) {
-        mp_raise_TypeError("can query only one param");
+        mp_raise_TypeError("can query only one parameter");
     }
 
     int req_if = -1;
@@ -691,8 +761,8 @@ STATIC mp_obj_t esp_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs
 
 unknown:
     mp_raise_ValueError("unknown config param");
+    return mp_const_none;
 }
-
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(esp_config_obj, 1, esp_config);
 
 //---------------------------------------------------------------
@@ -714,7 +784,6 @@ STATIC mp_obj_t esp_callback(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_callback_obj, 1, 2, esp_callback);
 
-#ifdef INCLUDE_PROBEREQRECVED
 //------------------------------------------------------------------------
 STATIC mp_obj_t esp_probereq_callback(size_t n_args, const mp_obj_t *args)
 {
@@ -733,8 +802,9 @@ STATIC mp_obj_t esp_probereq_callback(size_t n_args, const mp_obj_t *args)
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_probereq_callback_obj, 1, 2, esp_probereq_callback);
-#endif
 
+
+//========================================================
 STATIC const mp_map_elem_t wlan_if_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_active), (mp_obj_t)&esp_active_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_connect), (mp_obj_t)&esp_connect_obj },
@@ -745,13 +815,11 @@ STATIC const mp_map_elem_t wlan_if_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_config), (mp_obj_t)&esp_config_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_ifconfig), (mp_obj_t)&esp_ifconfig_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_eventCB), (mp_obj_t)&esp_callback_obj },
-	#ifdef INCLUDE_PROBEREQRECVED
     { MP_OBJ_NEW_QSTR(MP_QSTR_probereqCB), (mp_obj_t)&esp_probereq_callback_obj },
-	#endif
 };
-
 STATIC MP_DEFINE_CONST_DICT(wlan_if_locals_dict, wlan_if_locals_dict_table);
 
+//----------------------------------
 const mp_obj_type_t wlan_if_type = {
     { &mp_type_type },
     .name = MP_QSTR_WLAN,

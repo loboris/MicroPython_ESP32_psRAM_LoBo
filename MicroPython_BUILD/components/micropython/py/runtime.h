@@ -56,6 +56,41 @@ typedef struct _mp_arg_t {
     mp_arg_val_t defval;
 } mp_arg_t;
 
+#if MICROPY_ENABLE_SCHEDULER
+//--------------------------
+
+#define MP_SCHED_CTYPE_MAX_ITEMS	4
+
+#define MP_SCHED_CTYPE_NONE			0
+#define MP_SCHED_CTYPE_SINGLE		1
+#define MP_SCHED_CTYPE_TUPLE		2
+#define MP_SCHED_CTYPE_DICT			3
+
+#define MP_SCHED_ENTRY_TYPE_NONE	0
+#define MP_SCHED_ENTRY_TYPE_INT		1
+#define MP_SCHED_ENTRY_TYPE_BOOL	2
+#define MP_SCHED_ENTRY_TYPE_FLOAT	3
+#define MP_SCHED_ENTRY_TYPE_STR		4
+#define MP_SCHED_ENTRY_TYPE_BYTES	5
+#define MP_SCHED_ENTRY_TYPE_CARG	6
+
+typedef struct _mp_sched_carg_t {
+	uint8_t	type;
+	uint8_t	n;
+	void	*entry[MP_SCHED_CTYPE_MAX_ITEMS];
+} mp_sched_carg_t;
+
+typedef struct _mp_sched_carg_entry_t {
+	uint8_t 		type;
+	int				ival;
+	float			fval;
+	uint8_t			*sval;
+	char 			key[16];
+	mp_sched_carg_t	*carg;
+} mp_sched_carg_entry_t;
+
+#endif
+
 // Tables mapping operator enums to qstrs, defined in objtype.c
 extern const byte mp_unary_op_method_name[];
 extern const byte mp_binary_op_method_name[];
@@ -67,10 +102,17 @@ void mp_handle_pending(void);
 void mp_handle_pending_tail(mp_uint_t atomic_state);
 
 #if MICROPY_ENABLE_SCHEDULER
+
 void mp_sched_lock(void);
 void mp_sched_unlock(void);
 static inline unsigned int mp_sched_num_pending(void) { return MP_STATE_VM(sched_sp); }
-bool mp_sched_schedule(mp_obj_t function, mp_obj_t arg);
+bool mp_sched_schedule(mp_obj_t function, mp_obj_t arg, void *carg);
+
+void free_carg(mp_sched_carg_t *carg);
+mp_sched_carg_t *make_carg_entry(mp_sched_carg_t *carg, int idx, uint8_t type, int val, const uint8_t *sval, const char *key);
+mp_sched_carg_t *make_cargs(int type);
+mp_sched_carg_t *make_carg_entry_carg(mp_sched_carg_t *carg, int idx, mp_sched_carg_t *darg);
+
 #endif
 
 // extra printing method specifically for mp_obj_t's which are integral type

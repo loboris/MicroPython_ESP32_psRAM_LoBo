@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -58,6 +59,7 @@ extern mp_dynamic_compiler_t mp_dynamic_compiler;
 typedef struct _mp_sched_item_t {
     mp_obj_t func;
     mp_obj_t arg;
+    void 	 *carg;
 } mp_sched_item_t;
 
 // This structure hold information about the memory allocation system.

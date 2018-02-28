@@ -1,16 +1,9 @@
 /*
- * This file is based on 'ftp' from Pycom Limited.
- *
- * Author: LoBo, https://loboris@github.com, loboris@gmail.com
- * Copyright (c) 2017, LoBo
- */
-
-/*
- * This file is part of the MicroPython project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2016 Damien P. George on behalf of Pycom Ltd
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +22,12 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ */
+/*
+ * This file is based on 'ftp' from Pycom Limited.
+ *
+ * Author: LoBo, loboris@gmail.com
+ * Copyright (c) 2017, LoBo
  */
 
 #include "sdkconfig.h"
@@ -172,6 +171,7 @@ typedef enum {
     E_FTP_CMD_QUIT,
     E_FTP_CMD_APPE,
     E_FTP_CMD_NLST,
+    E_FTP_CMD_AUTH,
     E_FTP_NUM_FTP_CMDS
 } ftp_cmd_index_t;
 
@@ -192,7 +192,7 @@ static const ftp_cmd_t ftp_cmd_table[] = { { "FEAT" }, { "SYST" }, { "CDUP" }, {
                                            { "TYPE" }, { "USER" }, { "PASS" }, { "PASV" },
                                            { "LIST" }, { "RETR" }, { "STOR" }, { "DELE" },
                                            { "RMD"  }, { "MKD"  }, { "RNFR" }, { "RNTO" },
-                                           { "NOOP" }, { "QUIT" }, { "APPE" }, { "NLST" } };
+                                           { "NOOP" }, { "QUIT" }, { "APPE" }, { "NLST" }, { "AUTH" } };
 
 // ==== PRIVATE FUNCTIONS ===================================================
 
@@ -768,7 +768,7 @@ static void ftp_process_cmd (void) {
         // bufptr is moved as commands are being popped
         ftp_cmd_index_t cmd = ftp_pop_command(&bufptr);
         if (!ftp_data.loggin.passvalid &&
-        		((cmd != E_FTP_CMD_USER) && (cmd != E_FTP_CMD_PASS) && (cmd != E_FTP_CMD_QUIT) && (cmd != E_FTP_CMD_FEAT))) {
+        		((cmd != E_FTP_CMD_USER) && (cmd != E_FTP_CMD_PASS) && (cmd != E_FTP_CMD_QUIT) && (cmd != E_FTP_CMD_FEAT) && (cmd != E_FTP_CMD_AUTH))) {
             ftp_send_reply(332, NULL);
             return;
         }
@@ -781,6 +781,9 @@ static void ftp_process_cmd (void) {
         switch (cmd) {
         case E_FTP_CMD_FEAT:
             ftp_send_reply(502, "no-features");
+            break;
+        case E_FTP_CMD_AUTH:
+            ftp_send_reply(504, "not-supported");
             break;
         case E_FTP_CMD_SYST:
             ftp_send_reply(215, "UNIX Type: L8");

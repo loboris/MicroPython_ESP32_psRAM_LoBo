@@ -12,7 +12,7 @@ Available firmwares:
 |**esp32_ota** | MicroPython, dual partition layout, OTA enabled, 4MB Flash |
 |**esp32_psram** | MicroPython, single partition layout, 4MB Flash & 4MB SPIRAM |
 |**esp32_psram_ota** | MicroPython, dual partition layout, OTA enabled, 4MB Flash & 4MB SPIRAM |
-|**esp32_psram_all** | MicroPython, single partition layout, 4MB Flash, ALL modules included |
+|**esp32_all** | MicroPython, single partition layout, 4MB Flash, ALL modules included |
 |**esp32_psram_all** | MicroPython, single partition layout, 4MB Flash & 4MB SPIRAM, ALL modules included |
 
 

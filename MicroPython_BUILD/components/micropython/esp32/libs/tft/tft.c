@@ -1,9 +1,9 @@
 /*
- * This file is part of the Micro Python project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2017 Boris Lovosevic (https://github/loboris)
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,7 @@
 /*
  *  TFT library
  *
- *  Author: LoBo, 08/2017
+ *  Author: LoBo, 01/2018
  *
  *  Library supporting SPI TFT displays based on ILI9341, ILI9488 & ST7789V controllers
 */
@@ -47,6 +47,7 @@
 #include "tftspi.h"
 
 #include "py/mpprint.h"
+#include "extmod/vfs_native.h"
 
 #define DEG_TO_RAD 0.01745329252
 #define RAD_TO_DEG 57.295779513
@@ -63,14 +64,13 @@
 // Embedded fonts
 extern uint8_t tft_SmallFont[];
 extern uint8_t tft_DefaultFont[];
-extern uint8_t tft_def_small[];
 extern uint8_t tft_Dejavu18[];
 extern uint8_t tft_Dejavu24[];
 extern uint8_t tft_Ubuntu16[];
 extern uint8_t tft_Comic24[];
 extern uint8_t tft_minya24[];
 extern uint8_t tft_tooney32[];
-
+extern uint8_t tft_def_small[];
 
 // ==== Color definitions constants ==============
 const color_t TFT_BLACK       = {   0,   0,   0 };
@@ -92,7 +92,6 @@ const color_t TFT_WHITE       = { 252, 252, 252 };
 const color_t TFT_ORANGE      = { 252, 164,   0 };
 const color_t TFT_GREENYELLOW = { 172, 252,  44 };
 const color_t TFT_PINK        = { 252, 192, 202 };
-
 // ===============================================
 
 // ==============================================================
@@ -111,7 +110,6 @@ float _angleOffset = DEFAULT_ANGLE_OFFSET;
 int	TFT_X = 0;
 int	TFT_Y = 0;
 
-uint8_t tp_type = TOUCH_TYPE_NONE;
 uint32_t tp_calx = 0;
 uint32_t tp_caly = 0;
 
@@ -152,6 +150,7 @@ static uint8_t *userfont = NULL;
 static int TFT_OFFSET = 0;
 static propFont	fontChar;
 static float _arcAngleMax = DEFAULT_ARC_ANGLE_MAX;
+static bool image_trans = false;
 
 
 // =========================================================================
@@ -207,20 +206,6 @@ static void _drawFastVLine(int16_t x, int16_t y, int16_t h, color_t color) {
 	if ((y + h) > (dispWin.y2+1)) h = dispWin.y2 - y + 1;
 	if (h == 0) h = 1;
 	TFT_pushColorRep(x, y, x, y+h-1, color, (uint32_t)h);
-}
-
-//---------------------------------------------------------------------------
-static void _drawFastVLine_(int16_t x, int16_t y, int16_t h, color_t color) {
-	// clipping
-	if ((x < dispWin.x1) || (x > dispWin.x2) || (y > dispWin.y2)) return;
-	if (y < dispWin.y1) {
-		h -= (dispWin.y1 - y);
-		y = dispWin.y1;
-	}
-	if (h < 0) h = 0;
-	if ((y + h) > (dispWin.y2+1)) h = dispWin.y2 - y + 1;
-	if (h == 0) h = 1;
-	TFT_pushColorRep_nocs(x, y, x, y+h-1, color, (uint32_t)h);
 }
 
 //--------------------------------------------------------------------------
@@ -423,33 +408,25 @@ static void fillCircleHelper(int16_t x0, int16_t y0, int16_t r,	uint8_t cornerna
 	int16_t x = 0;
 	int16_t y = r;
 	int16_t ylm = x0 - r;
-	uint8_t v = 0;
-	if (cornername == 3) v = 1;
 
-	disp_select();
 	while (x < y) {
 		if (f >= 0) {
-			if (cornername & 0x1) _drawFastVLine_(x0 + y, y0 - x, 2 * x + 1 + delta, color);
-			if (cornername & 0x2) _drawFastVLine_(x0 - y, y0 - x, 2 * x + 1 + delta, color);
+			if (cornername & 0x1) _drawFastVLine(x0 + y, y0 - x, 2 * x + 1 + delta, color);
+			if (cornername & 0x2) _drawFastVLine(x0 - y, y0 - x, 2 * x + 1 + delta, color);
 			ylm = x0 - y;
 			y--;
 			ddF_y += 2;
 			f += ddF_y;
-		}
-		if (v) {
-			_drawFastVLine_(x0 - x, y0 - y, 2 * y + 1 + delta, color);
-			v = 0;
 		}
 		x++;
 		ddF_x += 2;
 		f += ddF_x;
 
 		if ((x0 - x) > ylm) {
-			if (cornername & 0x1) _drawFastVLine_(x0 + x, y0 - y, 2 * y + 1 + delta, color);
-			if (cornername & 0x2) _drawFastVLine_(x0 - x, y0 - y, 2 * y + 1 + delta, color);
+			if (cornername & 0x1) _drawFastVLine(x0 + x, y0 - y, 2 * y + 1 + delta, color);
+			if (cornername & 0x2) _drawFastVLine(x0 - x, y0 - y, 2 * y + 1 + delta, color);
 		}
 	}
-	disp_deselect();
 }
 
 // Draw a rounded rectangle
@@ -674,6 +651,7 @@ void TFT_fillCircle(int16_t x, int16_t y, int radius, color_t color) {
 	x += dispWin.x1;
 	y += dispWin.y1;
 
+	_drawFastVLine(x, y-radius, 2*radius+1, color);
 	fillCircleHelper(x, y, radius, 3, 0, color);
 }
 
@@ -1082,7 +1060,17 @@ static int load_file_font(const char * fontfile, int info)
 
     struct stat sb;
 
-	// Check if file exists and get file size
+	spi_device_deselect(disp_spi);
+	spi_device_deselect(ts_spi);
+    // Open the file
+    FILE *fhndl = fopen(fontfile, "rb");
+    if (fhndl == NULL) {
+    	sprintf(err_msg, "Error opening font file '%s'", fontfile);
+		err = 1;
+		goto exit;
+    }
+
+	// Get file size
     if (stat(fontfile, &sb) != 0) {
     	sprintf(err_msg, "Error getting font file size");
 		err = 2;
@@ -1098,17 +1086,10 @@ static int load_file_font(const char * fontfile, int info)
 	userfont = malloc(fsize+4);
 	if (userfont == NULL) {
 		sprintf(err_msg, "Font memory allocation error");
+		fclose(fhndl);
 		err = 4;
 		goto exit;
 	}
-
-    // Open the file
-    FILE *fhndl = fopen(fontfile, "r");
-    if (!fhndl) {
-    	sprintf(err_msg, "Error opening font file '%s'", fontfile);
-		err = 1;
-		goto exit;
-    }
 
 	int read = fread(userfont, 1, fsize, fhndl);
 
@@ -1339,7 +1320,7 @@ int compile_font_file(char *fontfile, uint8_t dbg)
 	sprintf(outfile, "%s", fontfile);
 	sprintf(outfile+strlen(outfile)-1, "fon");
 
-	uint8_t *uf = userfont; // save user font pointer
+	uint8_t *uf = userfont; // save userfont pointer
 	userfont = NULL;
 	if (load_file_font(outfile, 1) != 0) {
 		sprintf(err_msg, "Error compiling file!");
@@ -1500,8 +1481,22 @@ static uint8_t getCharPtr(uint8_t c) {
 }
 
 /*
-//-----------------------
-static void _testFont() {
+const char fontnames[] = {
+	"FONT_Default",
+	"FONT_DejaVu18",
+	"FONT_DejaVu24",
+	"FONT_Ubuntu",
+	"FONT_Comic",
+	"FONT_Minya",
+	"FONT_Tooney",
+	"FONT_Small",
+	"FONT_DefaultSmall",
+	"FONT_7seg",
+	"External font"
+};
+
+//---------------------
+void fontProperties() {
   if (cfont.x_size) {
 	  mp_printf(&mp_plat_print, "FONT TEST: fixed font\r\n");
 	  return;
@@ -1606,8 +1601,8 @@ static int printProportionalChar(int x, int y) {
 		int len, bufPos;
 
 		// === buffer Glyph data for faster sending ===
-		len = char_width * cfont.y_size;
-		color_t *color_line = heap_caps_malloc(len*3, MALLOC_CAP_DMA);
+		len = (char_width+1) * cfont.y_size;
+		color_t *color_line = malloc(len*3);
 		if (color_line) {
 			// fill with background color
 			for (int n = 0; n < len; n++) {
@@ -1623,26 +1618,16 @@ static int printProportionalChar(int x, int y) {
 					}
 					if ((ch & mask) != 0) {
 						// visible pixel
-						bufPos = ((j + fontChar.adjYOffset) * char_width) + (fontChar.xOffset + i);  // bufY + bufX
+						bufPos = ((j + fontChar.adjYOffset) * (char_width+1)) + (fontChar.xOffset + i);  // bufY + bufX
 						color_line[bufPos] = _fg;
-						/*
-						bufY = (j + fontChar.adjYOffset) * char_width;
-						bufX = fontChar.xOffset + i;
-						if ((bufX < 0) || (bufX > char_width)) {
-							mp_printf(&mp_plat_print, "[%c] X ERR: %d\r\n", fontChar.charCode, bufX);
-						}
-						bufPos = bufY + bufX;
-						if ((bufPos < len) && (bufPos > 0)) color_line[bufPos] = _fg;
-						else mp_printf(&mp_plat_print, "[%c] ERR: %d > %d  W=%d  H=%d  bufX=%d  bufY=%d  X=%d  Y=%d\r\n",
-								fontChar.charCode, bufPos, len, char_width, cfont.y_size, bufX, bufY, fontChar.xOffset + i, j + fontChar.adjYOffset);
-						*/
 					}
 					mask >>= 1;
 				}
 			}
 			// send to display in one transaction
+			wait_trans_finish(1);
 			disp_select();
-			send_data(x, y, x+char_width-1, y+cfont.y_size-1, len, color_line);
+			send_data(x, y, x+char_width, y+cfont.y_size-1, len, color_line, 1);
 			disp_deselect();
 			free(color_line);
 
@@ -1693,7 +1678,7 @@ static void printChar(uint8_t c, int x, int y) {
 	if ((font_buffered_char) && (!font_transparent)) {
 		// === buffer Glyph data for faster sending ===
 		len = cfont.x_size * cfont.y_size;
-		color_t *color_line = heap_caps_malloc(len*3, MALLOC_CAP_DMA);
+		color_t *color_line = malloc(len*3);
 		if (color_line) {
 			// fill with background color
 			for (int n = 0; n < len; n++) {
@@ -1712,8 +1697,9 @@ static void printChar(uint8_t c, int x, int y) {
 				temp += (fz);
 			}
 			// send to display in one transaction
+			wait_trans_finish(1);
 			disp_select();
-			send_data(x, y, x+cfont.x_size-1, y+cfont.y_size-1, len, color_line);
+			send_data(x, y, x+cfont.x_size-1, y+cfont.y_size-1, len, color_line, 1);
 			disp_deselect();
 			free(color_line);
 
@@ -2205,7 +2191,6 @@ color_t HSBtoRGB(float _hue, float _sat, float _brightness) {
 
  return color;
 }
-
 //=====================================================================
 void TFT_setclipwin(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2)
 {
@@ -2409,12 +2394,20 @@ static UINT tjd_output (
 				else src += 3; // skip
 			}
 		}
-		wait_trans_finish(1);
-		send_data(dleft, dtop, dright, dbottom, len, dev->linbuf[dev->linbuf_idx]);
+		if (image_trans) {
+			wait_trans_finish(1);
+			send_data(dleft, dtop, dright, dbottom, len, dev->linbuf[dev->linbuf_idx], 0);
+		}
+		else {
+			disp_select();
+			send_data(dleft, dtop, dright, dbottom, len, dev->linbuf[dev->linbuf_idx], 0);
+			wait_trans_finish(1);
+			disp_deselect();
+		}
 		dev->linbuf_idx = ((dev->linbuf_idx + 1) & 1);
 	}
 	else {
-		wait_trans_finish(1);
+		if (image_trans) wait_trans_finish(1);
 		mp_printf(&mp_plat_print, "Data size error: %d jpg: (%d,%d,%d,%d) disp: (%d,%d,%d,%d)\r\n", len, left,top,right,bottom, dleft,dtop,dright,dbottom);
 		return 0;  // stop decompression
 	}
@@ -2463,7 +2456,10 @@ void TFT_jpg_image(int x, int y, uint8_t scale, char *fname, uint8_t *buf, int s
         }
     }
 
-	if (scale > 3) scale = 3;
+    // Check if the image file is on sdcard
+    image_trans = file_noton_spi_sdcard(fname);
+
+    if (scale > 3) scale = 3;
 
 	work = malloc(sz_work);
 	if (work) {
@@ -2484,21 +2480,24 @@ void TFT_jpg_image(int x, int y, uint8_t scale, char *fname, uint8_t *buf, int s
 			dev.x = x;
 			dev.y = y;
 
-			dev.linbuf[0] = heap_caps_malloc(JPG_IMAGE_LINE_BUF_SIZE*3, MALLOC_CAP_DMA);
+			dev.linbuf[0] = malloc(JPG_IMAGE_LINE_BUF_SIZE*3);
 			if (dev.linbuf[0] == NULL) {
 				if (image_debug) mp_printf(&mp_plat_print, "Error allocating line buffer #0\r\n");
 				goto exit;
 			}
-			dev.linbuf[1] = heap_caps_malloc(JPG_IMAGE_LINE_BUF_SIZE*3, MALLOC_CAP_DMA);
+			dev.linbuf[1] = malloc(JPG_IMAGE_LINE_BUF_SIZE*3);
 			if (dev.linbuf[1] == NULL) {
 				if (image_debug) mp_printf(&mp_plat_print, "Error allocating line buffer #1\r\n");
 				goto exit;
 			}
 
 			// Start to decode the JPEG file
-			disp_select();
+			if (image_trans) disp_select();
 			rc = jd_decomp(&jd, tjd_output, scale);
-			disp_deselect();
+			if (image_trans) {
+				wait_trans_finish(1);
+				disp_deselect();
+			}
 
 			if (rc != JDR_OK) {
 				if (image_debug) mp_printf(&mp_plat_print, "jpg decompression error %d\r\n", rc);
@@ -2570,6 +2569,9 @@ int TFT_bmp_image(int x, int y, uint8_t scale, char *fname, uint8_t *imgbuf, int
     	}
     	else i = 0;
     }
+
+    // Check if the image file is on sdcard
+    image_trans = file_noton_spi_sdcard(fname);
 
     sprintf(err_buf, "reading header");
 	if (i != 54) {err = -3;	goto exit;}
@@ -2652,14 +2654,14 @@ int TFT_bmp_image(int x, int y, uint8_t scale, char *fname, uint8_t *imgbuf, int
 	}
 
 	// ** Allocate memory for 2 lines of image pixels
-	line_buf[0] = heap_caps_malloc(img_xsize*3, MALLOC_CAP_DMA);
+	line_buf[0] = malloc(img_xsize*3);
 	if (line_buf[0] == NULL) {
 	    sprintf(err_buf, "allocating line buffer #1");
 		err=-12;
 		goto exit;
 	}
 
-	line_buf[1] = heap_caps_malloc(img_xsize*3, MALLOC_CAP_DMA);
+	line_buf[1] = malloc(img_xsize*3);
 	if (line_buf[1] == NULL) {
 	    sprintf(err_buf, "allocating line buffer #2");
 		err=-13;
@@ -2708,7 +2710,7 @@ int TFT_bmp_image(int x, int y, uint8_t scale, char *fname, uint8_t *imgbuf, int
 			img_xsize, img_ysize, scale_pix, img_xlen, img_ylen, img_xstart, img_ystart, disp_xstart, disp_ystart, img_xsize*3, ((scale) ? (rd_len*scale_pix) : 0));
 
 	// * Select the display
-	disp_select();
+	if (image_trans) disp_select();
 
 	while ((disp_yend >= disp_ystart) && ((img_pos + (img_xsize*3)) <= size)) {
 		if (img_pos > size) {
@@ -2781,15 +2783,24 @@ int TFT_bmp_image(int x, int y, uint8_t scale, char *fname, uint8_t *imgbuf, int
 			}
 		}
 
-		wait_trans_finish(1);
-		send_data(disp_xstart, disp_yend, disp_xend, disp_yend, img_xlen, (color_t *)line_buf[lb_idx]);
+		if (image_trans) {
+			wait_trans_finish(1);
+			send_data(disp_xstart, disp_yend, disp_xend, disp_yend, img_xlen, (color_t *)line_buf[lb_idx], 0);
+		}
+		else {
+			disp_select();
+			send_data(disp_xstart, disp_yend, disp_xend, disp_yend, img_xlen, (color_t *)line_buf[lb_idx], 0);
+			wait_trans_finish(1);
+			disp_deselect();
+		}
 		lb_idx = (lb_idx + 1) & 1;  // change buffer
 
 		disp_yend--;
 	}
+	wait_trans_finish(1);
 	err = 0;
 exit1:
-	disp_deselect();
+	if (image_trans) disp_deselect();
 exit:
 	if (scale_buf) free(scale_buf);
 	if (line_buf[0]) free(line_buf[0]);
@@ -2806,7 +2817,7 @@ exit:
 //-------------------------------------------------------
 static int tp_get_data_xpt2046(uint8_t type, int samples)
 {
-	if (ts_spi == NULL) return 0;
+	if (ts_spi->handle == NULL) return 0;
 
 	int n, result, val = 0;
 	uint32_t i = 0;
@@ -2868,7 +2879,7 @@ static int tp_get_data_xpt2046(uint8_t type, int samples)
 static int TFT_read_touch_xpt2046(int *x, int* y)
 {
 	int res = 0, result = -1;
-	if (spi_lobo_device_select(ts_spi, 0) != ESP_OK) return 0;
+    if (spi_device_select(ts_spi, 0) != ESP_OK) return 0;
 
     result = tp_get_data_xpt2046(0xB0, 3);  // Z; pressure; touch detect
 	if (result <= 50) goto exit;
@@ -2885,31 +2896,40 @@ static int TFT_read_touch_xpt2046(int *x, int* y)
 	*y = result;
 	res = 1;
 exit:
-	spi_lobo_device_deselect(ts_spi);
+	spi_device_deselect(ts_spi);
 	return res;
 }
-
 
 //=============================================
 int TFT_read_touch(int *x, int* y, uint8_t raw)
 {
     *x = 0;
     *y = 0;
-	if (ts_spi == NULL) return 0;
-
-	int result = -1;
+	if (ts_spi->handle == NULL) return 0;
+    if (tft_touch_type == TOUCH_TYPE_NONE) return 0;
+    int result = -1;
     int X=0, Y=0;
 
-    if (tp_type == TOUCH_TYPE_XPT2046) {
-    	result = TFT_read_touch_xpt2046(&X, &Y);
-    	if (result == 0) return 0;
+    if (tft_touch_type == TOUCH_TYPE_XPT2046) {
+    	if (tp_calx == 0) {
+    		// Set default calibration constants
+			tp_calx = TP_CALX_XPT2046;
+			tp_caly = TP_CALY_XPT2046;
+    	}
+		result = TFT_read_touch_xpt2046(&X, &Y);
+		if (result == 0) return 0;
     }
-    else if (tp_type == TOUCH_TYPE_STMPE610) {
-        uint16_t Xx, Yy, Z=0;
-    	result = stmpe610_get_touch(&Xx, &Yy, &Z);
-    	if (result == 0) return 0;
-    	X = Xx;
-    	Y = Yy;
+    else if (tft_touch_type == TOUCH_TYPE_STMPE610) {
+    	if (tp_calx == 0) {
+    		// Set default calibration constants
+			tp_calx = TP_CALX_STMPE610;
+			tp_caly = TP_CALY_STMPE610;
+    	}
+		uint16_t Xx, Yy, Z=0;
+		result = stmpe610_get_touch(&Xx, &Yy, &Z);
+		if (result == 0) return 0;
+		X = Xx;
+		Y = Yy;
     }
     else return 0;
 
@@ -2926,38 +2946,39 @@ int TFT_read_touch(int *x, int* y, uint8_t raw)
 	int ytop    = (tp_caly >> 16) & 0x3FFF;
 	int ybottom = tp_caly & 0x3FFF;
 
-	int width = _width;
-	int height = _height;
-
 	if (((xright - xleft) <= 0) || ((ybottom - ytop) <= 0)) return 0;
 
-	if (tp_type == TOUCH_TYPE_XPT2046) {
-		X = ((X - xleft) * height) / (xright - xleft);
-		Y = ((Y - ytop) * width) / (ybottom - ytop);
+    if (tft_touch_type == TOUCH_TYPE_XPT2046) {
+        int width = _width;
+        int height = _height;
+        X = ((X - xleft) * height) / (xright - xleft);
+        Y = ((Y - ytop) * width) / (ybottom - ytop);
 
-		if (X < 0) X = 0;
-		if (X > height-1) X = height-1;
-		if (Y < 0) Y = 0;
-		if (Y > width-1) Y = width-1;
+        if (X < 0) X = 0;
+        if (X > height-1) X = height-1;
+        if (Y < 0) Y = 0;
+        if (Y > width-1) Y = width-1;
 
-		switch (orientation) {
-			case PORTRAIT:
-				tmp = X;
-				X = width - Y - 1;
-				Y = tmp;
-				break;
-			case PORTRAIT_FLIP:
-				tmp = X;
-				X = Y;
-				Y = height - tmp - 1;
-				break;
-			case LANDSCAPE_FLIP:
-				X = height - X - 1;
-				Y = width - Y - 1;
-				break;
-		}
+        switch (orientation) {
+            case PORTRAIT:
+                tmp = X;
+                X = width - Y - 1;
+                Y = tmp;
+                break;
+            case PORTRAIT_FLIP:
+                tmp = X;
+                X = Y;
+                Y = height - tmp - 1;
+                break;
+            case LANDSCAPE_FLIP:
+                X = height - X - 1;
+                Y = width - Y - 1;
+                break;
+        }
     }
-    else if (tp_type == TOUCH_TYPE_STMPE610) {
+    else if (tft_touch_type == TOUCH_TYPE_STMPE610) {
+        int width = _width;
+        int height = _height;
         if (_width > _height) {
             width = _height;
             height = _width;

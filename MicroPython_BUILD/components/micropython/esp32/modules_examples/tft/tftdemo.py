@@ -5,20 +5,20 @@ Date:	08/10/2017
 
 """
 
-import machine, display, time, math
+import machine, display, time, _thread, math
 
 tft = display.TFT()
 
 # --- Select correct configuration ---
 
 # ESP32-WROVER-KIT v3:
-tft.init(tft.ST7789, rst_pin=18, backl_pin=5, miso=25, mosi=23, clk=19, cs=22, dc=21)
+#tft.init(tft.ST7789, rst_pin=18, backl_pin=5, miso=25, mosi=23, clk=19, cs=22, dc=21)
 
 # Adafruit TFT FeatherWing:
 #tft.init(tft.ILI9341, width=240, height=320, miso=19, mosi=18, clk=5, cs=15, dc=33, bgr=True, hastouch=tft.TOUCH_STMPE, tcs=32)
 
 # M5Stack:
-#tft.init(tft.ILI9341, width=240, height=320, rst_pin=33, backl_pin=32, miso=19, mosi=23, clk=18, cs=14, dc=27, bgr=True, backl_on=1, invrot=3)
+tft.init(tft.M5STACK, width=240, height=320, rst_pin=33, backl_pin=32, miso=19, mosi=23, clk=18, cs=14, dc=27, bgr=True, backl_on=1)
 
 # Some others...
 #tft.init(tft.ILI9341, width=240, height=320, miso=19,mosi=23,clk=18,cs=5,dc=26,tcs=27,hastouch=True, bgr=True)
@@ -38,8 +38,8 @@ def testt():
         time.sleep_ms(50)
 
 
-maxx = 240
-maxy = 320
+maxx = 320
+maxy = 240
 miny = 12
 touch = False
 
@@ -208,17 +208,18 @@ def circleSimple():
     tx = "CIRCLE"
     header(tx, True)
 
-    x = 110
-    y = 160
-    r = 110
-    z = 0
-    while z < 12:
+    x = maxx // 2
+    y = (maxy-miny) // 2 + (miny // 2)
+    if x > y:
+        r = y - miny
+    else:
+        r = x - miny
+    while r > 0:
         color = machine.random(0xFFFFFF)
         fill = machine.random(0xFFFFFF)
         tft.circle(x,y,r,color,fill)
         r -= 10
         x += 10
-        z += 1
 
 # Display random ellipses
 #-----------------------------------
@@ -301,3 +302,47 @@ def roundrectDemo(sec=5, dofill=False):
         if touched():
             break
     tft.resetwin()
+
+# Fisplay all demos
+#--------------------------------------
+def fullDemo(sec=5, rot=tft.LANDSCAPE):
+    tft.orient(rot)
+    dispFont(sec)
+    time.sleep(0.1)
+    fontDemo(sec, rot=False)
+    time.sleep(0.1)
+    fontDemo(sec, rot=True)
+    time.sleep(0.1)
+    lineDemo(sec)
+    time.sleep(0.1)
+    circleDemo(sec, dofill=False)
+    time.sleep(0.1)
+    circleDemo(sec, dofill=True)
+    time.sleep(0.1)
+    circleSimple()
+    time.sleep(0.1)
+    time.sleep(sec)
+    time.sleep(0.1)
+    ellipseDemo(sec, dofill=False)
+    time.sleep(0.1)
+    ellipseDemo(sec, dofill=True)
+    time.sleep(0.1)
+    rectDemo(sec, dofill=False)
+    time.sleep(0.1)
+    rectDemo(sec, dofill=True)
+    time.sleep(0.1)
+    roundrectDemo(sec, dofill=False)
+    time.sleep(0.1)
+    roundrectDemo(sec, dofill=True)
+    time.sleep(0.1)
+
+# Run demo in thread
+def dispDemo_th():
+    while True:
+        fullDemo(rot=tft.LANDSCAPE)
+        fullDemo(rot=tft.PORTRAIT)
+        fullDemo(rot=tft.LANDSCAPE_FLIP)
+        fullDemo(rot=tft.PORTRAIT_FLIP)
+
+# dispth=_thread.start_new_thread("TFTDemo", dispDemo_th, ())
+

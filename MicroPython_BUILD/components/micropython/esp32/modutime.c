@@ -1,11 +1,12 @@
 /*
- * This file is part of the MicroPython project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * Development of the code in this file was sponsored by Microbric Pty Ltd
  *
  * The MIT License (MIT)
  *
  * Copyright (c) 2016 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -176,15 +177,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(time_mktime_obj, 1, time_mktime);
 
 //-------------------------------------
 STATIC mp_obj_t time_ticks_base(void) {
-	long ticks_base = 0;
-	if (sntp_mutex) {
-		if (xSemaphoreTake(sntp_mutex, 1000 / portTICK_PERIOD_MS) == pdTRUE) {
-			ticks_base = mp_hal_ticks_base;
-			xSemaphoreGive(sntp_mutex);
-		}
-	}
-	else ticks_base = mp_hal_ticks_base;
-    return mp_obj_new_int(ticks_base);
+    return mp_obj_new_int_from_ull(getTicks_base());
 }
 MP_DEFINE_CONST_FUN_OBJ_0(time_ticks_base_obj, time_ticks_base);
 

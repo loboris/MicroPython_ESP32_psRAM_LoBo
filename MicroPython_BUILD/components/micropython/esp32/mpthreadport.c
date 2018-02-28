@@ -1,16 +1,9 @@
 /*
- * This file is based on 'modthreadport' from Pycom Limited.
- *
- * Author: LoBo, https://loboris@github.com, loboris@gmail.com
- * Copyright (c) 2017, LoBo
- */
-
-/*
- * This file is part of the MicroPython project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2016 Damien P. George on behalf of Pycom Ltd
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -47,6 +40,7 @@
 #include "py/mpthread.h"
 #include "py/mphal.h"
 #include "mpthreadport.h"
+#include "modnetwork.h"
 
 #if defined(CONFIG_MICROPY_USE_TELNET) || defined(CONFIG_MICROPY_USE_FTPSERVER)
 #include "tcpip_adapter.h"
@@ -648,6 +642,7 @@ int mp_thread_status(TaskHandle_t id) {
 int mp_thread_list(thread_list_t *list) {
 	int num = 0;
 
+
     mp_thread_mutex_lock(&thread_mutex, 1);
 
     for (thread_t *th = thread; th != NULL; th = th->next) {
@@ -723,8 +718,13 @@ static int _check_wifi()
     if (wifi_mode == WIFI_MODE_AP) if_type = TCPIP_ADAPTER_IF_AP;
     else if (wifi_mode == WIFI_MODE_STA) if_type = TCPIP_ADAPTER_IF_STA;
     else return 2;
+
     tcpip_adapter_get_ip_info(if_type, &info);
     if (info.ip.addr == 0) return 0;
+
+    if ((wifi_mode == WIFI_MODE_STA) && ((!wifi_sta_isconnected) || (!wifi_sta_has_ipaddress))) return 0;
+    else if ((wifi_mode == WIFI_MODE_AP) && (!wifi_ap_isconnected)) return 0;
+
     return 1;
 }
 #endif

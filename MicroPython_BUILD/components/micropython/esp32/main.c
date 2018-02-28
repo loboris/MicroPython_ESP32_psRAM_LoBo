@@ -1,14 +1,10 @@
 /*
- * This file is part of the MicroPython project, http://micropython.org/
- *
- * Development of the code in this file was sponsored by Microbric Pty Ltd
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2016 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
- * Copyright (c) 2017 Boris Lovosevic (External SPIRAM support)
- * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -157,8 +153,8 @@ soft_reset:
     char sbuff[24] = { 0 };
     gc_info_t info;
     gc_info(&info);
-    // set gc.threshold to 87.5% of usable heap
-	MP_STATE_MEM(gc_alloc_threshold) = ((info.total / 8) * 7) / MICROPY_BYTES_PER_GC_BLOCK;
+    // set gc.threshold to 80% of usable heap
+	MP_STATE_MEM(gc_alloc_threshold) = ((info.total / 10) * 8) / MICROPY_BYTES_PER_GC_BLOCK;
 
 	#if CONFIG_FREERTOS_UNICORE
     	printf("\nFreeRTOS running only on FIRST CORE.\n");

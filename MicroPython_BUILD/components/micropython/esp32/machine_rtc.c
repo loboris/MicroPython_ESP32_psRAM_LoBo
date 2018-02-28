@@ -1,12 +1,12 @@
 /*
- * This file is part of the Micro Python project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2013 2014 Damien P. George
  * Copyright (c) 2015 Daniel Campora
  * Copyright (c) 2017 "Eric Poulsen" <eric@zyxod.com>
- * Copyright (c) 2017 Boris Lovosevic
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -167,10 +167,16 @@ STATIC mp_obj_t mach_rtc_datetime(const mp_obj_t *args) {
     if (seconds == -1) seconds = 0;
 
     struct timeval now;
-    now.tv_sec = seconds;
+
+	gettimeofday(&now, NULL);
+	uint64_t ticks_us = ((((uint64_t)now.tv_sec * 1000000) + (uint64_t)now.tv_usec) - getTicks_base());
+
+	now.tv_sec = seconds;
     now.tv_usec = 0;
-    settimeofday(&now, NULL);
-	mp_hal_ticks_base = now.tv_sec;
+
+	settimeofday(&now, NULL);
+	// Set new base for ticks counting
+    setTicks_base((((uint64_t)now.tv_sec * 1000000) - ticks_us));
 
     mach_rtc_set_seconds_since_epoch(seconds);
 
@@ -240,43 +246,56 @@ void sntp_task (void *pvParameters)
 	mach_rtc_obj_t *rtc = (mach_rtc_obj_t *)pvParameters;
     struct timeval tv;
     uint32_t ellapsed=0, start_time;
+    uint64_t ticks_us;
+    int check_interval = 100;
 
-	gettimeofday(&tv, NULL);
+    gettimeofday(&tv, NULL);
 	start_time = tv.tv_sec;
+	// get current ticks_us
+	ticks_us = ((((uint64_t)tv.tv_sec * 1000000) + (uint64_t)tv.tv_usec) - getTicks_base());
 
+	ESP_LOGD("SNTP_TASK", "start synchronization");
 	start_sntp(rtc->sntp_server_name);
 
     while (1) {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(check_interval / portTICK_PERIOD_MS);
     	gettimeofday(&tv, NULL);
+    	ticks_us += check_interval * 1000;
+    	ellapsed += check_interval;
 
     	if (sntp_is_synced) {
 			sntp_stop();
+		    sntp_is_synced = false;
+			ESP_LOGD("SNTP_TASK", "time synchronized");
+			// Set new base for ticks counting
+			setTicks_base((((uint64_t)tv.tv_sec * 1000000) + (uint64_t)tv.tv_usec - ticks_us));
+
 			if (xSemaphoreTake(sntp_mutex, 1000 / portTICK_PERIOD_MS) == pdTRUE) {
 				rtc->synced = true;
-				// Update the tick base
-				mp_hal_ticks_base = tv.tv_sec;
 				seconds_at_boot = tv.tv_sec;
 				xSemaphoreGive(sntp_mutex);
 			}
-			start_time = tv.tv_sec;
-			ellapsed = 0;
 			// Terminate the task if periodic update is not requested
-			if (rtc->sntp_update_period == 0) break;
+			if (rtc->sntp_update_period <= 10) break;
+			// else prepare for next update
+			ESP_LOGD("SNTP_TASK", "next update in %d seconds", rtc->sntp_update_period);
+			start_time = tv.tv_sec;
+			ticks_us = ((((uint64_t)tv.tv_sec * 1000000) + (uint64_t)tv.tv_usec) - getTicks_base());
+			ellapsed = 0;
+		    check_interval = 1000;
 		}
 		else {
-			if (xSemaphoreTake(sntp_mutex, 1000 / portTICK_PERIOD_MS) == pdTRUE) {
-				if (!rtc->synced) start_time = 0;
-				xSemaphoreGive(sntp_mutex);
-			}
 			ellapsed = tv.tv_sec - start_time;
 			if (ellapsed >= rtc->sntp_update_period) {
 				// Update period expired, update time from server
+			    check_interval = 100;
 				start_time = tv.tv_sec;
+				ESP_LOGD("SNTP_TASK", "start synchronization");
 			    start_sntp(rtc->sntp_server_name);
 			}
 		}
     }
+    // Terminate the task
     sntp_handle = NULL;
     vTaskDelete(NULL);
 }
@@ -295,7 +314,7 @@ STATIC mp_obj_t mach_rtc_ntp_sync(size_t n_args, const mp_obj_t *pos_args, mp_ma
 
 
     int period = args[1].u_int;
-    if (period < 600) period = 0;
+    if (period < 300) period = 10;
 
     char srv_name[64];
 	sprintf(srv_name, "%s", DEFAULT_SNTP_SERVER);
@@ -342,7 +361,7 @@ STATIC mp_obj_t mach_rtc_ntp_sync(size_t n_args, const mp_obj_t *pos_args, mp_ma
 
 	if (sntp_handle == NULL) {
 		// Create and start sntp task
-		if (xTaskCreate(&sntp_task, "SNTP", 2048, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+1, &sntp_handle) != pdPASS) {
+		if (xTaskCreate(&sntp_task, "SNTP_TASK", 2048, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+1, &sntp_handle) != pdPASS) {
 	    	mp_raise_msg(&mp_type_OSError, "Error creating SNTP task");
 		}
 	}

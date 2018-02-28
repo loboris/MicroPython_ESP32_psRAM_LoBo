@@ -1,9 +1,9 @@
 /*
- * This file is part of the MicroPython project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2017 "Boris Lovosevic" <https://github.com/loboris>
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Based on the ESP IDF example code which is Public Domain / CC0
  *

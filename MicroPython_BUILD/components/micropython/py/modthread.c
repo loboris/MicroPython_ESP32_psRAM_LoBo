@@ -411,6 +411,9 @@ STATIC mp_obj_t mod_thread_getSelfname() {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_thread_getSelfname_obj, mod_thread_getSelfname);
 
+extern TaskHandle_t TelnetTaskHandle;
+extern TaskHandle_t FtpTaskHandle;
+
 //-----------------------------------------------------------------------
 STATIC mp_obj_t mod_thread_list(mp_uint_t n_args, const mp_obj_t *args) {
 	int prn = 1, n = 0;
@@ -441,11 +444,22 @@ STATIC mp_obj_t mod_thread_list(mp_uint_t n_args, const mp_obj_t *args) {
 					thr->stack_max, th_type);
 		}
 		free(list.threads);
+		if (TelnetTaskHandle) {
+			mp_printf(&mp_plat_print, "ID=%u, Name: Telnet, Stack=%d, MaxUsed=%d, Type: SERVICE\n",
+					TelnetTaskHandle, TELNET_STACK_LEN, TELNET_STACK_LEN - uxTaskGetStackHighWaterMark(TelnetTaskHandle));
+		}
+		if (FtpTaskHandle) {
+			mp_printf(&mp_plat_print, "ID=%u, Name: Ftp, Stack=%d, MaxUsed=%d, Type: SERVICE\n",
+					FtpTaskHandle, FTP_STACK_LEN, FTP_STACK_LEN - uxTaskGetStackHighWaterMark(FtpTaskHandle));
+		}
 		return mp_const_none;
 	}
 	else {
+		int services = 0;
+		if (TelnetTaskHandle) services++;
+		if (FtpTaskHandle) services++;
 		mp_obj_t thr_info[6];
-		mp_obj_t tuple[num];
+		mp_obj_t tuple[num+services];
 		for (n=0; n<num; n++) {
 			thr = list.threads + (sizeof(threadlistitem_t) * n);
 			thr_info[0] = mp_obj_new_int(thr->id);
@@ -459,6 +473,26 @@ STATIC mp_obj_t mod_thread_list(mp_uint_t n_args, const mp_obj_t *args) {
 			tuple[n] = mp_obj_new_tuple(6, thr_info);
 		}
 		free(list.threads);
+		if (TelnetTaskHandle) {
+			thr_info[0] = mp_obj_new_int((int)TelnetTaskHandle);
+			thr_info[1] = mp_obj_new_int(THREAD_TYPE_SERVICE);
+			thr_info[2] = mp_obj_new_str("Telnet", 6, false);
+			thr_info[3] = mp_obj_new_int(0);
+			thr_info[4] = mp_obj_new_int(TELNET_STACK_LEN);
+			thr_info[5] = mp_obj_new_int(TELNET_STACK_LEN - uxTaskGetStackHighWaterMark(TelnetTaskHandle));
+			tuple[n] = mp_obj_new_tuple(6, thr_info);
+			n++;
+		}
+		if (FtpTaskHandle) {
+			thr_info[0] = mp_obj_new_int((int)FtpTaskHandle);
+			thr_info[1] = mp_obj_new_int(THREAD_TYPE_SERVICE);
+			thr_info[2] = mp_obj_new_str("Ftp", 3, false);
+			thr_info[3] = mp_obj_new_int(0);
+			thr_info[4] = mp_obj_new_int(FTP_STACK_LEN);
+			thr_info[5] = mp_obj_new_int(FTP_STACK_LEN - uxTaskGetStackHighWaterMark(FtpTaskHandle));
+			tuple[n] = mp_obj_new_tuple(6, thr_info);
+			n++;
+		}
 
 		return mp_obj_new_tuple(n, tuple);
 	}
@@ -554,9 +588,9 @@ STATIC const mp_rom_map_elem_t mp_module_thread_globals_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR_STATUS),				MP_ROM_INT(THREAD_NOTIFY_STATUS) },
 
 	{ MP_ROM_QSTR(MP_QSTR_RUNNING),				MP_ROM_INT(THREAD_STATUS_RUNNING) },
-	{ MP_ROM_QSTR(MP_QSTR_SUSPENDED),			MP_ROM_INT(THREAD_STATUS_RUNNING) },
-	{ MP_ROM_QSTR(MP_QSTR_WAITING),				MP_ROM_INT(THREAD_STATUS_RUNNING) },
-	{ MP_ROM_QSTR(MP_QSTR_TERMINATED),			MP_ROM_INT(THREAD_STATUS_RUNNING) },
+	{ MP_ROM_QSTR(MP_QSTR_SUSPENDED),			MP_ROM_INT(THREAD_STATUS_SUSPENDED) },
+	{ MP_ROM_QSTR(MP_QSTR_WAITING),				MP_ROM_INT(THREAD_STATUS_WAITING) },
+	{ MP_ROM_QSTR(MP_QSTR_TERMINATED),			MP_ROM_INT(THREAD_STATUS_TERMINATED) },
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_thread_globals, mp_module_thread_globals_table);
 

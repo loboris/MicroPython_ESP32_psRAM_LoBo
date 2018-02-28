@@ -1,11 +1,12 @@
 /*
- * This file is part of the MicroPython project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * Development of the code in this file was sponsored by Microbric Pty Ltd
  *
  * The MIT License (MIT)
  *
  * Copyright (c) 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +36,11 @@
 
 extern ringbuf_t stdin_ringbuf;
 extern uint32_t mp_hal_wdg_rst_tmo;
-extern long mp_hal_ticks_base;
+
+uint64_t getTicks_base();
+void setTicks_base(uint64_t ticks_base);
+
+void disableStdin(const char *pat);
 
 void mp_hal_set_wdt_tmo();
 void mp_hal_reset_wdt();

@@ -107,6 +107,11 @@ ifdef CONFIG_MICROPY_USE_MAIL
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/quickmail
 endif
 
+ifdef CONFIG_MICROPY_USE_BLUETOOTH
+MP_EXTRA_INC += -I$(ESPCOMP)/bt/include
+MP_EXTRA_INC += -I$(ESPCOMP)/bt/bluedroid/api/include
+endif
+
 # CPP macro
 # ------------
 CPP = $(CC) -E
@@ -200,6 +205,11 @@ endif
 
 ifdef CONFIG_MICROPY_USE_ETHERNET
 SRC_C += esp32/network_lan.c
+endif
+
+ifdef CONFIG_MICROPY_USE_BLUETOOTH
+SRC_C += esp32/bluetooth_le.c
+SRC_C += esp32/modbluetooth.c
 endif
 
 EXTMOD_SRC_C = $(addprefix extmod/,\

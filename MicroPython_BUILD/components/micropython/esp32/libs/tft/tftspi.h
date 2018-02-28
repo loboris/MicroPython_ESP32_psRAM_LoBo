@@ -1,9 +1,9 @@
 /*
- * This file is part of the Micro Python project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2017 Boris Lovosevic (https://github/loboris)
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,14 +23,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 /*
- *  Author: LoBo, 08/2017
- *
- *  Library supporting SPI TFT displays based on ILI9341, ILI9488 & ST7789V controllers
  * 
- * HIGH SPEED LOW LEVEL DISPLAY FUNCTIONS
- * USING DIRECT or DMA SPI TRANSFER MODEs
+ * HIGH SPEED LOW LEVEL DISPLAY FUNCTIONS USING DIRECT TRANSFER MODE
  *
 */
 
@@ -38,11 +33,58 @@
 #define _TFTSPI_H_
 
 #include "tftspi.h"
-#include "spi_master_lobo.h"
+//#include "driver/spi_master.h"
+//#include "driver/spi_master_internal.h"
+#include "driver/spi_master_utils.h"
 #include "sdkconfig.h"
 #include "stmpe610.h"
 
-// === Various display constants constants ===
+typedef struct {
+    uint32_t	speed;		// SPI clock in Hz
+    uint32_t	rdspeed;	// Read SPI clock in Hz
+    uint8_t		type;		// Display type, use one of the defined DISP_TYPE_* values
+    uint8_t		host;		// SPI host (HSPI_HOST or VSPI_HOST)
+    uint8_t		miso;		// SPI MISO pin
+    uint8_t		mosi;		// SPI MOSI pin
+    uint8_t		sck;		// SPI CLOCK pin
+    uint8_t		cs;			// Display CS pin
+    uint8_t		dc;			// Display DC pin (command/data)
+    int8_t		tcs;		// Touch screen CS pin
+    int8_t		rst;		// GPIO used for RESET control
+    int8_t		bckl;		// GPIO used for backlight control
+    uint8_t		bckl_on;	// GPIO value for backlight ON
+    uint8_t		color_bits;	// Bits per color (16 or 24)
+    uint8_t		gamma;		// Gamma curve used
+    uint16_t	width;		// Display width (smaller dimension)
+    uint16_t	height;		// Display height (larger dimension)
+    uint8_t		invrot;		// rotation
+    uint8_t		bgr;		// SET TO 0X00 FOR DISPLAYS WITH RGB MATRIX, 0x08 FOR DISPLAYS WITH BGR MATRIX
+    uint8_t		touch;		// Touch panel type
+} display_config_t;
+
+// 24-bit color type structure
+typedef struct __attribute__((__packed__)) {
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+} color_t ;
+
+
+#define DISP_COLOR_BITS_24	0x66
+#define DISP_COLOR_BITS_16	0x55
+#define DISP_COLOR_BITS		DISP_COLOR_BITS_16
+
+#define TOUCH_TYPE_NONE		0
+#define TOUCH_TYPE_XPT2046	1
+#define TOUCH_TYPE_STMPE610	2
+
+#define TP_CALX_XPT2046		7472920
+#define TP_CALY_XPT2046		122224794
+
+#define TP_CALX_STMPE610	21368532
+#define TP_CALY_STMPE610	11800144
+
+// === Screen orientation constants ===
 #define PORTRAIT	0
 #define LANDSCAPE	1
 #define PORTRAIT_FLIP	2
@@ -54,31 +96,80 @@
 #define DISP_TYPE_ST7735	3
 #define DISP_TYPE_ST7735R	4
 #define DISP_TYPE_ST7735B	5
-#define DISP_TYPE_MAX		6
-
-#define DISP_COLOR_BITS_24	0x66
-//#define DISP_COLOR_BITS_16	0x55
-
-#define DISP_COLOR_BITS_24	0x66
-#define TFT_RGB_BGR 0x00	// default only, set when initializing the display
-
-// Pins defaults (ESP32-WROVER-KIT v3)
-#define PIN_NUM_MISO 25		// SPI MISO
-#define PIN_NUM_MOSI 23		// SPI MOSI
-#define PIN_NUM_CLK  19		// SPI CLOCK pin
-#define PIN_NUM_CS   22		// Display CS pin
-#define PIN_NUM_DC   21		// Display command/data pin
-#define PIN_NUM_TCS   0		// Touch screen CS pin
-//#define PIN_NUM_RST  18  	// GPIO used for RESET control
-//#define PIN_NUM_BCKL  5     // GPIO used for backlight control
-//#define PIN_BCKL_ON   0     // GPIO value for backlight ON
-//#define PIN_BCKL_OFF  1     // GPIO value for backlight OFF
+#define DISP_TYPE_M5STACK	6
+#define DISP_TYPE_GENERIC	7
+#define DISP_TYPE_MAX		8
 
 #define DEFAULT_TFT_DISPLAY_WIDTH  240
 #define DEFAULT_TFT_DISPLAY_HEIGHT 320
-#define DEFAULT_GAMMA_CURVE 0
-#define DEFAULT_SPI_CLOCK   26000000
-#define DEFAULT_DISP_TYPE   DISP_TYPE_ST7789V
+#define DEFAULT_DISP_TYPE   DISP_TYPE_ILI9341
+
+
+#define WROVER_V3_CONFIG() {\
+	.type = DISP_TYPE_ST7789V, \
+	.host = HSPI_HOST, \
+	.speed = 26000000, \
+	.miso = 25, \
+	.mosi = 23, \
+	.sck = 19, \
+	.cs = 22, \
+	.dc = 21, \
+	.tcs = -1, \
+	.rst = 18, \
+	.bckl = 5, \
+	.bckl_on = 0, \
+	.color_bits = 24, \
+	.gamma = 0, \
+	.width = 240, \
+	.height = 320, \
+	.invrot = 1, \
+	.bgr = 0, \
+	.touch = TOUCH_TYPE_NONE \
+}
+
+#define ADAFRUIT_TFT_FEATHER_CONFIG() {\
+	.type = DISP_TYPE_ILI9341, \
+	.host = HSPI_HOST, \
+	.speed = 26000000, \
+	.miso = 19, \
+	.mosi = 18, \
+	.sck = 5, \
+	.cs = 15, \
+	.dc = 33, \
+	.tcs = 32, \
+	.rst = -1, \
+	.bckl = -1, \
+	.bckl_on = 0, \
+	.color_bits = 16, \
+	.gamma = 0, \
+	.width = 240, \
+	.height = 320, \
+	.invrot = 0, \
+	.bgr = 8, \
+	.touch = TOUCH_TYPE_STMPE610 \
+}
+
+#define DISPLAY_CONFIG_DEFAULT() { \
+	.type = DISP_TYPE_ILI9341, \
+	.host = HSPI_HOST, \
+	.speed = 26000000, \
+	.miso = 19, \
+	.mosi = 23, \
+	.sck = 18, \
+	.cs = 5, \
+	.dc = 26, \
+	.tcs = -1, \
+	.rst = -1, \
+	.bckl = -1, \
+	.bckl_on = 0, \
+	.color_bits = 16, \
+	.gamma = 0, \
+	.width = 240, \
+	.height = 320, \
+	.invrot = 0, \
+	.bgr = 8, \
+	.touch = TOUCH_TYPE_NONE \
+}
 
 
 // ##############################################################
@@ -95,31 +186,21 @@ extern uint32_t max_rdclock;
 extern int _width;
 extern int _height;
 
-// ==== Display type, DISP_TYPE_ILI9488 or DISP_TYPE_ILI9341 ====
+// ==== Display & touch type ====
 extern uint8_t tft_disp_type;
+extern uint8_t tft_touch_type;
 
 // ==== Spi device handles for display and touch screen =========
-extern spi_lobo_device_handle_t disp_spi;
-extern spi_lobo_device_handle_t ts_spi;
+extern exspi_device_handle_t *disp_spi;
+extern exspi_device_handle_t *ts_spi;
 
-extern uint8_t pin_dc;
-extern int8_t  pin_bckl;
-extern uint8_t bckl_on;
-extern int8_t  pin_rst;
+extern uint8_t bits_per_color;
+extern uint8_t TFT_RGB_BGR;
+extern uint8_t gamma_curve;
+extern uint32_t spi_speed;
 
-extern uint8_t _invert_rot;
-extern uint8_t _rgb_bgr;
-
+extern uint8_t spibus_is_init;
 // ##############################################################
-
-
-// 24-bit color type structure
-typedef struct __attribute__((__packed__)) {
-//typedef struct {
-	uint8_t r;
-	uint8_t g;
-	uint8_t b;
-} color_t ;
 
 // ==== Display commands constants ====
 #define TFT_INVOFF     0x20
@@ -227,7 +308,7 @@ typedef struct __attribute__((__packed__)) {
 #define TFT_CMD_DELAY	0x80
 
 
-// Initialization sequence for ILI7341
+// Initialization sequence for ILI7749
 // ====================================
 static const uint8_t ST7789V_init[] = {
   15,                   					        // 15 commands in list
@@ -242,8 +323,8 @@ static const uint8_t ST7789V_init[] = {
   ST_CMD_PWCTR1, 2, 0xA4, 0xA1,
   TFT_CMD_GMCTRP1, 14, 0xD0, 0x00, 0x05, 0x0E, 0x15, 0x0D, 0x37, 0x43, 0x47, 0x09, 0x15, 0x12, 0x16, 0x19,
   TFT_CMD_GMCTRN1, 14, 0xD0, 0x00, 0x05, 0x0D, 0x0C, 0x06, 0x2D, 0x44, 0x40, 0x0E, 0x1C, 0x18, 0x16, 0x19,
-  TFT_MADCTL, 1, (MADCTL_MX | TFT_RGB_BGR),			// Memory Access Control (orientation)
-  TFT_CMD_PIXFMT, 1, DISP_COLOR_BITS_24,            // *** INTERFACE PIXEL FORMAT: 0x66 -> 18 bit; 0x55 -> 16 bit
+  TFT_MADCTL, 1, (MADCTL_MX | 8),					// Memory Access Control (orientation)
+  TFT_CMD_PIXFMT, 1, DISP_COLOR_BITS_16,            // *** INTERFACE PIXEL FORMAT: 0x66 -> 18 bit; 0x55 -> 16 bit
   TFT_CMD_SLPOUT, TFT_CMD_DELAY, 120,				//  Sleep out,	//  120 ms delay
   TFT_DISPON, TFT_CMD_DELAY, 120,
 };
@@ -251,7 +332,7 @@ static const uint8_t ST7789V_init[] = {
 // Initialization sequence for ILI7341
 // ====================================
 static const uint8_t ILI9341_init[] = {
-  23,                   					        // 24 commands in list
+  23,                   					        // 22 commands in list
   TFT_CMD_POWERA, 5, 0x39, 0x2C, 0x00, 0x34, 0x02,
   TFT_CMD_POWERB, 3, 0x00, 0XC1, 0X30,
   0xEF, 3, 0x03, 0x80, 0x02,
@@ -263,10 +344,10 @@ static const uint8_t ILI9341_init[] = {
   TFT_CMD_PWCTR2, 1, 0x10,							//Power control SAP[2:0];BT[3:0]
   TFT_CMD_VMCTR1, 2, 0x3e, 0x28,					//VCM control
   TFT_CMD_VMCTR2, 1, 0x86,							//VCM control2
-  TFT_MADCTL, 1,									// Memory Access Control (orientation)
-    (MADCTL_MX | TFT_RGB_BGR),
+  TFT_MADCTL, 1, (MADCTL_MX | 8),					// Memory Access Control (orientation)
+
   // *** INTERFACE PIXEL FORMAT: 0x66 -> 18 bit; 0x55 -> 16 bit
-  TFT_CMD_PIXFMT, 1, DISP_COLOR_BITS_24,
+  TFT_CMD_PIXFMT, 1, DISP_COLOR_BITS_16,
   TFT_INVOFF, 0,
   TFT_CMD_FRMCTR1, 2, 0x00, 0x18,
   TFT_CMD_DFUNCTR, 4, 0x08, 0x82, 0x27, 0x00,		// Display Function Control
@@ -274,12 +355,12 @@ static const uint8_t ILI9341_init[] = {
   TFT_CMD_3GAMMA_EN, 1, 0x00,						// 3Gamma Function: Disable (0x02), Enable (0x03)
   TFT_CMD_GAMMASET, 1, 0x01,						//Gamma curve selected (0x01, 0x02, 0x04, 0x08)
   TFT_CMD_GMCTRP1, 15,   							//Positive Gamma Correction
-    0x0F, 0x31, 0x2B, 0x0C, 0x0E, 0x08, 0x4E, 0xF1, 0x37, 0x07, 0x10, 0x03, 0x0E, 0x09, 0x00,
+  0x0F, 0x31, 0x2B, 0x0C, 0x0E, 0x08, 0x4E, 0xF1, 0x37, 0x07, 0x10, 0x03, 0x0E, 0x09, 0x00,
   TFT_CMD_GMCTRN1, 15,   							//Negative Gamma Correction
-    0x00, 0x0E, 0x14, 0x03, 0x11, 0x07, 0x31, 0xC1, 0x48, 0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F,
+  0x00, 0x0E, 0x14, 0x03, 0x11, 0x07, 0x31, 0xC1, 0x48, 0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F,
   TFT_CMD_SLPOUT, TFT_CMD_DELAY,					//  Sleep out
-    120,			 								//  120 ms delay
-  TFT_DISPON, TFT_CMD_DELAY, 120,
+  200,			 									//  120 ms delay
+  TFT_DISPON, TFT_CMD_DELAY, 200,
 };
 
 // Initialization sequence for ILI9488
@@ -288,34 +369,66 @@ static const uint8_t ILI9488_init[] = {
   17,                   					        // 17 commands in list
   0xE0, 15, 0x00, 0x03, 0x09, 0x08, 0x16, 0x0A, 0x3F, 0x78, 0x4C, 0x09, 0x0A, 0x08, 0x16, 0x1A, 0x0F,
   0xE1, 15,	0x00, 0x16, 0x19, 0x03, 0x0F, 0x05, 0x32, 0x45, 0x46, 0x04, 0x0E, 0x0D, 0x35, 0x37, 0x0F,
-  0xC0, 2,  0x17, 0x15,								//Power Control 1 (Vreg1out & Verg2out)
-  0xC1, 1,  0x41,									//Power Control 2 (VGH,VGL)
-  0xC5, 3,  0x00, 0x12,	0x80,						//Power Control 3 (Vcomm)
-  TFT_MADCTL, 1, (MADCTL_MX | TFT_RGB_BGR),			// Memory Access Control (orientation), set to portrait
+  0xC0, 2,   //Power Control 1
+	0x17,    //Vreg1out
+	0x15,    //Verg2out
+
+  0xC1, 1,   //Power Control 2
+	0x41,    //VGH,VGL
+
+  0xC5, 3,   //Power Control 3
+	0x00,
+	0x12,    //Vcom
+	0x80,
+
+  TFT_MADCTL, 1, MADCTL_MX,							// Memory Access Control (orientation), set to portrait
+
   // *** INTERFACE PIXEL FORMAT: 0x66 -> 18 bit;
   TFT_CMD_PIXFMT, 1, DISP_COLOR_BITS_24,
-  0xB0, 1,  0x00,    								// Interface Mode Control: 0x80: SDO NOT USE; 0x00 USE SDO
-  0xB1, 1,  0xA0,    								//Frame rate: 60Hz
-  0xB4, 1,  0x02,    								//Display Inversion Control:2-dot
-  0xB6, 2,  0x02, 0x02,    							//Display Function Control  RGB/MCU Interface Control (MCU, Source,Gate scan direction)
-  0xE9, 1,  0x00,    								// Set Image Function: Disable 24 bit data
-  0x53, 1,  0x28,     								// Write CTRL Display Value: BCTRL && DD on
-  0x51, 1,  0x7F,    								// Write Display Brightness Value
-  0xF7, 4,  0xA9, 0x51,	0x2C, 0x02,    				// Adjust Control: D7 stream, loose
-  0x11, TFT_CMD_DELAY,  120,						//Exit Sleep
-  0x29, 0,      									//Display on
+
+  0xB0, 1,   // Interface Mode Control
+	0x00,    // 0x80: SDO NOT USE; 0x00 USE SDO
+
+  0xB1, 1,   //Frame rate
+	0xA0,    //60Hz
+
+  0xB4, 1,   //Display Inversion Control
+	0x02,    //2-dot
+
+  0xB6, 2,   //Display Function Control  RGB/MCU Interface Control
+	0x02,    //MCU
+	0x02,    //Source,Gate scan direction
+
+  0xE9, 1,   // Set Image Function
+	0x00,    // Disable 24 bit data
+
+  0x53, 1,   // Write CTRL Display Value
+	0x28,    // BCTRL && DD on
+
+  0x51, 1,   // Write Display Brightness Value
+	0x7F,    //
+
+  0xF7, 4,   // Adjust Control
+	0xA9,
+	0x51,
+	0x2C,
+	0x02,    // D7 stream, loose
+
+
+  0x11, TFT_CMD_DELAY,  //Exit Sleep
+    120,
+  0x29, 0,      //Display on
 
 };
+
 
 // Initialization commands for 7735B screens
 // ------------------------------------
 static const uint8_t STP7735_init[] = {
-  17,						// 18 commands in list:
-  ST7735_SLPOUT ,   TFT_CMD_DELAY,	//  2: Out of sleep mode, no args, w/delay
-  255,						//     255 = 500 ms delay
-  TFT_CMD_PIXFMT , 1+TFT_CMD_DELAY,	//  3: Set color mode, 1 arg + delay:
-  1, 0x06,							//     18-bit color 6-6-6 color format
-  10,						//     10 ms delay
+  16,                       // 16 commands in list
+  TFT_CMD_PIXFMT, 1+TFT_CMD_DELAY,	//  3: Set color mode, 1 arg + delay:
+  0x06, 							//     18-bit color 6-6-6 color format
+  10,	          					//     10 ms delay
   ST7735_FRMCTR1, 3+TFT_CMD_DELAY,	//  4: Frame rate control, 3 args + delay:
   0x00,						//     fastest refresh
   0x06,						//     6 lines front porch
@@ -370,9 +483,7 @@ static const uint8_t STP7735_init[] = {
 // Init for 7735R, part 1 (red or green tab)
 // --------------------------------------
 static const uint8_t  STP7735R_init[] = {
-  15,						// 15 commands in list:
-  ST7735_SWRESET,   TFT_CMD_DELAY,	//  1: Software reset, 0 args, w/delay
-  150,						//     150 ms delay
+  14,                       // 14 commands in list
   ST7735_SLPOUT ,   TFT_CMD_DELAY,	//  2: Out of sleep mode, 0 args, w/delay
   255,						//     500 ms delay
   ST7735_FRMCTR1, 3      ,	//  3: Frame rate ctrl - normal mode, 3 args:
@@ -456,21 +567,23 @@ static const uint8_t Rcmd3[] = {
 // ==== Public functions =========================================================
 
 // == Low level functions; usually not used directly ==
-
 esp_err_t wait_trans_finish(uint8_t free_line);
 void disp_spi_transfer_cmd(int8_t cmd);
 void disp_spi_transfer_cmd_data(int8_t cmd, uint8_t *data, uint32_t len);
 void drawPixel(int16_t x, int16_t y, color_t color, uint8_t sel);
-void send_data(int x1, int y1, int x2, int y2, uint32_t len, color_t *buf);
-void TFT_pushColorRep_nocs(int x1, int y1, int x2, int y2, color_t data, uint32_t len);
+void send_data(int x1, int y1, int x2, int y2, uint32_t len, color_t *buf, uint8_t wait);
 void TFT_pushColorRep(int x1, int y1, int x2, int y2, color_t data, uint32_t len);
 int read_data(int x1, int y1, int x2, int y2, int len, uint8_t *buf, uint8_t set_sp);
+uint32_t read_cmd(uint8_t cmd, uint8_t len);
 color_t readPixel(int16_t x, int16_t y);
 int touch_get_data(uint8_t type);
 
+void bcklOn(display_config_t *dconfig);
+void bcklOff(display_config_t *dconfig);
 
-void bcklOff();
-void bcklOn();
+void TFT_display_setvars(display_config_t *dconfig);
+
+void _tft_setBitsPerColor(uint8_t bitsperc);
 
 // Deactivate display's CS line
 //========================
@@ -494,10 +607,8 @@ void _tft_setRotation(uint8_t rot);
 
 // Perform display initialization sequence
 // Sets orientation to landscape; clears the screen
-// * SPI interface must already be setup
-// * 'tft_disp_type', 'COLOR_BITS', '_width', '_height' variables must be set
-//======================
-void TFT_display_init();
+//============================================================
+esp_err_t  TFT_display_init(display_config_t *display_config);
 
 //===================
 void stmpe610_Init();
@@ -507,6 +618,7 @@ int stmpe610_get_touch(uint16_t *x, uint16_t *y, uint16_t *z);
 
 //========================
 uint32_t stmpe610_getID();
+
 
 // ===============================================================================
 

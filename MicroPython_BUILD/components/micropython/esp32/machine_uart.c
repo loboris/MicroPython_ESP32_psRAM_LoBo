@@ -1,9 +1,10 @@
 /*
- * This file is part of the MicroPython project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
  * Copyright (c) 2016 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -138,6 +139,22 @@ int pattern_match(uint8_t *text, int text_length, uint8_t *pattern, int pattern_
 	return -1;
 }
 
+//--------------------------------------------------------------------------------------------
+static void _sched_callback(mp_obj_t function, int uart, int type, int iarglen, uint8_t *sarg)
+{
+	mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_TUPLE);
+	if (carg == NULL) return;
+	if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_INT, uart, NULL, NULL)) return;
+	if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_INT, type, NULL, NULL)) return;
+	if (sarg) {
+		if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_INT, iarglen, NULL, NULL)) return;
+	}
+	else {
+		if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_STR, iarglen, sarg, NULL)) return;
+	}
+	mp_sched_schedule(function, mp_const_none, carg);
+}
+
 //---------------------------------------------
 static void uart_event_task(void *pvParameters)
 {
@@ -169,22 +186,14 @@ static void uart_event_task(void *pvParameters)
 							if (res) {
 								// MPy buffer full
 								if (self->error_cb) {
-									mp_obj_t tuple[3];
-									tuple[0] = mp_obj_new_int(self->uart_num+1);
-									tuple[1] = mp_obj_new_int(UART_CB_TYPE_ERROR);
-									tuple[2] = mp_obj_new_int(UART_BUFFER_FULL);
-									mp_sched_schedule(self->error_cb, mp_obj_new_tuple(3, tuple));
+									_sched_callback(self->error_cb, self->uart_num+1, UART_CB_TYPE_ERROR, UART_BUFFER_FULL, NULL);
 								}
 							}
 							else {
-								if ((self->data_cb_size > 0) && (uart_buf[self->uart_num]->iput >= self->data_cb_size)) {
+								if ((self->data_cb) && (self->data_cb_size > 0) && (uart_buf[self->uart_num]->iput >= self->data_cb_size)) {
 									// ** callback on data length received
 									uart_buf_get(uart_buf[self->uart_num], dtmp, self->data_cb_size);
-									mp_obj_t tuple[3];
-									tuple[0] = mp_obj_new_int(self->uart_num+1);
-									tuple[1] = mp_obj_new_int(UART_CB_TYPE_DATA);
-									tuple[2] = mp_obj_new_str((const char*)dtmp, self->data_cb_size, 0);
-									mp_sched_schedule(self->data_cb, mp_obj_new_tuple(3, tuple));
+									_sched_callback(self->data_cb, self->uart_num+1, UART_CB_TYPE_DATA, self->data_cb_size, dtmp);
 								}
 								else if (self->pattern_cb) {
 									// ** callback on pattern received
@@ -192,11 +201,7 @@ static void uart_event_task(void *pvParameters)
 									if (res >= 0) {
 										// found, pull data, including pattern from buffer
 										uart_buf_get(uart_buf[self->uart_num], dtmp, res+self->pattern_len);
-										mp_obj_t tuple[3];
-										tuple[0] = mp_obj_new_int(self->uart_num+1);
-										tuple[1] = mp_obj_new_int(UART_CB_TYPE_PATTERN);
-										tuple[2] = mp_obj_new_str((const char*)dtmp, res, 0);
-										mp_sched_schedule(self->pattern_cb, mp_obj_new_tuple(3, tuple));
+										_sched_callback(self->pattern_cb, self->uart_num+1, UART_CB_TYPE_PATTERN, res, dtmp);
 									}
 								}
 							}
@@ -211,11 +216,7 @@ static void uart_event_task(void *pvParameters)
                     uart_flush_input(self->uart_num+1);
                     xQueueReset(UART_QUEUE[self->uart_num]);
                     if (self->error_cb) {
-						mp_obj_t tuple[3];
-						tuple[0] = mp_obj_new_int(self->uart_num+1);
-						tuple[1] = mp_obj_new_int(UART_CB_TYPE_ERROR);
-						tuple[2] = mp_obj_new_int(UART_FIFO_OVF);
-						mp_sched_schedule(self->error_cb, mp_obj_new_tuple(3, tuple));
+						_sched_callback(self->error_cb, self->uart_num+1, UART_CB_TYPE_ERROR, UART_FIFO_OVF, NULL);
                     }
                     break;
                 //Event of UART ring buffer full
@@ -225,41 +226,25 @@ static void uart_event_task(void *pvParameters)
                     uart_flush_input(self->uart_num+1);
                     xQueueReset(UART_QUEUE[self->uart_num]);
                     if (self->error_cb) {
-						mp_obj_t tuple[3];
-						tuple[0] = mp_obj_new_int(self->uart_num+1);
-						tuple[1] = mp_obj_new_int(UART_CB_TYPE_ERROR);
-						tuple[2] = mp_obj_new_int(UART_BUFFER_FULL);
-						mp_sched_schedule(self->error_cb, mp_obj_new_tuple(3, tuple));
+						_sched_callback(self->error_cb, self->uart_num+1, UART_CB_TYPE_ERROR, UART_BUFFER_FULL, NULL);
                     }
                     break;
                 //Event of UART RX break detected
                 case UART_BREAK:
                     if (self->error_cb) {
-						mp_obj_t tuple[3];
-						tuple[0] = mp_obj_new_int(self->uart_num+1);
-						tuple[1] = mp_obj_new_int(UART_CB_TYPE_ERROR);
-						tuple[2] = mp_obj_new_int(UART_BREAK);
-						mp_sched_schedule(self->error_cb, mp_obj_new_tuple(3, tuple));
+						_sched_callback(self->error_cb, self->uart_num+1, UART_CB_TYPE_ERROR, UART_BREAK, NULL);
                     }
                     break;
                 //Event of UART parity check error
                 case UART_PARITY_ERR:
                     if (self->error_cb) {
-						mp_obj_t tuple[3];
-						tuple[0] = mp_obj_new_int(self->uart_num+1);
-						tuple[1] = mp_obj_new_int(UART_CB_TYPE_ERROR);
-						tuple[2] = mp_obj_new_int(UART_PARITY_ERR);
-						mp_sched_schedule(self->error_cb, mp_obj_new_tuple(3, tuple));
+						_sched_callback(self->error_cb, self->uart_num+1, UART_CB_TYPE_ERROR, UART_PARITY_ERR, NULL);
                     }
                     break;
                 //Event of UART frame error
                 case UART_FRAME_ERR:
                     if (self->error_cb) {
-						mp_obj_t tuple[3];
-						tuple[0] = mp_obj_new_int(self->uart_num+1);
-						tuple[1] = mp_obj_new_int(UART_CB_TYPE_ERROR);
-						tuple[2] = mp_obj_new_int(UART_FRAME_ERR);
-						mp_sched_schedule(self->error_cb, mp_obj_new_tuple(3, tuple));
+						_sched_callback(self->error_cb, self->uart_num+1, UART_CB_TYPE_ERROR, UART_FRAME_ERR, NULL);
                     }
                     break;
                 //Others
@@ -267,6 +252,7 @@ static void uart_event_task(void *pvParameters)
                     //ESP_LOGI(TAG, "uart event type: %d", event.type);
                     break;
             }
+
         	if (uart_mutex) xSemaphoreGive(uart_mutex);
         }
     }
@@ -540,7 +526,7 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     //Disable uart pattern detect function
     uart_disable_pattern_det_intr(uart_num);
 
-    //Create a task to handler UART event from ISR
+    //Create a task to handle UART event from ISR
     if (task_id[self->uart_num] == NULL) xTaskCreate(uart_event_task, "uart_event_task", 1024, (void *)self, 12, &task_id[self->uart_num]);
 
     return MP_OBJ_FROM_PTR(self);
@@ -768,8 +754,8 @@ STATIC mp_uint_t machine_uart_read(mp_obj_t self_in, void *buf_in, mp_uint_t siz
 	    	if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
 			if (uart_buf[self->uart_num]->iput < size) {
 		    	if (uart_mutex) xSemaphoreGive(uart_mutex);
-	    		vTaskDelay(10 / portTICK_PERIOD_MS);
-				wait -= 10;
+	    		vTaskDelay(2 / portTICK_PERIOD_MS);
+				wait -= 2;
 				mp_hal_reset_wdt();
 				continue;
 			}
