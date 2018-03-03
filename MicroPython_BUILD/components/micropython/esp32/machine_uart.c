@@ -527,7 +527,7 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     uart_disable_pattern_det_intr(uart_num);
 
     //Create a task to handle UART event from ISR
-    if (task_id[self->uart_num] == NULL) xTaskCreate(uart_event_task, "uart_event_task", 1024, (void *)self, 12, &task_id[self->uart_num]);
+    if (task_id[self->uart_num] == NULL) xTaskCreate(uart_event_task, "uart_event_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+4, &task_id[self->uart_num]);
 
     return MP_OBJ_FROM_PTR(self);
 }

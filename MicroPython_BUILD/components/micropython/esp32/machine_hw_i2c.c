@@ -479,7 +479,7 @@ mp_obj_t mp_machine_i2c_make_new(const mp_obj_type_t *type, size_t n_args, size_
     	}
 
     	if (i2c_slave_task_handle[self->bus_id] == NULL) {
-    		xTaskCreate(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, 8, &i2c_slave_task_handle[self->bus_id]);
+    		xTaskCreate(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+4, &i2c_slave_task_handle[self->bus_id]);
     	}
     }
 
@@ -577,7 +577,7 @@ STATIC mp_obj_t mp_machine_i2c_init(mp_uint_t n_args, const mp_obj_t *pos_args, 
 		        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error installing I2C driver"));
 	    	}
 	    	if (i2c_slave_task_handle[self->bus_id] == NULL) {
-	    		xTaskCreate(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, 8, &i2c_slave_task_handle[self->bus_id]);
+	    		xTaskCreate(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+4, &i2c_slave_task_handle[self->bus_id]);
 	    	}
 	    }
 		i2c_used[bus_id] = mode;

@@ -90,7 +90,7 @@ menu "MicroPython"
 	
 	    config MICROPY_TASK_PRIORITY
 	        int "Main task priority"
-	        range 1 20
+	        range 1 15
 	        default 5
 	        help
 	        Set the priority of the main MicroPython task
@@ -280,15 +280,6 @@ menu "MicroPython"
 	        help
 	        Include Ftp support in Curl module
 	        Not including it may save ~24 KB of flash code space
-	
-	    config MICROPY_USE_MAIL
-	        bool "MAIL support in Curl module"
-	        depends on MICROPY_USE_CURL
-	        default y
-	        help
-	        Include Mail support in Curl module
-	        Mail support is based on 'quickmail' library which is licensed under GPL,
-	        so you may want to exclude it from the build
 	
 	    config MICROPY_USE_SSH
 	        bool "Use SSH module"

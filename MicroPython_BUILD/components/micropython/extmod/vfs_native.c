@@ -960,6 +960,7 @@ int mount_vfs(int type, char *chdir_to)
     return 0;
 }
 
+
 //===============================================================
 STATIC const mp_rom_map_elem_t native_vfs_locals_dict_table[] = {
 	{ MP_ROM_QSTR(MP_QSTR_mkfs), MP_ROM_PTR(&native_vfs_mkfs_obj) },

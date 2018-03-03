@@ -24,10 +24,53 @@
  * THE SOFTWARE.
  */
 
-#define MICROPY_GIT_TAG "ESP32_LoBo_v3.1.21"
-#define MICROPY_GIT_HASH "g6acb38af"
-#define MICROPY_BUILD_DATE "2017-03-03"
-#define MICROPY_VERSION_MAJOR (3)
-#define MICROPY_VERSION_MINOR (1)
-#define MICROPY_VERSION_MICRO (21)
-#define MICROPY_VERSION_STRING "3.1.21"
+#ifndef _CURL_MAIL_H
+#define _CURL_MAIL_H
+
+#include <stdio.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "sdkconfig.h"
+
+#if defined(CONFIG_MICROPY_USE_CURL)
+
+#define CURLMAIL_PROTOCOL_SMTP		1
+#define CURLMAIL_PROTOCOL_SMTPS		2
+#define CURLMAIL_MAX_ATTACHMENTS	4
+
+
+typedef struct email_info_struct* curl_mail;
+
+
+curl_mail curlmail_create (const char* from, const char* subject);
+
+void curlmail_destroy (curl_mail mail_object);
+
+void curlmail_set_from (curl_mail mail_object, const char* from);
+
+void curlmail_add_to (curl_mail mail_object, const char* mail_addr);
+
+void curlmail_add_cc (curl_mail mail_object, const char* mail_addr);
+
+void curlmail_add_bcc (curl_mail mail_object, const char* mail_addr);
+
+void curlmail_set_subject (curl_mail mail_object, const char* subject);
+
+void curlmail_add_header (curl_mail mail_object, const char* headerline);
+
+void curlmail_set_body (curl_mail mail_object, const char* body);
+
+void curlmail_add_attachment_file(curl_mail mail_object, const char* path, const char* mimetype);
+
+const char* curlmail_protocol_send (curl_mail mail_object, const char* smtpserver, unsigned int smtpport, int protocol, const char* username, const char* password);
+
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif //_CURL_MAIL_H

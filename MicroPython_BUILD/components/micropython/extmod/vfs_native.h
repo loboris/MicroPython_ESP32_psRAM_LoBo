@@ -31,8 +31,6 @@
  *
  */
 
-// ======== CD Card support ===========================================================================
-
 #include "py/lexer.h"
 #include "py/obj.h"
 #include "py/objint.h"

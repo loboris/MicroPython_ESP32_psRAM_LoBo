@@ -207,6 +207,7 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
     }
 
     if (machine_rtc_config.ext1_pins != 0) {
+    	//esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
         esp_deep_sleep_enable_ext1_wakeup(
             machine_rtc_config.ext1_pins,
             machine_rtc_config.ext1_level ? ESP_EXT1_WAKEUP_ANY_HIGH : ESP_EXT1_WAKEUP_ALL_LOW);

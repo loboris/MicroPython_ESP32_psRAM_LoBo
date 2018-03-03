@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "driver/rtc_io.h"
 #include "py/runtime.h"
 #include "py/mphal.h"
 #include "modmachine.h"
@@ -151,6 +152,7 @@ STATIC mp_obj_t machine_pin_obj_init_helper(const machine_pin_obj_t *self, size_
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
     // configure the pin for gpio
+    if (rtc_gpio_is_valid_gpio(self->id)) rtc_gpio_deinit(self->id);
     gpio_pad_select_gpio(self->id);
 
     // set initial value (do this before configuring mode/pull)

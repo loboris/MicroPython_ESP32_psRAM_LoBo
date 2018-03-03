@@ -43,11 +43,9 @@
 #include "py/runtime.h"
 
 #include "libs/espcurl.h"
+#include "libs/curl_mail.h"
 #include "extmod/vfs_native.h"
 
-#ifdef CONFIG_MICROPY_USE_MAIL
-#include "quickmail.h"
-#endif
 
 //----------------------------------
 static int check_file(char *fname) {
@@ -300,13 +298,11 @@ STATIC mp_obj_t curl_POST(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(curl_POST_obj, 1, curl_POST);
 
-#ifdef CONFIG_MICROPY_USE_MAIL
-
 //---------------------------------------------------------------------------------------
 STATIC mp_obj_t curl_sendmail(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
 	checkConnection();
-    enum { ARG_user, ARG_pass, ARG_to, ARG_subject, ARG_msg, ARG_cc, ARG_attach, ARG_server, ARG_port, ARG_prot };
+    enum { ARG_user, ARG_pass, ARG_to, ARG_subject, ARG_msg, ARG_cc, ARG_bcc, ARG_attach, ARG_server, ARG_port, ARG_prot };
 	const mp_arg_t allowed_args[] = {
         { MP_QSTR_user,     MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
         { MP_QSTR_password, MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
@@ -314,10 +310,11 @@ STATIC mp_obj_t curl_sendmail(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
         { MP_QSTR_subject,  MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
         { MP_QSTR_msg,      MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
         { MP_QSTR_cc,       MP_ARG_KW_ONLY  | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_bcc,      MP_ARG_KW_ONLY  | MP_ARG_OBJ, { .u_obj = mp_const_none } },
         { MP_QSTR_attach,   MP_ARG_KW_ONLY  | MP_ARG_OBJ, { .u_obj = mp_const_none } },
         { MP_QSTR_server,   MP_ARG_KW_ONLY  | MP_ARG_OBJ, { .u_obj = mp_const_none } },
         { MP_QSTR_port,     MP_ARG_KW_ONLY  | MP_ARG_INT, { .u_int = GMAIL_PORT } },
-		{ MP_QSTR_protocol, MP_ARG_KW_ONLY  | MP_ARG_INT, { .u_int = QUICKMAIL_PROT_SMTPS } },
+		{ MP_QSTR_protocol, MP_ARG_KW_ONLY  | MP_ARG_INT, { .u_int = CURLMAIL_PROTOCOL_SMTPS } },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -332,7 +329,7 @@ STATIC mp_obj_t curl_sendmail(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
 
 	uint32_t mail_port = args[ARG_port].u_int;
 	uint8_t mail_protocol = args[ARG_prot].u_int;
-	if ((mail_protocol != QUICKMAIL_PROT_SMTP) && (mail_protocol != QUICKMAIL_PROT_SMTPS)) {
+	if ((mail_protocol != CURLMAIL_PROTOCOL_SMTP) && (mail_protocol != CURLMAIL_PROTOCOL_SMTPS)) {
         nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Unsupported SMTP protocol"));
 	}
     if (MP_OBJ_IS_STR(args[ARG_server].u_obj)) {
@@ -340,61 +337,86 @@ STATIC mp_obj_t curl_sendmail(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
     }
     else sprintf(mail_server, GMAIL_SMTP);
 
-    // Create quickmail object
-	quickmail mailobj =  quickmail_create(user, subj);
+    // Create curlmail object
+	curl_mail mailobj =  curlmail_create(user, subj);
 	if (mailobj == NULL) {
         nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error creating mail object"));
 	}
 
-	// Set recipients
+	// Add recipients
     if (MP_OBJ_IS_STR(args[ARG_to].u_obj)) {
     	to = (char *)mp_obj_str_get_str(args[ARG_to].u_obj);
-    	quickmail_add_to(mailobj, to);
-   }
+    	curlmail_add_to(mailobj, to);
+    }
     else if (MP_OBJ_IS_TYPE(args[ARG_to].u_obj, &mp_type_tuple)) {
         mp_obj_t *items;
         uint len;
         mp_obj_tuple_get(args[ARG_to].u_obj, &len, &items);
+        if (len == 0) {
+        	curlmail_destroy(mailobj);
+        	curl_global_cleanup();
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Recipient(s) expected"));
+        }
         for (int i = 0; i < len; i++) {
         	to = (char *)mp_obj_str_get_str(items[i]);
-        	quickmail_add_to(mailobj, to);
+        	curlmail_add_to(mailobj, to);
         }
     }
     else {
-    	quickmail_destroy(mailobj);
-    	quickmail_cleanup();
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "At least one recipient expected"));
+    	curlmail_destroy(mailobj);
+    	curl_global_cleanup();
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Recipient(s) expected"));
     }
 
-	// Set CC recipients
+	// Add CC recipients
     if (MP_OBJ_IS_STR(args[ARG_cc].u_obj)) {
     	to = (char *)mp_obj_str_get_str(args[ARG_cc].u_obj);
-    	quickmail_add_cc(mailobj, to);
-   }
+    	curlmail_add_cc(mailobj, to);
+    }
     else if (MP_OBJ_IS_TYPE(args[ARG_cc].u_obj, &mp_type_tuple)) {
         mp_obj_t *items;
         uint len;
         mp_obj_tuple_get(args[ARG_cc].u_obj, &len, &items);
         for (int i = 0; i < len; i++) {
         	to = (char *)mp_obj_str_get_str(items[i]);
-        	quickmail_add_cc(mailobj, to);
+        	curlmail_add_cc(mailobj, to);
         }
     }
 
-    // Set attachments
+	// Add BCC recipients
+    if (MP_OBJ_IS_STR(args[ARG_bcc].u_obj)) {
+    	to = (char *)mp_obj_str_get_str(args[ARG_bcc].u_obj);
+    	curlmail_add_bcc(mailobj, to);
+    }
+    else if (MP_OBJ_IS_TYPE(args[ARG_bcc].u_obj, &mp_type_tuple)) {
+        mp_obj_t *items;
+        uint len;
+        mp_obj_tuple_get(args[ARG_bcc].u_obj, &len, &items);
+        for (int i = 0; i < len; i++) {
+        	to = (char *)mp_obj_str_get_str(items[i]);
+        	curlmail_add_bcc(mailobj, to);
+        }
+    }
+
+    // Add attachments
     if (MP_OBJ_IS_STR(args[ARG_attach].u_obj)) {
 		char *fname = (char *)mp_obj_str_get_str(args[ARG_attach].u_obj);
 		char fullname[128] = {'\0'};
 		int res = physicalPath(fname, fullname);
 	    if ((res == 0) && (strlen(fullname) > 0)) {
 	    	int exists = check_file(fullname);
-	    	if (exists) quickmail_add_attachment_file(mailobj, fullname, NULL);
+	    	if (exists) curlmail_add_attachment_file(mailobj, fullname, NULL);
 	    }
-   }
+    }
     else if (MP_OBJ_IS_TYPE(args[ARG_attach].u_obj, &mp_type_tuple)) {
         mp_obj_t *items;
         uint len;
         mp_obj_tuple_get(args[ARG_attach].u_obj, &len, &items);
+        if (len > CURLMAIL_MAX_ATTACHMENTS) {
+        	curlmail_destroy(mailobj);
+        	curl_global_cleanup();
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Maximum number of attachments exceeded"));
+        }
 		char *fname = NULL;
 		char fullname[128] = {'\0'};
         for (int i = 0; i < len; i++) {
@@ -402,40 +424,33 @@ STATIC mp_obj_t curl_sendmail(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
     		int res = physicalPath(fname, fullname);
     	    if ((res == 0) && (strlen(fullname) > 0)) {
     	    	int exists = check_file(fullname);
-    	    	if (exists) quickmail_add_attachment_file(mailobj, fullname, NULL);
+    	    	if (exists) curlmail_add_attachment_file(mailobj, fullname, NULL);
     	    }
         }
     }
 
-	quickmail_set_body(mailobj, msg);
+	curlmail_set_body(mailobj, msg);
 
-	quickmail_progress = curl_progress;
-	quickmail_verbose = curl_verbose;
-
-	// set some options
-	quickmail_add_header(mailobj, "Importance: Low");
-	quickmail_add_header(mailobj, "X-Priority: 5");
-	quickmail_add_header(mailobj, "X-MSMail-Priority: Low");
-
-	if (curl_verbose) quickmail_set_debug_log(mailobj, stderr);
-	else quickmail_set_debug_log(mailobj, NULL);
+	// set headers
+	curlmail_add_header(mailobj, "Importance: Low");
+	curlmail_add_header(mailobj, "X-Priority: 5");
+	curlmail_add_header(mailobj, "X-MSMail-Priority: Low");
 
 	const char* errmsg = NULL;
-	errmsg = quickmail_protocol_send(mailobj, mail_server, mail_port, mail_protocol, user, pass);
+	errmsg = curlmail_protocol_send(mailobj, mail_server, mail_port, mail_protocol, user, pass);
 
 	// Cleanup
-	quickmail_destroy(mailobj);
-	quickmail_cleanup();
+	curlmail_destroy(mailobj);
+	curl_global_cleanup();
 
 	if (errmsg) {
-		if (quickmail_verbose) mp_printf(&mp_plat_print, "ERROR: %s\n", errmsg);
+		if (curl_verbose) mp_printf(&mp_plat_print, "ERROR: %s\n", errmsg);
 		return mp_const_false;
 	}
 	return mp_const_true;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(curl_sendmail_obj, 1, curl_sendmail);
 
-#endif // CONFIG_MICROPY_USE_MAIL
 
 #ifdef CONFIG_MICROPY_USE_CURLFTP
 
@@ -541,10 +556,7 @@ STATIC const mp_rom_map_elem_t curl_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_options),		MP_ROM_PTR(&curl_Options_obj) },
     { MP_ROM_QSTR(MP_QSTR_get),			MP_ROM_PTR(&curl_GET_obj) },
     { MP_ROM_QSTR(MP_QSTR_post),		MP_ROM_PTR(&curl_POST_obj) },
-
-	#ifdef CONFIG_MICROPY_USE_MAIL
     { MP_ROM_QSTR(MP_QSTR_sendmail),	MP_ROM_PTR(&curl_sendmail_obj) },
-	#endif
 
 	#ifdef CONFIG_MICROPY_USE_CURLFTP
     { MP_ROM_QSTR(MP_QSTR_ftp_get),		MP_ROM_PTR(&curl_FTP_GET_obj) },
@@ -553,10 +565,8 @@ STATIC const mp_rom_map_elem_t curl_module_globals_table[] = {
 	#endif
 
 	// Constants
-	#ifdef CONFIG_MICROPY_USE_MAIL
-	{ MP_ROM_QSTR(MP_QSTR_SMTP),		MP_ROM_INT(QUICKMAIL_PROT_SMTP) },
-    { MP_ROM_QSTR(MP_QSTR_SMTPS),		MP_ROM_INT(QUICKMAIL_PROT_SMTPS) },
-	#endif
+	{ MP_ROM_QSTR(MP_QSTR_SMTP),		MP_ROM_INT(CURLMAIL_PROTOCOL_SMTP) },
+    { MP_ROM_QSTR(MP_QSTR_SMTPS),		MP_ROM_INT(CURLMAIL_PROTOCOL_SMTPS) },
 };
 STATIC MP_DEFINE_CONST_DICT(curl_module_globals, curl_module_globals_table);
 
