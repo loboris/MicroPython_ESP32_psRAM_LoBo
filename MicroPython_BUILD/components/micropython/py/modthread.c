@@ -445,20 +445,29 @@ STATIC mp_obj_t mod_thread_list(mp_uint_t n_args, const mp_obj_t *args) {
 					thr->stack_max, th_type);
 		}
 		free(list.threads);
+		#ifdef CONFIG_MICROPY_USE_TELNET
 		if (TelnetTaskHandle) {
 			mp_printf(&mp_plat_print, "ID=%u, Name: Telnet, Stack=%d, MaxUsed=%d, Type: SERVICE\n",
 					TelnetTaskHandle, TELNET_STACK_LEN, TELNET_STACK_LEN - uxTaskGetStackHighWaterMark(TelnetTaskHandle));
 		}
+		#endif
+
+		#ifdef CONFIG_MICROPY_USE_FTPSERVER
 		if (FtpTaskHandle) {
 			mp_printf(&mp_plat_print, "ID=%u, Name: Ftp, Stack=%d, MaxUsed=%d, Type: SERVICE\n",
 					FtpTaskHandle, FTP_STACK_LEN, FTP_STACK_LEN - uxTaskGetStackHighWaterMark(FtpTaskHandle));
 		}
+		#endif
 		return mp_const_none;
 	}
 	else {
 		int services = 0;
+		#ifdef CONFIG_MICROPY_USE_TELNET
 		if (TelnetTaskHandle) services++;
+		#endif
+		#ifdef CONFIG_MICROPY_USE_FTPSERVER
 		if (FtpTaskHandle) services++;
+		#endif
 		mp_obj_t thr_info[6];
 		mp_obj_t tuple[num+services];
 		for (n=0; n<num; n++) {
@@ -474,6 +483,7 @@ STATIC mp_obj_t mod_thread_list(mp_uint_t n_args, const mp_obj_t *args) {
 			tuple[n] = mp_obj_new_tuple(6, thr_info);
 		}
 		free(list.threads);
+		#ifdef CONFIG_MICROPY_USE_TELNET
 		if (TelnetTaskHandle) {
 			thr_info[0] = mp_obj_new_int((int)TelnetTaskHandle);
 			thr_info[1] = mp_obj_new_int(THREAD_TYPE_SERVICE);
@@ -484,6 +494,8 @@ STATIC mp_obj_t mod_thread_list(mp_uint_t n_args, const mp_obj_t *args) {
 			tuple[n] = mp_obj_new_tuple(6, thr_info);
 			n++;
 		}
+		#endif
+		#ifdef CONFIG_MICROPY_USE_FTPSERVER
 		if (FtpTaskHandle) {
 			thr_info[0] = mp_obj_new_int((int)FtpTaskHandle);
 			thr_info[1] = mp_obj_new_int(THREAD_TYPE_SERVICE);
@@ -494,6 +506,7 @@ STATIC mp_obj_t mod_thread_list(mp_uint_t n_args, const mp_obj_t *args) {
 			tuple[n] = mp_obj_new_tuple(6, thr_info);
 			n++;
 		}
+		#endif
 
 		return mp_obj_new_tuple(n, tuple);
 	}
