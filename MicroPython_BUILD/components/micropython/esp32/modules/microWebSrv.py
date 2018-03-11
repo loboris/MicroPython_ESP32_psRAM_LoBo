@@ -491,7 +491,7 @@ class MicroWebSrv :
 
         def _writeFirstLine(self, code) :
             reason = self._responseCodes.get(code, ('Unknown reason', ))[0]
-            self._write("HTTP/1.0 %s %s\r\n" % (code, reason))
+            self._write("HTTP/1.1 %s %s\r\n" % (code, reason))
 
         # ------------------------------------------------------------------------
 
@@ -509,7 +509,12 @@ class MicroWebSrv :
             self._writeHeader("Content-Type", ct)
 
         # ------------------------------------------------------------------------
-
+        
+        def _writeServerHeader(self) :
+            self._writeHeader("Server", "MicroWebSrv by JC`zic")
+     
+        # ------------------------------------------------------------------------
+        
         def _writeEndHeader(self) :
             self._write("\r\n")
 
@@ -536,7 +541,8 @@ class MicroWebSrv :
             if isinstance(headers, dict) :
                 for header in headers :
                     self._writeHeader(header, headers[header])
-
+            self._writeServerHeader()
+            self._writeEndHeader()
         # ------------------------------------------------------------------------
 
         def WriteResponse(self, code, headers, contentType, contentCharset, content) :

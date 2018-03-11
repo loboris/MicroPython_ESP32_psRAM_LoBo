@@ -90,7 +90,7 @@ class MicroWebSocket :
             key = self._httpCli.GetRequestHeaders().get('Sec-WebSocket-Key', None)
             if key :
                 r = sha1(key + self._handshakeSign).digest()
-                r = b2a_base64(r).decode()
+                r = b2a_base64(r).decode().strip()
                 httpResponse.WriteSwitchProto("websocket", { "Sec-WebSocket-Accept" : r })
                 return True
         except :
