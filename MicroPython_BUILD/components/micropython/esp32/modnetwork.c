@@ -424,7 +424,7 @@ STATIC mp_obj_t get_wlan(size_t n_args, const mp_obj_t *args) {
         wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
         ESP_LOGD("modnetwork", "Initializing WiFi");
         ESP_EXCEPTIONS( esp_wifi_init(&cfg) );
-        ESP_EXCEPTIONS( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
+        ESP_EXCEPTIONS( esp_wifi_set_storage(WIFI_STORAGE_FLASH) );
         ESP_LOGD("modnetwork", "Initialized");
         ESP_EXCEPTIONS( esp_wifi_set_mode(0) );
         ESP_EXCEPTIONS( esp_wifi_start() );
@@ -505,6 +505,7 @@ STATIC mp_obj_t esp_connect(size_t n_args, const mp_obj_t *args) {
         p = (n_args > 2) ? mp_obj_str_get_data(args[2], &len) : "";
         memcpy(wifi_sta_config.sta.password, p, MIN(len, sizeof(wifi_sta_config.sta.password)));
         ESP_EXCEPTIONS( esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_sta_config) );
+        //wifi_sta_config.sta.channel = 6;
     }
 
     MP_THREAD_GIL_EXIT();

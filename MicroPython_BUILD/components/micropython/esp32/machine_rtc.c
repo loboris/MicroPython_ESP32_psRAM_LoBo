@@ -55,8 +55,6 @@ static char RTC_DATA_ATTR rtc_mem_str[RTC_MEM_STR_SIZE] = { 0 };
 static uint16_t RTC_DATA_ATTR rtc_mem_int_crc;
 static uint16_t RTC_DATA_ATTR rtc_mem_str_crc;
 
-machine_rtc_config_t machine_rtc_config = { 0, -1, 0, 0, 0 };
-
 static TaskHandle_t sntp_handle = NULL;
 xSemaphoreHandle sntp_mutex = NULL;
 
@@ -303,7 +301,7 @@ STATIC mp_obj_t mach_rtc_ntp_sync(size_t n_args, const mp_obj_t *pos_args, mp_ma
     	    sprintf(tz, "%s", tzs);
     	}
     }
-    setenv("TZ", tz, 0);
+    setenv("TZ", tz, 1);
     tzset();
     // ==========================
 	#else
@@ -376,10 +374,11 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(mach_rtc_sntp_state_obj, mach_rtc_sntp_state);
 
 //----------------------------------------------------------------------------------------------------
 STATIC mp_obj_t machine_rtc_wake_on_ext0(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
-    enum {ARG_pin, ARG_level};
+    enum {ARG_pin, ARG_level, ARG_count};
     const mp_arg_t allowed_args[] = {
-        { MP_QSTR_pin,  MP_ARG_OBJ, {.u_obj = mp_obj_new_int(machine_rtc_config.ext0_pin)} },
-        { MP_QSTR_level,  MP_ARG_BOOL, {.u_bool = machine_rtc_config.ext0_level} },
+        { MP_QSTR_pin,		MP_ARG_OBJ,		{.u_obj = mp_obj_new_int(machine_rtc_config.ext0_pin)} },
+        { MP_QSTR_level,	MP_ARG_BOOL,	{.u_bool = machine_rtc_config.ext0_level} },
+        { MP_QSTR_count,	MP_ARG_INT,		{.u_int = 0} },
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
@@ -388,16 +387,30 @@ STATIC mp_obj_t machine_rtc_wake_on_ext0(size_t n_args, const mp_obj_t *pos_args
         machine_rtc_config.ext0_pin = -1; // "None"
     }
     else {
-        gpio_num_t pin_id = machine_pin_get_gpio(args[ARG_pin].u_obj);
+        int pin_id = machine_pin_get_gpio(args[ARG_pin].u_obj);
         if (pin_id != machine_rtc_config.ext0_pin) {
             if (!rtc_gpio_is_valid_gpio(pin_id)) {
-                nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "invalid ext0 pin"));
+            	mp_raise_ValueError("Invalid ext0 pin");
             }
-            machine_rtc_config.ext0_pin = pin_id;
+            rtc_gpio_init(pin_id);
+            rtc_gpio_set_direction(pin_id, RTC_GPIO_MODE_INPUT_ONLY);
+            if (args[ARG_level].u_bool) {
+            	rtc_gpio_pulldown_en(pin_id);
+            	rtc_gpio_pullup_dis(pin_id);
+            }
+            else {
+            	rtc_gpio_pulldown_dis(pin_id);
+            	rtc_gpio_pullup_en(pin_id);
+            }
+            rtc_gpio_hold_en(pin_id);
+            machine_rtc_config.ext0_pin = (int8_t)pin_id;
+            machine_rtc_config.ext0_rtcpin = rtc_gpio_desc[pin_id].rtc_num;
         }
     }
 
     machine_rtc_config.ext0_level = args[ARG_level].u_bool;
+    machine_rtc_config.ext0_count = args[ARG_count].u_int;
+    machine_rtc_config.pulse_count = 0;
 
     return mp_const_none;
 }
@@ -407,36 +420,65 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(machine_rtc_wake_on_ext0_obj, 1, machine_rtc_w
 STATIC mp_obj_t machine_rtc_wake_on_ext1(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     enum {ARG_pins, ARG_level};
     const mp_arg_t allowed_args[] = {
-        { MP_QSTR_pins, MP_ARG_OBJ, {.u_obj = mp_const_none} },
-        { MP_QSTR_level, MP_ARG_BOOL, {.u_bool = machine_rtc_config.ext1_level} },
+        { MP_QSTR_pins,		MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_level,	MP_ARG_INT, {.u_int = machine_rtc_config.ext1_level} },
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
-    uint64_t ext1_pins = machine_rtc_config.ext1_pins;
 
+    uint8_t ext1_pins[EXT1_WAKEUP_MAX_PINS] = {-1};
+    uint32_t ext1_rtcpins[EXT1_WAKEUP_MAX_PINS] = {0};
+    for (int i=0; i<EXT1_WAKEUP_MAX_PINS; i++) {
+    	ext1_pins[i] = machine_rtc_config.ext1_pins[i];
+    	ext1_rtcpins[i] = machine_rtc_config.ext1_rtcpins[i];
+    }
+
+    int ext1_level = args[ARG_level].u_int;
+    if ((ext1_level < 0) || (ext1_level > 2)) {
+        mp_raise_ValueError("Invalid ext1 level !");
+    }
 
     // Check that all pins are allowed
     if (args[ARG_pins].u_obj != mp_const_none) {
         mp_uint_t len = 0;
         mp_obj_t *elem;
         mp_obj_get_array(args[ARG_pins].u_obj, &len, &elem);
-        ext1_pins = 0;
+        int pins = (len > EXT1_WAKEUP_MAX_PINS) ? EXT1_WAKEUP_MAX_PINS : len;
 
-        for (int i = 0; i < len; i++) {
-            gpio_num_t pin_id = machine_pin_get_gpio(elem[i]);
-            uint64_t pin_bit = (1ll << pin_id);
+        for (int i = 0; i < pins; i++) {
+            int pin_id = machine_pin_get_gpio(elem[i]);
 
             if (!rtc_gpio_is_valid_gpio(pin_id)) {
-                nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "invalid ext1 pin"));
+            	mp_raise_ValueError("Invalid ext1 pin");
                 break;
             }
-            ext1_pins |= pin_bit;
+            rtc_gpio_init(pin_id);
+            rtc_gpio_set_direction(pin_id, RTC_GPIO_MODE_INPUT_ONLY);
+            if (args[ARG_level].u_bool) {
+            	rtc_gpio_pulldown_en(pin_id);
+            	rtc_gpio_pullup_dis(pin_id);
+            }
+            else {
+            	rtc_gpio_pulldown_dis(pin_id);
+            	rtc_gpio_pullup_en(pin_id);
+            }
+            rtc_gpio_hold_en(pin_id);
+        	ext1_pins[i] = pin_id;
+        	ext1_rtcpins[i] = rtc_gpio_desc[pin_id].rtc_num;
         }
     }
-    else ext1_pins = 0;
+    else {
+        for (int i=0; i<EXT1_WAKEUP_MAX_PINS; i++) {
+        	ext1_pins[i] = -1;
+        	ext1_rtcpins[i] = 0;
+        }
+    }
 
-    machine_rtc_config.ext1_level = args[ARG_level].u_bool;
-    machine_rtc_config.ext1_pins = ext1_pins;
+    machine_rtc_config.ext1_level = (uint8_t)ext1_level;
+    for (int i=0; i<EXT1_WAKEUP_MAX_PINS; i++) {
+    	machine_rtc_config.ext1_pins[i] = ext1_pins[i];
+    	ext1_rtcpins[i] = machine_rtc_config.ext1_rtcpins[i];
+    }
 
     return mp_const_none;
 }
@@ -518,28 +560,41 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_rtcmem_clear_obj, esp_rtcmem_clear);
 STATIC void machine_rtc_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
 	char ext0[64] = {'\0'};
-	char ext1[128] = {'\0'};
+	char ext1[32 + (EXT1_WAKEUP_MAX_PINS*3)] = {'\0'};
 
 	if (machine_rtc_config.ext0_pin >= 0) {
-		sprintf(ext0, "Wake on EXT0: Pin=%d, Level=%s", machine_rtc_config.ext0_pin, machine_rtc_config.ext0_level ? "High" : "Low");
+		sprintf(ext0, "Wake on EXT0: Pin=%d, Level=%s, Count=%d",
+				machine_rtc_config.ext0_pin, machine_rtc_config.ext0_level ? "High" : "Low", machine_rtc_config.ext0_count);
 	}
-	if (machine_rtc_config.ext1_pins > 0) {
+	int has_ext1_pins = 0;
+    for (int i=0; i<EXT1_WAKEUP_MAX_PINS; i++) {
+    	if (machine_rtc_config.ext1_pins[i] >= 0) has_ext1_pins++;
+    }
+
+	if (has_ext1_pins) {
 		if (strlen(ext0) > 0) strcat(ext0, ";  ");
 		sprintf(ext1, "Wake on EXT1: Pins (");
-		char stemp[8];
-		for (int i=0; i<40; i++) {
-            if (machine_rtc_config.ext1_pins & (1ll << i)) {
-            	sprintf(stemp, "%d,", i);
+		char stemp[16];
+		for (int i=0; i<EXT1_WAKEUP_MAX_PINS; i++) {
+            if (machine_rtc_config.ext1_pins[i] >= 0) {
+            	sprintf(stemp, "%d,", machine_rtc_config.ext1_pins[i]);
             	strcat(ext1, stemp);
             }
 		}
 		if (ext1[strlen(ext1)-1] == ',') ext1[strlen(ext1)-1] = '\0';
-		strcat(ext1, "), Level: ");
-		sprintf(stemp, "%s", machine_rtc_config.ext1_level ? "High" : "Low");
-		strcat(ext1, stemp);
+		strcat(ext1, ")");
+
+		stemp[0] = '\0';
+		if (machine_rtc_config.ext1_level == ESP_EXT1_WAKEUP_ANY_HIGH) sprintf(stemp, "Any High");
+		else if (machine_rtc_config.ext1_level == ESP_EXT1_WAKEUP_ALL_LOW) sprintf(stemp, "All Low");
+		else if (machine_rtc_config.ext1_level == EXT1_WAKEUP_ALL_HIGH) sprintf(stemp, "All High");
+		if (strlen(stemp) > 0) {
+			strcat(ext1, ", Level: ");
+			strcat(ext1, stemp);
+		}
 	}
-	mp_printf(print, "RTC ( ");
-	if (strlen(ext0) > 0) mp_printf(print, "%s", ext0);
+	mp_printf(print, "RTC (");
+	if (strlen(ext0) > 0) mp_printf(print, " %s", ext0);
 	if (strlen(ext1) > 0) mp_printf(print, "%s", ext1);
 	mp_printf(print, " )");
 }
@@ -555,11 +610,16 @@ STATIC const mp_map_elem_t mach_rtc_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_wake_on_ext0),	MP_ROM_PTR(&machine_rtc_wake_on_ext0_obj) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_wake_on_ext1),	MP_ROM_PTR(&machine_rtc_wake_on_ext1_obj) },
 
-    {MP_OBJ_NEW_QSTR(MP_QSTR_write),			MP_ROM_PTR(&esp_rtcmem_write_obj)},
-    {MP_OBJ_NEW_QSTR(MP_QSTR_read),				MP_ROM_PTR(&esp_rtcmem_read_obj)},
-    {MP_OBJ_NEW_QSTR(MP_QSTR_clear),			MP_ROM_PTR(&esp_rtcmem_clear_obj)},
-    {MP_OBJ_NEW_QSTR(MP_QSTR_write_string),		MP_ROM_PTR(&esp_rtcmem_write_string_obj)},
-    {MP_OBJ_NEW_QSTR(MP_QSTR_read_string),		MP_ROM_PTR(&esp_rtcmem_read_string_obj)},
+    { MP_OBJ_NEW_QSTR(MP_QSTR_write),			MP_ROM_PTR(&esp_rtcmem_write_obj)},
+    { MP_OBJ_NEW_QSTR(MP_QSTR_read),			MP_ROM_PTR(&esp_rtcmem_read_obj)},
+    { MP_OBJ_NEW_QSTR(MP_QSTR_clear),			MP_ROM_PTR(&esp_rtcmem_clear_obj)},
+    { MP_OBJ_NEW_QSTR(MP_QSTR_write_string),	MP_ROM_PTR(&esp_rtcmem_write_string_obj)},
+    { MP_OBJ_NEW_QSTR(MP_QSTR_read_string),		MP_ROM_PTR(&esp_rtcmem_read_string_obj)},
+
+	// Constants
+	{ MP_ROM_QSTR(MP_QSTR_EXT1_ANYHIGH),		MP_ROM_INT(ESP_EXT1_WAKEUP_ANY_HIGH) },
+	{ MP_ROM_QSTR(MP_QSTR_EXT1_ALLLOW),			MP_ROM_INT(ESP_EXT1_WAKEUP_ALL_LOW) },
+	{ MP_ROM_QSTR(MP_QSTR_EXT1_ANYLOW),			MP_ROM_INT(EXT1_WAKEUP_ALL_HIGH) },
 };
 STATIC MP_DEFINE_CONST_DICT(mach_rtc_locals_dict, mach_rtc_locals_dict_table);
 

@@ -74,6 +74,7 @@ mp_import_stat_t native_vfs_import_stat(struct _fs_user_mount_t *vfs, const char
 mp_obj_t nativefs_builtin_open_self(mp_obj_t self_in, mp_obj_t path, mp_obj_t mode);
 int mount_vfs(int type, char *chdir_to);
 MP_DECLARE_CONST_FUN_OBJ_KW(mp_builtin_open_obj);
+MP_DECLARE_CONST_FUN_OBJ_0(native_vfs_getdrive_obj);
 //MP_DECLARE_CONST_FUN_OBJ_2(native_vfs_chdir_obj);
 
 int internalUmount();

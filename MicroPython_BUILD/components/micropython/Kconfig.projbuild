@@ -29,13 +29,46 @@ menu "MicroPython"
         Use OTA partition layout and include OTA module into build
 
     config GPIO_INPUT_FORCE_FACTORY
-        bool "Use GPIO2 to force boot from Factory partition"
+        bool "Use GPIO pin to force boot from Factory partition"
 		depends on MICROPY_USE_OTA
         default no
         help
         If OTA layout is enabled and OTA update has been executed
         the system will boot from one of the OTA partition
-        To force boot from Factory partition GPIO2 must be high for 3 seconds during boot
+        To force boot from Factory partition defined GPIO
+        must be on specified level for 3 seconds during boot
+
+    config GPIO_PIN_FORCE_FACTORY
+        int "GPIO to force boot from Factory partition"
+    	depends on GPIO_INPUT_FORCE_FACTORY
+        range 0 39
+        default 0
+        help
+        Set GPIO pin to be used to force boot from Factory partition
+
+    config GPIO_LEVEL_FORCE_FACTORY
+    	depends on GPIO_INPUT_FORCE_FACTORY
+        int "GPIO level to force boot from Factory partition"
+        range 0 1
+        default 0
+        help
+        Set GPIO pin level to force boot from Factory partition
+
+    config BOOT_SET_LED
+        int "Activate LED (gpio) on boot"
+        range -1 33
+        default -1
+        help
+        Set to GPIO pin to use as LED indication during boot
+        not used if set to -1
+
+    config BOOT_LED_ON
+    	depends on BOOT_SET_LED >= 0
+        int "Set boot LED On level"
+        range 0 1
+        default 0
+        help
+        Set to GPIO pin level for boot LED On state
 
     menu "System settings"
 		config MICRO_PY_LOG_LEVEL
@@ -110,7 +143,7 @@ menu "MicroPython"
 	        range 512 3584 if SPIRAM_SUPPORT
 	        default 80 if !SPIRAM_SUPPORT
 	        default 72 if !SPIRAM_SUPPORT && MICROPY_USE_CURL && MICROPY_USE_CURL_TLS
-	        default 2048 if SPIRAM_SUPPORT
+	        default 3072 if SPIRAM_SUPPORT
 	        help
 	        Set the size of the MicroPython heap in Kbytes
 	        If SPIRAM is not used, heap is allocated from DRAM and setting the heap size too large

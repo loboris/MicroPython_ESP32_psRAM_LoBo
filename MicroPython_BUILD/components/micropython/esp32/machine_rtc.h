@@ -30,16 +30,6 @@
 #define MACHRTC_H_
 
 extern const mp_obj_type_t mach_rtc_type;
-
-typedef struct {
-    uint64_t ext1_pins;
-    int8_t ext0_pin;
-    bool wake_on_touch : 1;
-    bool ext0_level : 1;
-    bool ext1_level : 1;
-} machine_rtc_config_t;
-
-
 extern xSemaphoreHandle sntp_mutex;
 
 void rtc_init0(void);

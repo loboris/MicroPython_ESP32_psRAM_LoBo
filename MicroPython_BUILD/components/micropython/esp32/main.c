@@ -38,6 +38,7 @@
 #include "esp_log.h"
 #include "driver/periph_ctrl.h"
 #include "esp_ota_ops.h"
+#include "esp_pm.h"
 
 #include "py/stackctrl.h"
 #include "py/nlr.h"
@@ -134,6 +135,13 @@ soft_reset:
 
     // === Mount internal flash file system ===
     int res = mount_vfs(VFS_NATIVE_TYPE_SPIFLASH, VFS_NATIVE_INTERNAL_MP);
+
+	#if CONFIG_BOOT_SET_LED >= 0
+    // Deactivate boot led
+	gpio_pad_select_gpio(CONFIG_BOOT_SET_LED);
+	GPIO_OUTPUT_SET(CONFIG_BOOT_SET_LED, CONFIG_BOOT_LED_ON ^ 1);
+	#endif
+
     if (res == 0) {
     	// run boot-up script 'boot.py'
         pyexec_file("boot.py");
@@ -159,7 +167,7 @@ soft_reset:
 	#if CONFIG_FREERTOS_UNICORE
     	printf("\nFreeRTOS running only on FIRST CORE.\n");
 	#else
-		#if CONFIG_SPIRAM_SUPPORT
+		#if CONFIG_MICROPY_USE_BOTH_CORES
     		printf("\nFreeRTOS running on BOTH CORES, MicroPython task running on both cores.\n");
 		#else
     		printf("\nFreeRTOS running on BOTH CORES, MicroPython task started on App Core.\n");
@@ -226,7 +234,19 @@ soft_reset:
 void micropython_entry(void) {
     nvs_flash_init();
 
-    // === Set esp32 log levels while running MicroPython ===
+    // esp-idf PM bug!
+	#if defined(CONFIG_PM_ENABLE) && !defined(CONFIG_PM_DFS_INIT_AUTO) && defined(CONFIG_ESP32_DEFAULT_CPU_FREQ_240)
+    esp_pm_config_esp32_t pm_config;
+	pm_config.max_cpu_freq = RTC_CPU_FREQ_160M;
+   	pm_config.min_cpu_freq = RTC_CPU_FREQ_80M; // or RTC_CPU_FREQ_XTAL
+   	pm_config.light_sleep_enable = false;
+   	esp_pm_configure(&pm_config);
+    vTaskDelay(2);
+	pm_config.max_cpu_freq = RTC_CPU_FREQ_240M;
+   	esp_pm_configure(&pm_config);
+	#endif
+
+	// === Set esp32 log levels while running MicroPython ===
 	esp_log_level_set("*", CONFIG_MICRO_PY_LOG_LEVEL);
 	esp_log_level_set("wifi", 1);
 	esp_log_level_set("rmt", 1);

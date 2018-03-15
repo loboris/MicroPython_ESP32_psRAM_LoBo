@@ -366,6 +366,9 @@ check_Environment() {
             elif [ "${linplatform}" == "armv7l" ] || [ "${linprocessor}" == "armv7l" ] || [ "${linmachine}" == "armv7l" ]; then
                 echo "unpacking ${machine}/xtensa-esp32-elf (arm)"
                 tar -xf ${machine}/xtensa-esp32-elf_arm.tar.xz > /dev/null 2>&1
+            elif [ "${linmachine}" == "aarch64" ]; then
+                echo "unpacking ${machine}/xtensa-esp32-elf (aarch64)"
+                tar -xf ${machine}/xtensa-esp32-elf_aarch64.tar.xz > /dev/null 2>&1
             else
                 echo "unpacking ${machine}/xtensa-esp32-elf"
                 tar -xf ${machine}/xtensa-esp32-elf.tar.xz > /dev/null 2>&1

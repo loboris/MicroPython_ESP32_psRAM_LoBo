@@ -189,6 +189,7 @@ STATIC const mp_rom_map_elem_t os_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_rmdir),			MP_ROM_PTR(&mp_vfs_rmdir_obj) },
     { MP_ROM_QSTR(MP_QSTR_chdir),			MP_ROM_PTR(&mp_vfs_chdir_obj) },
     { MP_ROM_QSTR(MP_QSTR_getcwd),			MP_ROM_PTR(&mp_vfs_getcwd_obj) },
+    { MP_ROM_QSTR(MP_QSTR_getdrive),		MP_ROM_PTR(&native_vfs_getdrive_obj) },
     { MP_ROM_QSTR(MP_QSTR_remove),			MP_ROM_PTR(&mp_vfs_remove_obj) },
     { MP_ROM_QSTR(MP_QSTR_rename),			MP_ROM_PTR(&mp_vfs_rename_obj) },
     { MP_ROM_QSTR(MP_QSTR_stat),			MP_ROM_PTR(&mp_vfs_stat_obj) },

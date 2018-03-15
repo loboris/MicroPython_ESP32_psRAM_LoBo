@@ -491,6 +491,25 @@ STATIC mp_obj_t native_vfs_getcwd(mp_obj_t vfs_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(native_vfs_getcwd_obj, native_vfs_getcwd);
 
+/// Get the current drive.
+//-------------------------------------
+STATIC mp_obj_t native_vfs_getdrive() {
+
+	char drive[32];
+
+	if (MP_STATE_VM(vfs_cur) == MP_VFS_ROOT) {
+		sprintf(drive, "/");
+    }
+	else {
+		if (strstr(cwd, VFS_NATIVE_MOUNT_POINT) != NULL) sprintf(drive, VFS_NATIVE_INTERNAL_MP);
+		else if (strstr(cwd, VFS_NATIVE_SDCARD_MOUNT_POINT) != NULL) sprintf(drive, VFS_NATIVE_EXTERNAL_MP);
+		else sprintf(drive, "/");
+	}
+
+	return mp_obj_new_str(drive, strlen(drive), false);
+}
+MP_DEFINE_CONST_FUN_OBJ_0(native_vfs_getdrive_obj, native_vfs_getdrive);
+
 /// \function stat(path)
 /// Get the status of a file or directory.
 //------------------------------------------------------------------
@@ -963,19 +982,20 @@ int mount_vfs(int type, char *chdir_to)
 
 //===============================================================
 STATIC const mp_rom_map_elem_t native_vfs_locals_dict_table[] = {
-	{ MP_ROM_QSTR(MP_QSTR_mkfs), MP_ROM_PTR(&native_vfs_mkfs_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&native_vfs_open_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_ilistdir), MP_ROM_PTR(&native_vfs_ilistdir_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_mkdir), MP_ROM_PTR(&native_vfs_mkdir_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_rmdir), MP_ROM_PTR(&native_vfs_rmdir_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_chdir), MP_ROM_PTR(&native_vfs_chdir_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_getcwd), MP_ROM_PTR(&native_vfs_getcwd_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_remove), MP_ROM_PTR(&native_vfs_remove_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_rename), MP_ROM_PTR(&native_vfs_rename_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_stat), MP_ROM_PTR(&native_vfs_stat_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_statvfs), MP_ROM_PTR(&native_vfs_statvfs_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&native_vfs_mount_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_umount), MP_ROM_PTR(&native_vfs_umount_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_mkfs),		MP_ROM_PTR(&native_vfs_mkfs_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_open),		MP_ROM_PTR(&native_vfs_open_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_ilistdir),	MP_ROM_PTR(&native_vfs_ilistdir_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_mkdir),		MP_ROM_PTR(&native_vfs_mkdir_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_rmdir),		MP_ROM_PTR(&native_vfs_rmdir_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_chdir),		MP_ROM_PTR(&native_vfs_chdir_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_getcwd),		MP_ROM_PTR(&native_vfs_getcwd_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_getdrive),	MP_ROM_PTR(&native_vfs_getdrive_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_remove),		MP_ROM_PTR(&native_vfs_remove_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_rename),		MP_ROM_PTR(&native_vfs_rename_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_stat),		MP_ROM_PTR(&native_vfs_stat_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_statvfs),		MP_ROM_PTR(&native_vfs_statvfs_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_mount),		MP_ROM_PTR(&native_vfs_mount_obj) },
+	{ MP_ROM_QSTR(MP_QSTR_umount),		MP_ROM_PTR(&native_vfs_umount_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(native_vfs_locals_dict, native_vfs_locals_dict_table);
 

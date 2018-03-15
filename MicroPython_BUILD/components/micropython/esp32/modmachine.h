@@ -33,8 +33,33 @@
 
 #include "nvs_flash.h"
 #include "nvs.h"
-
 #include "py/obj.h"
+#include "driver/rtc_io.h"
+
+#define EXT1_WAKEUP_ALL_HIGH	2    //!< Wake the chip when all selected GPIOs go high
+#define EXT1_WAKEUP_MAX_PINS	4
+
+typedef struct {
+    int8_t		ext1_pins[EXT1_WAKEUP_MAX_PINS];
+    uint8_t		ext1_rtcpins[EXT1_WAKEUP_MAX_PINS];
+    uint8_t		ext1_level;
+    int8_t		ext0_pin;
+    int8_t		ext0_rtcpin;
+    uint8_t		ext0_level;
+    size_t		ext0_count;
+    uint64_t	ext0_last_time;
+    uint8_t		wake_on_touch;
+    size_t		pulse_count;
+    uint32_t	deepsleep_time;
+    uint32_t	deepsleep_interval;
+    uint64_t	stub_wait;
+    uint64_t	wakeup_delay_ticks;
+    uint64_t	wakeup_delay_ticks_last;
+    int8_t		stub_outpin;
+    uint8_t		stub_outpin_level;
+} machine_rtc_config_t;
+
+extern machine_rtc_config_t machine_rtc_config;
 
 extern const mp_obj_type_t machine_timer_type;
 extern const mp_obj_type_t machine_pin_type;

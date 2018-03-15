@@ -107,9 +107,11 @@ void machine_hw_spi_init_internal(
     self->spi.buscfg = SPIbus_configs[self->spi.spihost];
 
     // Init pins
-    gpio_pad_select_gpio(cs);
-    gpio_set_direction(cs, GPIO_MODE_OUTPUT);
-    gpio_set_level(cs, 1);
+    if (cs >= 0) {
+		gpio_pad_select_gpio(cs);
+		gpio_set_direction(cs, GPIO_MODE_OUTPUT);
+		gpio_set_level(cs, 1);
+    }
     gpio_pad_select_gpio(miso);
     gpio_pad_select_gpio(mosi);
     gpio_pad_select_gpio(sck);

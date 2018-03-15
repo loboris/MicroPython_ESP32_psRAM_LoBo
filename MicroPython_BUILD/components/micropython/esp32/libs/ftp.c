@@ -216,19 +216,30 @@ static bool ftp_open_file (const char *path, const char *mode) {
     return true;
 }
 
-//----------------------------------
-static void ftp_close_files (void) {
+//--------------------------------------
+static void ftp_close_files_dir (void) {
     if (ftp_data.e_open == E_FTP_FILE_OPEN) {
         fclose(ftp_data.fp);
-    } else if (ftp_data.e_open == E_FTP_DIR_OPEN) {
+    	ftp_data.fp = NULL;
+    }
+    else if (ftp_data.e_open == E_FTP_DIR_OPEN) {
         closedir(ftp_data.dp);
+    	ftp_data.dp = NULL;
     }
     ftp_data.e_open = E_FTP_NOTHING_OPEN;
 }
 
 //------------------------------------------------
 static void ftp_close_filesystem_on_error (void) {
-    ftp_close_files();
+    ftp_close_files_dir();
+    if (ftp_data.fp) {
+    	fclose(ftp_data.fp);
+    	ftp_data.fp = NULL;
+    }
+    if (ftp_data.dp) {
+    	closedir(ftp_data.dp);
+    	ftp_data.dp = NULL;
+    }
 }
 
 //---------------------------------------------------------------------------------------------
@@ -236,10 +247,10 @@ static ftp_result_t ftp_read_file (char *filebuf, uint32_t desiredsize, uint32_t
     ftp_result_t result = E_FTP_RESULT_CONTINUE;
     *actualsize = fread(filebuf, 1, desiredsize, ftp_data.fp);
     if (*actualsize == 0) {
-        ftp_close_files();
+        ftp_close_files_dir();
         result = E_FTP_RESULT_FAILED;
     } else if (*actualsize < desiredsize) {
-        ftp_close_files();
+        ftp_close_files_dir();
         result = E_FTP_RESULT_OK;
     }
     return result;
@@ -252,13 +263,17 @@ static ftp_result_t ftp_write_file (char *filebuf, uint32_t size) {
     if (actualsize == size) {
         result = E_FTP_RESULT_OK;
     } else {
-        ftp_close_files();
+        ftp_close_files_dir();
     }
     return result;
 }
 
 //---------------------------------------------------------------
 static ftp_result_t ftp_open_dir_for_listing (const char *path) {
+    if (ftp_data.dp) {
+    	closedir(ftp_data.dp);
+    	ftp_data.dp = NULL;
+    }
     if (path[0] == '/' && path[1] == '\0') {
         ftp_data.listroot = true;
     	ESP_LOGD(FTP_TAG, "ftp_open_dir_for_listing: root");
@@ -308,8 +323,27 @@ static int ftp_get_eplf_item (char *dest, uint32_t destsize, struct dirent *de) 
     if ((buf.st_mtime + FTP_UNIX_SECONDS_180_DAYS) < now) strftime(str_time, 127, "%b %d %Y", tm_info);
     else strftime(str_time, 63, "%b %d %H:%M", tm_info);
 
-    if (ftp_nlist) return snprintf(dest, destsize, "%s\r\n", de->d_name);
-    return snprintf(dest, destsize, "%srw-rw-rw-   1 root  root %9u %s %s\r\n", type, (uint32_t)buf.st_size, str_time, de->d_name);
+    int addsize = destsize + 64;
+
+    while (addsize >= destsize) {
+        if (ftp_nlist) addsize = snprintf(dest, destsize, "%s\r\n", de->d_name);
+        else addsize = snprintf(dest, destsize, "%srw-rw-rw-   1 root  root %9u %s %s\r\n", type, (uint32_t)buf.st_size, str_time, de->d_name);
+        if (addsize >= destsize) {
+			ESP_LOGW(FTP_TAG, "Buffer too small, reallocating [%d > %d]", ftp_buff_size, ftp_buff_size + (addsize - destsize) + 64);
+			char *new_dest = realloc(dest, ftp_buff_size + (addsize - destsize) + 65);
+			if (new_dest) {
+				ftp_buff_size += (addsize - destsize) + 64;
+				destsize += (addsize - destsize) + 64;
+				dest = new_dest;
+				addsize = destsize + 64;
+			}
+			else {
+				ESP_LOGE(FTP_TAG, "Buffer reallocation ERROR");
+				addsize = 0;
+			}
+        }
+    }
+    return addsize;
 }
 
 //---------------------------------------------------------------------------
@@ -325,8 +359,8 @@ static int ftp_get_eplf_drive (char *dest, uint32_t destsize, char *name) {
     return snprintf(dest, destsize, "%srw-rw-rw-   1 root  root %9u %s %s\r\n", type, 0, str_time, name);
 }
 
-//---------------------------------------------------------------------------------------
-static ftp_result_t ftp_list_dir (char *list, uint32_t maxlistsize, uint32_t *listsize) {
+//--------------------------------------------------------------------------------------
+static ftp_result_t ftp_list_dir(char *list, uint32_t maxlistsize, uint32_t *listsize) {
     uint next = 0;
     uint listcount = 0;
     ftp_result_t result = E_FTP_RESULT_CONTINUE;
@@ -344,7 +378,7 @@ static ftp_result_t ftp_list_dir (char *list, uint32_t maxlistsize, uint32_t *li
     }
 
     // read up to 8 directory items
-    while (listcount < 8) {
+    while (((maxlistsize - next) > 64) && (listcount < 8)) {
 		de = readdir(ftp_data.dp);                  										// Read a directory item
 		if (de == NULL) {
 			result = E_FTP_RESULT_OK;
@@ -359,7 +393,7 @@ static ftp_result_t ftp_list_dir (char *list, uint32_t maxlistsize, uint32_t *li
         listcount++;
     }
     if (result == E_FTP_RESULT_OK) {
-        ftp_close_files();
+        ftp_close_files_dir();
     }
     *listsize = next;
     return result;
@@ -1082,7 +1116,7 @@ void ftp_init(void) {
 	ftp_deinit();
 
 	memset(&ftp_data, 0, sizeof(ftp_data_t));
-	ftp_data.dBuffer = malloc(ftp_buff_size);
+	ftp_data.dBuffer = malloc(ftp_buff_size+1);
 	ftp_path = malloc(FTP_MAX_PARAM_SIZE);
 	ftp_scratch_buffer = malloc(FTP_MAX_PARAM_SIZE);
 	ftp_cmd_buffer = malloc(FTP_MAX_PARAM_SIZE + FTP_CMD_SIZE_MAX);
@@ -1149,15 +1183,10 @@ int ftp_run (uint32_t elapsed)
         case E_FTP_STE_CONTINUE_LISTING:
             // go on with listing
         	{
-                uint32_t listsize;
-                ftp_list_dir((char *)ftp_data.dBuffer, ftp_buff_size, &listsize);
-                if (listsize > 0) {
-                    ftp_send_list(listsize);
-                    if (ftp_data.listroot) {
-                        ftp_send_reply(226, NULL);
-                        ftp_data.state = E_FTP_STE_END_TRANSFER;
-                    }
-                } else {
+                uint32_t listsize = 0;
+                ftp_result_t list_res = ftp_list_dir((char *)ftp_data.dBuffer, ftp_buff_size, &listsize);
+            	if (listsize > 0) ftp_send_list(listsize);
+                if (list_res == E_FTP_RESULT_OK) {
                     ftp_send_reply(226, NULL);
                     ftp_data.state = E_FTP_STE_END_TRANSFER;
                 }
@@ -1213,7 +1242,7 @@ int ftp_run (uint32_t elapsed)
 				else if (result == E_FTP_RESULT_CONTINUE) {
 					// nothing received
 					if (ftp_data.dtimeout > FTP_DATA_TIMEOUT_MS) {
-						ftp_close_files();
+						ftp_close_files_dir();
 						ftp_send_reply(426, NULL);
 						ftp_data.state = E_FTP_STE_END_TRANSFER;
 						ESP_LOGW(FTP_TAG, "Receiving to file timeout");
@@ -1221,7 +1250,7 @@ int ftp_run (uint32_t elapsed)
 				}
 				else {
 					// File received (E_FTP_RESULT_FAILED)
-					ftp_close_files();
+					ftp_close_files_dir();
 					ftp_send_reply(226, NULL);
 					ftp_data.state = E_FTP_STE_END_TRANSFER;
 					ESP_LOGI(FTP_TAG, "File received (%u bytes in %u msek).", ftp_data.total, ftp_data.time);
