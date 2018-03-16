@@ -1018,10 +1018,20 @@ static void ftp_process_cmd (void) {
             }
             break;
         case E_FTP_CMD_DELE:
+            ftp_get_param_and_open_child(&bufptr);
+            if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
+				if (unlink(ftp_path) == 0) {
+					vTaskDelay(20 / portTICK_PERIOD_MS);
+					ftp_send_reply(250, NULL);
+				}
+				else ftp_send_reply(550, NULL);
+            }
+            else ftp_send_reply(250, NULL);
+            break;
         case E_FTP_CMD_RMD:
             ftp_get_param_and_open_child(&bufptr);
             if ((strlen(ftp_path) > 0) && (ftp_path[strlen(ftp_path)-1] != '/')) {
-				if (unlink(ftp_path) >= 0) {
+				if (rmdir(ftp_path) == 0) {
 					vTaskDelay(20 / portTICK_PERIOD_MS);
 					ftp_send_reply(250, NULL);
 				}
