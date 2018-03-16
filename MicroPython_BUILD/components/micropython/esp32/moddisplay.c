@@ -1450,6 +1450,39 @@ STATIC mp_obj_t display_tft_send_cmd_data(mp_obj_t self_in, mp_obj_t cmd_in, mp_
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(display_tft_send_cmd_data_obj, display_tft_send_cmd_data);
 
+//--------------------------------------------------
+STATIC mp_obj_t display_tft_get_bg(mp_obj_t self_in)
+{
+    int icolor = (int)((_bg.r << 16) | (_bg.g << 8) | _bg.b);
+    return mp_obj_new_int(icolor);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(display_tft_get_bg_obj, display_tft_get_bg);
+
+//--------------------------------------------------
+STATIC mp_obj_t display_tft_get_fg(mp_obj_t self_in)
+{
+    int icolor = (int)((_fg.r << 16) | (_fg.g << 8) | _fg.b);
+    return mp_obj_new_int(icolor);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(display_tft_get_fg_obj, display_tft_get_fg);
+
+//---------------------------------------------------------------------
+STATIC mp_obj_t display_tft_set_bg(mp_obj_t self_in, mp_obj_t color_in)
+{
+    color_t color = intToColor(mp_obj_get_int(color_in));
+    _bg = color;
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(display_tft_set_bg_obj, display_tft_set_bg);
+
+//---------------------------------------------------------------------
+STATIC mp_obj_t display_tft_set_fg(mp_obj_t self_in, mp_obj_t color_in)
+{
+    color_t color = intToColor(mp_obj_get_int(color_in));
+    _fg = color;
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(display_tft_set_fg_obj, display_tft_set_fg);
 
 
 //================================================================
@@ -1491,6 +1524,10 @@ STATIC const mp_rom_map_elem_t display_tft_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_getCalib),			MP_ROM_PTR(&display_tft_getCalib_obj) },
     { MP_ROM_QSTR(MP_QSTR_backlight),			MP_ROM_PTR(&display_tft_backlight_obj) },
     { MP_ROM_QSTR(MP_QSTR_getTouchType),		MP_ROM_PTR(&display_tft_touch_type_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get_fg),				MP_ROM_PTR(&display_tft_get_fg_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get_bg),				MP_ROM_PTR(&display_tft_get_bg_obj) },
+    { MP_ROM_QSTR(MP_QSTR_set_fg),				MP_ROM_PTR(&display_tft_set_fg_obj) },
+    { MP_ROM_QSTR(MP_QSTR_set_bg),				MP_ROM_PTR(&display_tft_set_bg_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_tft_setspeed),		MP_ROM_PTR(&display_tft_set_speed_obj) },
     { MP_ROM_QSTR(MP_QSTR_tft_select),			MP_ROM_PTR(&display_tft_select_obj) },

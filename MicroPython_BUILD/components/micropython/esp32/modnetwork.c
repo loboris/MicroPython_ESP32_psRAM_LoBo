@@ -974,7 +974,7 @@ STATIC mp_obj_t mod_network_startFtp(mp_uint_t n_args, const mp_obj_t *pos_args,
     wifi_mode_t wifi_mode;
     esp_wifi_get_mode(&wifi_mode);
     if ((wifi_mode != WIFI_MODE_STA) && (wifi_mode != WIFI_MODE_AP)) {
-        ESP_LOGE("[Ftp]", "Invalif WiFi mode\n");
+        ESP_LOGE("[Ftp]", "Invalid WiFi mode\n");
     	return mp_const_false;
     }
 

@@ -288,10 +288,33 @@ STATIC void machine_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_pri
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
     uint32_t baudrate;
     uart_get_baudrate(self->uart_num+1, &baudrate);
+    char lnend[16] = {'\0'};
+    int lnend_idx = 0;
+    for (int i=0; i < strlen((char *)self->lineend); i++) {
+    	if (self->lineend[i] == 0) break;
+    	if ((self->lineend[i] < 32) || (self->lineend[i] > 126)) {
+    		if (self->lineend[i] == '\r') {
+        		sprintf(lnend+lnend_idx, "\\r");
+        		lnend_idx += 2;
+    		}
+    		else if (self->lineend[i] == '\n') {
+        		sprintf(lnend+lnend_idx, "\\n");
+        		lnend_idx += 2;
+    		}
+    		else {
+        		sprintf(lnend+lnend_idx, "\\x%2x", self->lineend[i]);
+        		lnend_idx += 4;
+    		}
+    	}
+    	else {
+    		sprintf(lnend+lnend_idx, "%c", self->lineend[i]);
+    		lnend_idx++;
+    	}
+    }
 
-    mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%s, stop=%u, tx=%d, rx=%d, rts=%d, cts=%d, timeout=%u, buf_size=%u)",
+    mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%s, stop=%u, tx=%d, rx=%d, rts=%d, cts=%d, timeout=%u, buf_size=%u, lineend=b'%s')",
         self->uart_num+1, baudrate, self->bits, _parity_name[self->parity],
-        self->stop, self->tx, self->rx, self->rts, self->cts, self->timeout, self->buffer_size);
+        self->stop, self->tx, self->rx, self->rts, self->cts, self->timeout, self->buffer_size, lnend);
     if (self->data_cb) {
     	mp_printf(print, "\n     data CB: True, on len: %d", self->data_cb_size);
     }
@@ -418,7 +441,7 @@ STATIC void machine_uart_init_helper(machine_uart_obj_t *self, size_t n_args, co
     if (MP_OBJ_IS_STR(args[ARG_lineend].u_obj)) {
     	size_t lnendlen;
     	const char *lnend = mp_obj_str_get_data(args[ARG_lineend].u_obj, &lnendlen);
-    	if ((lnend) && (lnendlen > 0) && (lnendlen > 0)) sprintf((char *)self->lineend, "%s", lnend);
+    	if ((lnend) && (lnendlen > 0) && (lnendlen < 3)) sprintf((char *)self->lineend, "%s", lnend);
 	}
 }
 
@@ -493,12 +516,14 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     mp_arg_val_t kargs[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args-1, args+1, &kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, kargs);
 
+    // Set buffer size
     int bufsize = kargs[ARG_buffer_size].u_int;
     if (bufsize < 512) bufsize = 512;
     if (bufsize > 8192) bufsize = 8192;
     self->buffer_size = bufsize;
 
 	if (uart_buf[self->uart_num] == NULL) {
+		// First time, create ring buffer
 		uart_ringbuf_alloc(self->uart_num, bufsize);
 		if (uart_buf[self->uart_num] == NULL) {
 	        nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "UART(%d) Error allocating ring buffer", uart_num));

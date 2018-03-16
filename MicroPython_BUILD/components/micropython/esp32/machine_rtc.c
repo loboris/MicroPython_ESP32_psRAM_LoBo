@@ -619,7 +619,7 @@ STATIC const mp_map_elem_t mach_rtc_locals_dict_table[] = {
 	// Constants
 	{ MP_ROM_QSTR(MP_QSTR_EXT1_ANYHIGH),		MP_ROM_INT(ESP_EXT1_WAKEUP_ANY_HIGH) },
 	{ MP_ROM_QSTR(MP_QSTR_EXT1_ALLLOW),			MP_ROM_INT(ESP_EXT1_WAKEUP_ALL_LOW) },
-	{ MP_ROM_QSTR(MP_QSTR_EXT1_ANYLOW),			MP_ROM_INT(EXT1_WAKEUP_ALL_HIGH) },
+	{ MP_ROM_QSTR(MP_QSTR_EXT1_ALLHIGH),		MP_ROM_INT(EXT1_WAKEUP_ALL_HIGH) },
 };
 STATIC MP_DEFINE_CONST_DICT(mach_rtc_locals_dict, mach_rtc_locals_dict_table);
 
