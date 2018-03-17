@@ -103,7 +103,7 @@ static int uart_buf_get(uart_ringbuf_t *r, uint8_t *dest, uint16_t len) {
 	    if (r->iget == r->iput) break;
 	}
 	// move the buffer and adjust the pointers
-	memmove(r->buf, r->buf+res, res);
+	memmove(r->buf, r->buf+res, r->iput - res);
 	r->iget -= res;
 	r->iput -= res;
 
@@ -120,15 +120,16 @@ static int uart_buf_put(uart_ringbuf_t *r, uint8_t *source, uint16_t len) {
 	return res;
 }
 
-//---------------------------------------------------------------------------------------
-int pattern_match(uint8_t *text, int text_length, uint8_t *pattern, int pattern_length) {
+//---------------------------------------------------------------------------------------------
+static int match_pattern(uint8_t *text, int text_length, uint8_t *pattern, int pattern_length)
+{
 	int c, d, e, position = -1;
 
 	if (pattern_length > text_length) return -1;
 
 	for (c = 0; c <= (text_length - pattern_length); c++) {
 		position = e = c;
-
+		// check pattern
 		for (d = 0; d < pattern_length; d++) {
 			if (pattern[d] == text[e]) e++;
 			else break;
@@ -197,7 +198,7 @@ static void uart_event_task(void *pvParameters)
 								}
 								else if (self->pattern_cb) {
 									// ** callback on pattern received
-									res = pattern_match(uart_buf[self->uart_num]->buf, uart_buf[self->uart_num]->iput, self->pattern, self->pattern_len);
+									res = match_pattern(uart_buf[self->uart_num]->buf, uart_buf[self->uart_num]->iput, self->pattern, self->pattern_len);
 									if (res >= 0) {
 										// found, pull data, including pattern from buffer
 										uart_buf_get(uart_buf[self->uart_num], dtmp, res+self->pattern_len);
@@ -594,9 +595,11 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_uart_flush_obj, machine_uart_flush);
 STATIC mp_obj_t machine_uart_readln(size_t n_args, const mp_obj_t *args) {
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
-    vstr_t vstr;
-    int res = -1;
+    uint8_t *rdstr = NULL;
+    int rdlen = -1;
 	int lnendlen = strlen((char *)self->lineend);
+	if (lnendlen == 0) return mp_const_none;
+
 	int timeout = self->timeout;
 	if (n_args == 2) timeout = mp_obj_get_int(args[1]);
 
@@ -607,14 +610,18 @@ STATIC mp_obj_t machine_uart_readln(size_t n_args, const mp_obj_t *args) {
 	    	if (uart_mutex) xSemaphoreGive(uart_mutex);
 	    	return mp_const_none;
 		}
-		res = pattern_match(uart_buf[self->uart_num]->buf, uart_buf[self->uart_num]->iput, self->lineend, lnendlen);
-		if (res >= 0) {
+		rdlen = match_pattern(uart_buf[self->uart_num]->buf, uart_buf[self->uart_num]->iput, self->lineend, lnendlen);
+		if (rdlen >= 0) {
 			// found, pull data, including pattern from buffer
-			vstr_init_len(&vstr, res+lnendlen);
-			uart_buf_get(uart_buf[self->uart_num], (uint8_t *)vstr.buf, res+lnendlen);
+			rdlen += lnendlen;
+			rdstr = calloc(rdlen+1, 1);
+			if (rdstr) {
+				uart_buf_get(uart_buf[self->uart_num], rdstr, rdlen);
+				rdstr[rdlen] = 0;
+			}
 		}
     	if (uart_mutex) xSemaphoreGive(uart_mutex);
-    	if (res < 0) return mp_const_none;
+    	if (rdlen < 0) return mp_const_none;
     }
     else {
     	// wait until line end received or timeout
@@ -635,11 +642,15 @@ STATIC mp_obj_t machine_uart_readln(size_t n_args, const mp_obj_t *args) {
 				mp_hal_reset_wdt();
 				continue;
 			}
-			res = pattern_match(uart_buf[self->uart_num]->buf, uart_buf[self->uart_num]->iput, self->lineend, lnendlen);
-			if (res >= 0) {
+			rdlen = match_pattern(uart_buf[self->uart_num]->buf, uart_buf[self->uart_num]->iput, self->lineend, lnendlen);
+			if (rdlen >= 0) {
+				rdlen += lnendlen;
 				// found, pull data, including pattern from buffer
-				vstr_init_len(&vstr, res+lnendlen);
-				uart_buf_get(uart_buf[self->uart_num], (uint8_t *)vstr.buf, res+lnendlen);
+				rdstr = calloc(rdlen+1, 1);
+				if (rdstr) {
+					uart_buf_get(uart_buf[self->uart_num], rdstr, rdlen);
+					rdstr[rdlen] = 0;
+				}
 		    	if (uart_mutex) xSemaphoreGive(uart_mutex);
 				break;
 			}
@@ -649,10 +660,12 @@ STATIC mp_obj_t machine_uart_readln(size_t n_args, const mp_obj_t *args) {
 			mp_hal_reset_wdt();
 		}
 		MP_THREAD_GIL_ENTER();
-    	if (res < 0) return mp_const_none;
+    	if (rdlen < 0) return mp_const_none;
     }
-
-    return mp_obj_new_str_from_vstr(&mp_type_bytes, &vstr);
+	if (rdstr == NULL) return mp_const_none;
+	mp_obj_t res_str = mp_obj_new_str((const char *)rdstr, rdlen, false);
+	free(rdstr);
+    return res_str;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_uart_readln_obj, 1, 2, machine_uart_readln);
 
@@ -752,6 +765,9 @@ STATIC const mp_rom_map_elem_t machine_uart_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_CBTYPE_ERROR),	MP_ROM_INT(UART_CB_TYPE_ERROR) },
 };
 STATIC MP_DEFINE_CONST_DICT(machine_uart_locals_dict, machine_uart_locals_dict_table);
+
+
+// === Stream UART functions ===
 
 //------------------------------------------------------------------------------------------------
 STATIC mp_uint_t machine_uart_read(mp_obj_t self_in, void *buf_in, mp_uint_t size, int *errcode) {
