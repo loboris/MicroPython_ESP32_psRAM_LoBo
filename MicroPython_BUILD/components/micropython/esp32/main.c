@@ -85,11 +85,40 @@ STATIC uint8_t *mp_task_heap;
 
 int MainTaskCore = 0;
 
+#include "driver/uart.h"
+#include "rom/uart.h"
 //===============================
 void mp_task(void *pvParameter) {
     volatile uint32_t sp = (uint32_t)get_sp();
 
-	#ifdef CONFIG_MICROPY_USE_TASK_WDT
+    uart_config_t uartcfg = {
+        .baud_rate = 115200,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .rx_flow_ctrl_thresh = 0,
+		.use_ref_tick = true
+    };
+    uart_param_config(UART_NUM_0, &uartcfg);
+   	uart_set_baudrate(UART_NUM_0, CONFIG_CONSOLE_UART_BAUDRATE);
+
+    // esp-idf PM bug!
+	#if defined(CONFIG_PM_ENABLE) && !defined(CONFIG_PM_DFS_INIT_AUTO) && defined(CONFIG_ESP32_DEFAULT_CPU_FREQ_240)
+    esp_pm_config_esp32_t pm_config;
+	pm_config.max_cpu_freq = RTC_CPU_FREQ_160M;
+   	pm_config.min_cpu_freq = RTC_CPU_FREQ_XTAL;
+   	pm_config.light_sleep_enable = false;
+   	esp_pm_configure(&pm_config);
+    rtc_clk_cpu_freq_set(RTC_CPU_FREQ_160M);
+   	uart_set_baudrate(UART_NUM_0, CONFIG_CONSOLE_UART_BAUDRATE);
+	pm_config.max_cpu_freq = RTC_CPU_FREQ_240M;
+   	esp_pm_configure(&pm_config);
+    rtc_clk_cpu_freq_set(RTC_CPU_FREQ_240M);
+   	uart_set_baudrate(UART_NUM_0, CONFIG_CONSOLE_UART_BAUDRATE);
+	#endif
+
+    #ifdef CONFIG_MICROPY_USE_TASK_WDT
     // Enable watchdog for MicroPython main task
     esp_task_wdt_init(CONFIG_TASK_WDT_TIMEOUT_S, false);
     esp_task_wdt_add(MainTaskHandle);
@@ -233,18 +262,6 @@ soft_reset:
 //============================
 void micropython_entry(void) {
     nvs_flash_init();
-
-    // esp-idf PM bug!
-	#if defined(CONFIG_PM_ENABLE) && !defined(CONFIG_PM_DFS_INIT_AUTO) && defined(CONFIG_ESP32_DEFAULT_CPU_FREQ_240)
-    esp_pm_config_esp32_t pm_config;
-	pm_config.max_cpu_freq = RTC_CPU_FREQ_160M;
-   	pm_config.min_cpu_freq = RTC_CPU_FREQ_80M; // or RTC_CPU_FREQ_XTAL
-   	pm_config.light_sleep_enable = false;
-   	esp_pm_configure(&pm_config);
-    vTaskDelay(2);
-	pm_config.max_cpu_freq = RTC_CPU_FREQ_240M;
-   	esp_pm_configure(&pm_config);
-	#endif
 
 	// === Set esp32 log levels while running MicroPython ===
 	esp_log_level_set("*", CONFIG_MICRO_PY_LOG_LEVEL);

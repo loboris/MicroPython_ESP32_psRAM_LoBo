@@ -469,7 +469,8 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
         .parity = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .rx_flow_ctrl_thresh = 0
+        .rx_flow_ctrl_thresh = 0,
+		.use_ref_tick = true
     };
 
 	if (uart_mutex == NULL) {

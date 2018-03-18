@@ -52,6 +52,7 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_pm.h"
+#include "driver/uart.h"
 
 #include "py/obj.h"
 #include "py/runtime.h"
@@ -293,42 +294,30 @@ void prepareSleepReset(uint8_t hrst, char *msg)
 //-----------------------------------------------------------------
 STATIC mp_obj_t machine_freq(size_t n_args, const mp_obj_t *args) {
     if (n_args == 0) {
-        // get
-        return mp_obj_new_int(ets_get_cpu_frequency() * 1000000);
+        // get CPU frequency
+    	return mp_obj_new_int(rtc_clk_cpu_freq_value(rtc_clk_cpu_freq_get()));
     }
     else {
+        // set CPU frequency
+        int freq = mp_obj_get_int(args[0]);
+        if (freq > 240) freq /= 1000000;
+        rtc_cpu_freq_t max_freq;
+        if (!rtc_clk_cpu_freq_from_mhz(freq, &max_freq)) {
+        	char msg[128];
+        	sprintf(msg, "Available frequencies: 2MHz, 80Mhz, 160MHz, 240MHz or %uMHz (XTAL)", rtc_clk_xtal_freq_get());
+        	mp_raise_ValueError(msg);
+        }
 		#ifdef CONFIG_PM_ENABLE
-    	//mp_raise_NotImplementedError("Changing frequency not implemented");
-        // set
-        mp_int_t freq = mp_obj_get_int(args[0]) / 1000000;
-        if ((freq != 80) && (freq != 160) && (freq != 240)) {
-        	mp_raise_msg(&mp_type_OSError, "frequency can only be either 80Mhz, 160MHz or 240MHz");
-        }
         esp_pm_config_esp32_t pm_config;
-        switch (freq) {
-			case 240:
-				pm_config.max_cpu_freq = RTC_CPU_FREQ_240M;
-				break;
-			case 160:
-				pm_config.max_cpu_freq = RTC_CPU_FREQ_160M;
-				break;
-			case 80:
-				pm_config.max_cpu_freq = RTC_CPU_FREQ_80M;
-				break;
-			case 2:
-				pm_config.max_cpu_freq = RTC_CPU_FREQ_2M;
-				break;
-			default:
-				pm_config.max_cpu_freq = RTC_CPU_FREQ_240M;
-        }
-       	pm_config.min_cpu_freq = RTC_CPU_FREQ_80M; // or RTC_CPU_FREQ_XTAL
+        pm_config.max_cpu_freq = max_freq;
+       	pm_config.min_cpu_freq = RTC_CPU_FREQ_XTAL;
        	pm_config.light_sleep_enable = false;
        	if (esp_pm_configure(&pm_config) != ESP_OK) {
        		mp_raise_msg(&mp_type_OSError, "Error configuring frequency");
        	}
-		#else
-    	mp_raise_OSError("Power management not enabled");
 		#endif
+        rtc_clk_cpu_freq_set(max_freq);
+       	uart_set_baudrate(UART_NUM_0, CONFIG_CONSOLE_UART_BAUDRATE);
         return mp_const_none;
     }
 }
