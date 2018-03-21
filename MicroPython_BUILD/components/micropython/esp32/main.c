@@ -103,7 +103,8 @@ void mp_task(void *pvParameter) {
     uart_param_config(UART_NUM_0, &uartcfg);
    	uart_set_baudrate(UART_NUM_0, CONFIG_CONSOLE_UART_BAUDRATE);
 
-    // esp-idf PM bug!
+   	/*
+    // ---- esp-idf PM bug! ----------------------------------------------------------------------------------------
 	#if defined(CONFIG_PM_ENABLE) && !defined(CONFIG_PM_DFS_INIT_AUTO) && defined(CONFIG_ESP32_DEFAULT_CPU_FREQ_240)
     esp_pm_config_esp32_t pm_config;
 	pm_config.max_cpu_freq = RTC_CPU_FREQ_160M;
@@ -117,6 +118,8 @@ void mp_task(void *pvParameter) {
     rtc_clk_cpu_freq_set(RTC_CPU_FREQ_240M);
    	uart_set_baudrate(UART_NUM_0, CONFIG_CONSOLE_UART_BAUDRATE);
 	#endif
+    // -------------------------------------------------------------------------------------------------------------
+	*/
 
     #ifdef CONFIG_MICROPY_USE_TASK_WDT
     // Enable watchdog for MicroPython main task

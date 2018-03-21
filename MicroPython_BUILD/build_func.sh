@@ -74,7 +74,7 @@ get_bin_size() {
 
 #----------------------
 get_config_flash_sz() {
-    local cfg_fsfat=$(grep -e CONFIG_MICROPY_USE_SPIFFS=y sdkconfig)
+    local cfg_fsfat=$(grep -e CONFIG_MICROPY_FILESYSTEM_TYPE=0 sdkconfig)
     if [ "${cfg_fsfat}" == "" ]; then
         fs_type_fat="yes"
         cfg_fsfat=$(grep -e CONFIG_WL_SECTOR_SIZE_512=y sdkconfig)

@@ -62,10 +62,13 @@
 #include "lib/timeutils/timeutils.h"
 #include "sdkconfig.h"
 
+#if CONFIG_MICROPY_FILESYSTEM_TYPE == 2
+#include "libs/littleflash.h"
+#endif
 
 // esp32 partition configuration
 static esp_partition_t * fs_partition = NULL;
-#if !MICROPY_USE_SPIFFS
+#if CONFIG_MICROPY_FILESYSTEM_TYPE == 1
 static wl_handle_t s_wl_handle = WL_INVALID_HANDLE;
 #endif
 
@@ -535,9 +538,9 @@ STATIC mp_obj_t native_vfs_stat(mp_obj_t vfs_in, mp_obj_t path_in) {
 		buf.st_ctime = buf.st_atime; // Jan 1, 2000
 		buf.st_mode = MP_S_IFDIR;
 		if (self->device == VFS_NATIVE_TYPE_SPIFLASH) {
-			#if MICROPY_USE_SPIFFS
+			#if CONFIG_MICROPY_FILESYSTEM_TYPE == 0
 			uint32_t total, used;
-		    esp_spiffs_info("internalfs", &total, &used);
+		    esp_spiffs_info(VFS_NATIVE_INTERNAL_PART_LABEL, &total, &used);
 			buf.st_size = total;
 			#else
 		    FRESULT res=0;
@@ -598,13 +601,19 @@ STATIC mp_obj_t native_vfs_statvfs(mp_obj_t vfs_in, mp_obj_t path_in) {
     DWORD fre_clust;
 
 	if (self->device == VFS_NATIVE_TYPE_SPIFLASH) {
-		#if MICROPY_USE_SPIFFS
+		#if CONFIG_MICROPY_FILESYSTEM_TYPE == 0
 		uint32_t total, used;
-		esp_spiffs_info("internalfs", &total, &used);
+		esp_spiffs_info(VFS_NATIVE_INTERNAL_PART_LABEL, &total, &used);
 		f_bsize = 256; //SPIFFS_LOG_PAGE_SIZE;
 		f_blocks = total / 256; //SPIFFS_LOG_PAGE_SIZE;
 		f_bfree = (total-used) / 256; //SPIFFS_LOG_PAGE_SIZE;
 		maxlfn = CONFIG_SPIFFS_OBJ_NAME_LEN;
+		#elif CONFIG_MICROPY_FILESYSTEM_TYPE == 2
+		maxlfn = LFS_NAME_MAX;
+		uint32_t used = littleFlash_getUsedBlocks();
+		f_bsize = littleFlash.lfs_cfg.block_size;
+		f_blocks = littleFlash.lfs_cfg.block_count;
+		f_bfree = f_blocks - used;
 		#else
 		res = f_getfree(VFS_NATIVE_MOUNT_POINT, &fre_clust, &fatfs);
 		goto is_fat;
@@ -612,7 +621,7 @@ STATIC mp_obj_t native_vfs_statvfs(mp_obj_t vfs_in, mp_obj_t path_in) {
 	}
 	else if (self->device == VFS_NATIVE_TYPE_SDCARD) {
 		res = f_getfree(VFS_NATIVE_SDCARD_MOUNT_POINT, &fre_clust, &fatfs);
-#if !MICROPY_USE_SPIFFS
+#if CONFIG_MICROPY_FILESYSTEM_TYPE == 1
 is_fat:
 #endif
 	    if (res != 0) {
@@ -803,28 +812,48 @@ STATIC mp_obj_t native_vfs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t m
 	if (self->device == VFS_NATIVE_TYPE_SPIFLASH) {
 		// spiflash device
 		esp_err_t ret;
-		#if MICROPY_USE_SPIFFS
-	    fs_partition = (esp_partition_t *)esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, "internalfs");
+		#if CONFIG_MICROPY_FILESYSTEM_TYPE == 0
+	    fs_partition = (esp_partition_t *)esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, VFS_NATIVE_INTERNAL_PART_LABEL);
 	    if (fs_partition == NULL) {
 			printf("\nInternal SPIFFS: File system partition definition not found!\n");
 			return mp_const_none;
 	    }
 	    esp_vfs_spiffs_conf_t conf = {
 	      .base_path = VFS_NATIVE_MOUNT_POINT,
-	      .partition_label = "internalfs",
+	      .partition_label = VFS_NATIVE_INTERNAL_PART_LABEL,
 	      .max_files = CONFIG_MICROPY_FATFS_MAX_OPEN_FILES,
 	      .format_if_mount_failed = true
 	    };
 	    ret = esp_vfs_spiffs_register(&conf);
 	   	//if (spiffs_is_mounted == 0) {
-	    if ((ret != ESP_OK) || (!esp_spiffs_mounted("internalfs"))) {
+	    if ((ret != ESP_OK) || (!esp_spiffs_mounted(VFS_NATIVE_INTERNAL_PART_LABEL))) {
 			ESP_LOGE(TAG, "Failed to mount Flash partition as SPIFFS.");
 			return mp_const_false;
 	   	}
 		native_vfs_mounted[self->device] = true;
 		checkBoot_py();
+		#elif CONFIG_MICROPY_FILESYSTEM_TYPE == 2
+	    fs_partition = (esp_partition_t *)esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, VFS_NATIVE_INTERNAL_PART_LABEL);
+	    if (fs_partition == NULL) {
+			printf("\nInternal LittleFS: File system partition definition not found!\n");
+			return mp_const_none;
+	    }
+	    const little_flash_config_t little_cfg = {
+	        .part = fs_partition,
+	        .base_path = VFS_NATIVE_MOUNT_POINT,
+	        .open_files = CONFIG_MICROPY_FATFS_MAX_OPEN_FILES,
+	        .auto_format = true,
+	        .lookahead = 32
+	    };
+	    ret = littleFlash_init(&little_cfg);
+	    if (ret != ESP_OK) {
+			ESP_LOGE(TAG, "Failed to mount Flash partition as LittleFS.");
+			return mp_const_false;
+	   	}
+		native_vfs_mounted[self->device] = true;
+		checkBoot_py();
 		#else
-	    fs_partition = (esp_partition_t *)esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "internalfs");
+	    fs_partition = (esp_partition_t *)esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, VFS_NATIVE_INTERNAL_PART_LABEL);
 	    if (fs_partition == NULL) {
 			printf("\nInternal FatFS: File system partition definition not found!\n");
 			return mp_const_none;
@@ -835,7 +864,7 @@ STATIC mp_obj_t native_vfs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t m
 			.max_files              = CONFIG_MICROPY_FATFS_MAX_OPEN_FILES,
 		};
 		// Mount spi Flash filesystem using configuration from sdkconfig.h
-		esp_err_t err = esp_vfs_fat_spiflash_mount(VFS_NATIVE_MOUNT_POINT, "internalfs", &mount_config, &s_wl_handle);
+		esp_err_t err = esp_vfs_fat_spiflash_mount(VFS_NATIVE_MOUNT_POINT, VFS_NATIVE_INTERNAL_PART_LABEL, &mount_config, &s_wl_handle);
 
 		if (err != ESP_OK) {
 			ESP_LOGE(TAG, "Failed to mount Flash partition as FatFS(%d)", err);
@@ -849,15 +878,22 @@ STATIC mp_obj_t native_vfs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t m
 		int f_bsize=0, f_blocks=0, f_bfree=0;
 		ret = ESP_FAIL;
 		printf("\nInternal FS ");
-		#if MICROPY_USE_SPIFFS
+		#if CONFIG_MICROPY_FILESYSTEM_TYPE == 0
 			printf("(SPIFFS): ");
 			uint32_t total, used;
-			if (esp_spiffs_info("internalfs", &total, &used) == ESP_OK) {
+			if (esp_spiffs_info(VFS_NATIVE_INTERNAL_PART_LABEL, &total, &used) == ESP_OK) {
 				f_bsize = 256;
 				f_blocks = total / 256;
 				f_bfree = (total-used) / 256;
 				ret = ESP_OK;
 			}
+		#elif CONFIG_MICROPY_FILESYSTEM_TYPE == 2
+			printf("(LittleFS ver %d.%d): ", LFS_VERSION_MAJOR, LFS_VERSION_MINOR);
+			uint32_t used = littleFlash_getUsedBlocks();
+			f_bsize = littleFlash.lfs_cfg.block_size;
+			f_blocks = littleFlash.lfs_cfg.block_count;
+			f_bfree = f_blocks - used;
+			ret = ESP_OK;
 		#else
 			printf("(FatFS): ");
 			if (fs_partition->encrypted)	printf("[Encrypted] ");
@@ -917,9 +953,11 @@ int internalUmount()
 {
 	int res = 0;
     if (native_vfs_mounted[VFS_NATIVE_TYPE_SPIFLASH]) {
-		#if MICROPY_USE_SPIFFS
-    	res = esp_vfs_spiffs_unregister("internalfs");
+		#if CONFIG_MICROPY_FILESYSTEM_TYPE == 0
+    	res = esp_vfs_spiffs_unregister(VFS_NATIVE_INTERNAL_PART_LABEL);
     	if (res) res = 0;
+		#elif CONFIG_MICROPY_FILESYSTEM_TYPE == 2
+    	littleFlash_term(VFS_NATIVE_INTERNAL_PART_LABEL);
 		#else
     	if (s_wl_handle != WL_INVALID_HANDLE) res = wl_unmount(s_wl_handle);
     	if (res) res = 0;

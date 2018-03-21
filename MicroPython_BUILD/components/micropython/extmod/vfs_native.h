@@ -31,17 +31,21 @@
  *
  */
 
+#include "sdkconfig.h"
 #include "py/lexer.h"
 #include "py/obj.h"
 #include "py/objint.h"
 #include "extmod/vfs.h"
 
-#if MICROPY_USE_SPIFFS
+#if CONFIG_MICROPY_FILESYSTEM_TYPE == 0
 #define VFS_NATIVE_MOUNT_POINT			"/_#!#_spiffs"
+#elif CONFIG_MICROPY_FILESYSTEM_TYPE == 2
+#define VFS_NATIVE_MOUNT_POINT			"/_#!#_littlefs"
 #else
 #define VFS_NATIVE_MOUNT_POINT			"/_#!#_spiflash"
 #endif
 #define VFS_NATIVE_SDCARD_MOUNT_POINT	"/_#!#_sdcard"
+#define VFS_NATIVE_INTERNAL_PART_LABEL	"internalfs"
 #define VFS_NATIVE_INTERNAL_MP			"/flash"
 #define VFS_NATIVE_EXTERNAL_MP			"/sd"
 #define VFS_NATIVE_TYPE_SPIFLASH		0

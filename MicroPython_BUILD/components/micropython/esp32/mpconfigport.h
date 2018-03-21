@@ -215,12 +215,6 @@
 #define MICROPY_INTERNALFS_ENCRIPTED        (0) // do not use encription on filesystem
 #endif
 
-#if defined(CONFIG_MICROPY_USE_SPIFFS)
-#define MICROPY_USE_SPIFFS					(1)	// use spiffs instead of FatFS on spi Flash
-#else
-#define MICROPY_USE_SPIFFS					(0)
-#endif
-
 // === sdcard using ESP32 sdmmc driver configuration ===
 #ifdef CONFIG_MICROPY_SDMMC_SHOW_INFO
 #define MICROPY_SDMMC_SHOW_INFO             (1) // show sdcard info after initialization
