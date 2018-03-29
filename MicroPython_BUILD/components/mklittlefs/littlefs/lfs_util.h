@@ -34,7 +34,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include "esp_log.h"
 
 #ifndef LFS_NO_MALLOC
 #include <stdlib.h>
@@ -46,30 +45,25 @@
 #include <stdio.h>
 #endif
 
-#define LFS_TAG	"lfs.c"
-
 // Macros, may be replaced by system specific wrappers. Arguments to these
 // macros must not have side-effects as the macros can be removed for a smaller
 // code footprint
 
 // Logging functions
 #ifndef LFS_NO_DEBUG
-#define LFS_DEBUG(fmt, ...) \
-    ESP_LOGD(LFS_TAG, "%d: " fmt, __LINE__, __VA_ARGS__)
+#define LFS_DEBUG(fmt, ...) fprintf(stderr, "lfs debug: " fmt "\n", __VA_ARGS__)
 #else
 #define LFS_DEBUG(fmt, ...)
 #endif
 
 #ifndef LFS_NO_WARN
-#define LFS_WARN(fmt, ...) \
-    ESP_LOGW(LFS_TAG, "%d: " fmt, __LINE__, __VA_ARGS__)
+#define LFS_WARN(fmt, ...)  fprintf(stderr, "lfs warn: " fmt "\n", __VA_ARGS__)
 #else
 #define LFS_WARN(fmt, ...)
 #endif
 
 #ifndef LFS_NO_ERROR
-#define LFS_ERROR(fmt, ...) \
-    ESP_LOGE(LFS_TAG, "%d: " fmt, __LINE__, __VA_ARGS__)
+#define LFS_ERROR(fmt, ...) fprintf(stderr, "lfs error: " fmt "\n", __VA_ARGS__)
 #else
 #define LFS_ERROR(fmt, ...)
 #endif

@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2013-2017 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -168,6 +169,9 @@ MATH_FUN_1(erfc, erfc)
 MATH_FUN_1(gamma, tgamma)
 // lgamma(x): return the natural logarithm of the gamma function of x
 MATH_FUN_1(lgamma, lgamma)
+// hypot(x, y): return sqrt(x*x + y*y)
+MATH_FUN_2(hypot, hypot)
+// isfinite(x)
 #endif
 //TODO: factorial, fsum
 
@@ -279,6 +283,7 @@ STATIC const mp_rom_map_elem_t mp_module_math_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_erfc), MP_ROM_PTR(&mp_math_erfc_obj) },
     { MP_ROM_QSTR(MP_QSTR_gamma), MP_ROM_PTR(&mp_math_gamma_obj) },
     { MP_ROM_QSTR(MP_QSTR_lgamma), MP_ROM_PTR(&mp_math_lgamma_obj) },
+    { MP_ROM_QSTR(MP_QSTR_hypot), MP_ROM_PTR(&mp_math_hypot_obj) },
     #endif
 };
 

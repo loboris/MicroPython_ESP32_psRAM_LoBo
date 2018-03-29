@@ -1,0 +1,11 @@
+*.o
+*.d
+mklfs
+mklfs.exe
+out.*
+*.tar.gz
+
+# eclipse wokspace files and dirs
+.project
+.cproject
+.settings

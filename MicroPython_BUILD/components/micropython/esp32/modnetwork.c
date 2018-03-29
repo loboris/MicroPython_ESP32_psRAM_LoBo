@@ -357,15 +357,15 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 		ESP_LOGI("wifi", "STA_DISCONNECTED, reason:%d", disconn->reason);
 		switch (disconn->reason) {
 			case WIFI_REASON_BEACON_TIMEOUT:
-				mp_printf(MP_PYTHON_PRINTER, "beacon timeout\n");
+				ESP_LOGD("wifi", "beacon timeout");
 				// AP has dropped out; try to reconnect.
 				break;
 			case WIFI_REASON_NO_AP_FOUND:
-				mp_printf(MP_PYTHON_PRINTER, "no AP found\n");
+				ESP_LOGD("wifi", "no AP found");
 				// AP may not exist, or it may have momentarily dropped out; try to reconnect.
 				break;
 			case WIFI_REASON_AUTH_FAIL:
-				mp_printf(MP_PYTHON_PRINTER, "authentication failed\n");
+				ESP_LOGD("wifi", "authentication failed");
 				wifi_sta_connected = false;
 				break;
 			default:
@@ -379,7 +379,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 					// STA is active so attempt to reconnect.
 					esp_err_t e = esp_wifi_connect();
 					if (e != ESP_OK) {
-						mp_printf(MP_PYTHON_PRINTER, "error attempting to reconnect: 0x%04x", e);
+						ESP_LOGD("wifi", "error attempting to reconnect: 0x%04x", e);
 					}
 				}
 			}
@@ -387,7 +387,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 		break;
 	}
 	default:
-		ESP_LOGI("network", "event %d", event->event_id);
+		ESP_LOGD("network", "event %d", event->event_id);
 		break;
 	}
 

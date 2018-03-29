@@ -412,6 +412,16 @@ menu "MicroPython"
 			        bool "LittleFS"
 			endchoice
 
+        config LITTLEFLASH_USE_WEAR_LEVELING
+            bool "Use LittleFS on top of ESP32 wear leveling"
+			depends on MICROPY_FILESYSTEM_TYPE = 2
+            default y
+            help
+            LittleFS will be used on top of wear leveling system.
+            This options distributes wearing of the Flash sectors evenly over the whole file system partition.
+            Note: LittleFS block size will be the one selected for wear leveling
+                  → Component config → Wear Levelling → Wear Levelling library sector size
+
         config MICROPY_FATFS_MAX_OPEN_FILES
             int "Maximum number of opened files"
             range 4 24

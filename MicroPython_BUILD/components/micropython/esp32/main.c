@@ -264,17 +264,19 @@ soft_reset:
 
 //============================
 void micropython_entry(void) {
-    nvs_flash_init();
+    ESP_LOGI("MicroPython", "[=== Started ===]");
 
 	// === Set esp32 log levels while running MicroPython ===
 	esp_log_level_set("*", CONFIG_MICRO_PY_LOG_LEVEL);
-	esp_log_level_set("wifi", 1);
-	esp_log_level_set("rmt", 1);
+	esp_log_level_set("wifi", ESP_LOG_ERROR);
+	esp_log_level_set("rmt", ESP_LOG_ERROR);
 	#ifdef CONFIG_MICROPY_USE_OTA
-	esp_log_level_set("OTA_UPDATE", 4);
+	esp_log_level_set("OTA_UPDATE", ESP_LOG_DEBUG);
 	#endif
 
-	#ifdef CONFIG_MICROPY_USE_MQTT
+    nvs_flash_init();
+
+    #ifdef CONFIG_MICROPY_USE_MQTT
 	esp_log_level_set(MQTT_TAG, CONFIG_MQTT_LOG_LEVEL);
 	#endif
 	#ifdef CONFIG_MICROPY_USE_FTPSERVER

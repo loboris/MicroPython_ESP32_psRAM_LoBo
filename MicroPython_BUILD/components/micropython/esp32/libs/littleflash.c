@@ -36,11 +36,22 @@
 #include "esp_err.h"
 #include "esp_log.h"
 
+#include "mphalport.h"
 #include "libs/littleflash.h"
+
+#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+#include "wear_levelling.h"
+#include "lfs_util.h"
+
+static wl_handle_t lfs_wl_handle = WL_INVALID_HANDLE;
+#endif
+
 
 static const char *TAG = "littleflash";
 
 littleFlash_t littleFlash = {0};
+
+static uint8_t *block_buffer = NULL;
 
 // ============================================================================
 // LFS disk interface for internal flash
@@ -49,10 +60,14 @@ littleFlash_t littleFlash = {0};
 //-------------------------------------------------------------------------------------------------------------------
 static int internal_read(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size)
 {
-    ESP_LOGV(TAG, "%s - block=0x%08x off=0x%08x size=%d", __func__, block, off, size);
+    ESP_LOGV(TAG, "LFS_READ: block=%u off=%u size=%u", block, off, size);
 
     littleFlash_t *self = (littleFlash_t *) c->context;
+	#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+    esp_err_t err = wl_read(lfs_wl_handle, (block * self->sector_sz) + off, buffer, size);
+	#else
     esp_err_t err = esp_partition_read(self->part, (block * self->sector_sz) + off, buffer, size);
+	#endif
 
     return err == ESP_OK ? LFS_ERR_OK : LFS_ERR_IO;
 }
@@ -60,41 +75,57 @@ static int internal_read(const struct lfs_config *c, lfs_block_t block, lfs_off_
 //-------------------------------------------------------------------------------------------------------------------------
 static int internal_prog(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size)
 {
-    ESP_LOGV(TAG, "%s - block=0x%08x off=0x%08x size=%d", __func__, block, off, size);
+    ESP_LOGV(TAG, "LFS_PROG: block=%u off=%u size=%u",block, off, size);
 
     littleFlash_t *self = (littleFlash_t *) c->context;
+
+	#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+    esp_err_t err = wl_write(lfs_wl_handle, (block * self->sector_sz) + off, buffer, size);
+	#else
     esp_err_t err = esp_partition_write(self->part, (block * self->sector_sz) + off, buffer, size);
+	#endif
 
     return err == ESP_OK ? LFS_ERR_OK : LFS_ERR_IO;
+}
+
+//-----------------------------------------------------------------------
+static bool internal_check_erased(littleFlash_t *self, lfs_block_t block)
+{
+    // Check if the sector is already erased
+    bool f = true;
+	#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+    esp_err_t err = wl_read(lfs_wl_handle, (block * self->sector_sz), block_buffer, self->sector_sz);
+	#else
+    esp_err_t err = esp_partition_read(self->part, (block * self->sector_sz), block_buffer, self->sector_sz);
+	#endif
+	if (err == ESP_OK) {
+		for (int i=0; i<self->sector_sz; i++) {
+			if (block_buffer[i] != 0xFF) {
+				f = false;
+				break;
+			}
+		}
+	}
+	else f = false;
+	return f;
 }
 
 //----------------------------------------------------------------------
 static int internal_erase(const struct lfs_config *c, lfs_block_t block)
 {
-    ESP_LOGV(TAG, "%s - block=0x%08x", __func__, block);
-
     littleFlash_t *self = (littleFlash_t *) c->context;
 
-    // Check if the sector is already erased
-    uint8_t f = 1;
-    esp_err_t err = 0;
-    uint8_t *buff = heap_caps_malloc(self->sector_sz, MALLOC_CAP_DMA);
-    if (buff) {
-        err = esp_partition_read(self->part, (block * self->sector_sz), buff, self->sector_sz);
-        if (err == ESP_OK) {
-            f = 0;
-            for (int i=0; i<self->sector_sz; i++) {
-                if (buff[i] != 0xFF) {
-                    f = 1;
-                    break;
-                }
-            }
-        }
-        free(buff);
-        err = ESP_OK;
-    }
-	if (f) {
+    esp_err_t err = ESP_OK;
+	if (!internal_check_erased(self, block)) {
+	    ESP_LOGV(TAG, "LFS_ERASE: block=%u, sect_sz=%u", block, self->sector_sz);
+		#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+		err = wl_erase_range(lfs_wl_handle, block * self->sector_sz, self->sector_sz);
+		#else
 		err = esp_partition_erase_range(self->part, block * self->sector_sz, self->sector_sz);
+		#endif
+	}
+	else {
+	    ESP_LOGV(TAG, "LFS_ERASE: block %u already erased", block);
 	}
 
     return err == ESP_OK ? LFS_ERR_OK : LFS_ERR_IO;
@@ -732,10 +763,40 @@ static int fsync_p(void *ctx, int fd)
 // LittleFlash global functions
 // ============================================================================
 
+#include <sys/time.h>
+#include <time.h>
 //=============================================================
 esp_err_t littleFlash_init(const little_flash_config_t *config)
 {
     ESP_LOGV(TAG, "%s", __func__);
+
+    int err;
+	#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+    size_t sector_size = CONFIG_WL_SECTOR_SIZE;
+	#else
+    size_t sector_size = SPI_FLASH_SEC_SIZE;
+	#endif
+    size_t block_cnt = config->part->size / SPI_FLASH_SEC_SIZE;
+
+    if (block_buffer == NULL) {
+		block_buffer = heap_caps_malloc(sector_size, MALLOC_CAP_DMA);
+		if (block_buffer == NULL) {
+	        ESP_LOGE(TAG, "failed to allocate read buffer");
+			return ESP_ERR_NO_MEM;
+		}
+    }
+
+    #ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+    ESP_LOGD(TAG, "LittleFS on top of ESP32 wear leveling");
+
+    err = wl_mount(config->part, &lfs_wl_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "failed to mount wear leveling layer. result = %i", err);
+        return ESP_FAIL;
+    }
+    block_cnt = wl_size(lfs_wl_handle) / sector_size;
+    ESP_LOGD(TAG, "Original_partition_size=%uKB, WL_size=%uKB", config->part->size/1024, wl_size(lfs_wl_handle)/1024);
+	#endif
 
     _lock_init(&littleFlash.lock);
 
@@ -743,8 +804,8 @@ esp_err_t littleFlash_init(const little_flash_config_t *config)
     littleFlash.part = config->part;
 
     memset(&littleFlash.lfs, 0, sizeof(lfs_t));
-    littleFlash.sector_sz = SPI_FLASH_SEC_SIZE;
-    littleFlash.block_cnt = littleFlash.part->size / littleFlash.sector_sz;
+    littleFlash.sector_sz = sector_size;
+    littleFlash.block_cnt = block_cnt;
 
     littleFlash.lfs_cfg.read  = &internal_read;
     littleFlash.lfs_cfg.prog  = &internal_prog;
@@ -758,24 +819,32 @@ esp_err_t littleFlash_init(const little_flash_config_t *config)
     littleFlash.lfs_cfg.lookahead   = config->lookahead;
     littleFlash.lfs_cfg.context = (void *)&littleFlash;
 
-    int err = lfs_mount(&littleFlash.lfs, &littleFlash.lfs_cfg);
+    err = lfs_mount(&littleFlash.lfs, &littleFlash.lfs_cfg);
     if (err < 0)
     {
         lfs_unmount(&littleFlash.lfs);
-        if (!config->auto_format)
-        {
-            ESP_LOGE(TAG, "Error mounting, auto format not requested");
-            return ESP_FAIL;
+        if (!config->auto_format) {
+            ESP_LOGE(TAG, "Error mounting (%d), auto format not requested", err);
+            goto fail;
         }
 
         memset(&littleFlash.lfs, 0, sizeof(lfs_t));
-        ESP_LOGW(TAG, "Error mounting, auto format requested");
+        ESP_LOGW(TAG, "Error mounting (%d), auto format requested", err);
+        // Erase first 4 blocks
+        for (int i=0; i<4; i++) {
+        	err = internal_erase(&littleFlash.lfs_cfg, i);
+        	if (err != LFS_ERR_OK) {
+                ESP_LOGE(TAG, "Error erasing flash - %d", err);
+                goto fail;
+        	}
+        }
+        // format
         err = lfs_format(&littleFlash.lfs, &littleFlash.lfs_cfg);
         if (err < 0)
         {
             lfs_unmount(&littleFlash.lfs);
             ESP_LOGE(TAG, "Error formating - %d", err);
-            return ESP_FAIL;
+            goto fail;
         }
 
         memset(&littleFlash.lfs, 0, sizeof(lfs_t));
@@ -784,7 +853,7 @@ esp_err_t littleFlash_init(const little_flash_config_t *config)
         {
             lfs_unmount(&littleFlash.lfs);
             ESP_LOGE(TAG, "Error mounting after format");
-            return ESP_FAIL;
+            goto fail;
         }
         ESP_LOGW(TAG, "Formated and mounted");
     }
@@ -793,7 +862,8 @@ esp_err_t littleFlash_init(const little_flash_config_t *config)
     littleFlash.fds = malloc(sizeof(vfs_fd_t) * littleFlash.open_files);
     if (littleFlash.fds == NULL)
     {
-        return ESP_ERR_NO_MEM;
+        ESP_LOGE(TAG, "Error allocating fds structure");
+        goto fail;
     }
 
     for (int i = 0; i < littleFlash.open_files; i++)
@@ -827,12 +897,24 @@ esp_err_t littleFlash_init(const little_flash_config_t *config)
     esp_err_t esperr = esp_vfs_register(config->base_path, &vfs, &littleFlash);
     if (esperr != ESP_OK)
     {
-        return err;
+        lfs_unmount(&littleFlash.lfs);
+        littleFlash.mounted = false;
+        ESP_LOGE(TAG, "Error registering littleflash to VFS");
+        goto fail;
     }
 
     littleFlash.registered = true;
 
     return ESP_OK;
+
+fail:
+    free(block_buffer);
+    block_buffer = NULL;
+	#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+	wl_unmount(lfs_wl_handle);
+	lfs_wl_handle = WL_INVALID_HANDLE;
+	#endif
+    return ESP_FAIL;
 }
 
 //================================================
@@ -867,6 +949,12 @@ void littleFlash_term(const char* partition_label)
         littleFlash.mounted = false;
     }
 
+    if (block_buffer) free(block_buffer);
+
+	#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+    wl_unmount(lfs_wl_handle);
+    lfs_wl_handle = WL_INVALID_HANDLE;
+	#endif
     _lock_close(&littleFlash.lock);
 }
 
@@ -880,7 +968,9 @@ static int lfs_count(void *p, lfs_block_t b) {
 uint32_t littleFlash_getUsedBlocks()
 {
 	lfs_size_t in_use = 0;
+    _lock_acquire(&littleFlash.lock);
 	lfs_traverse(&littleFlash.lfs, lfs_count, &in_use);
+    _lock_release(&littleFlash.lock);
 	return in_use;
 }
 

@@ -35,6 +35,7 @@
 
 #include "lfs.h"
 
+
 typedef struct
 {
 	esp_partition_t *part;	// partition to be used

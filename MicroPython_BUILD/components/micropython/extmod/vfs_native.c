@@ -889,6 +889,9 @@ STATIC mp_obj_t native_vfs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t m
 			}
 		#elif CONFIG_MICROPY_FILESYSTEM_TYPE == 2
 			printf("(LittleFS ver %d.%d): ", LFS_VERSION_MAJOR, LFS_VERSION_MINOR);
+			#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+			printf("[on top of ESP32 wear leveling]");
+			#endif
 			uint32_t used = littleFlash_getUsedBlocks();
 			f_bsize = littleFlash.lfs_cfg.block_size;
 			f_blocks = littleFlash.lfs_cfg.block_count;
@@ -907,7 +910,7 @@ STATIC mp_obj_t native_vfs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t m
 				ret = ESP_OK;
 			}
 		#endif
-		printf("Mounted on partition '%s' [size: %d; Flash address: 0x%6X]\n", fs_partition->label, fs_partition->size, fs_partition->address);
+		printf("\nMounted on partition '%s' [size: %d; Flash address: 0x%6X]\n", fs_partition->label, fs_partition->size, fs_partition->address);
 		if (ret == ESP_OK) {
 			printf("----------------\n");
 			printf("Filesystem size: %d B\n", f_blocks * f_bsize);

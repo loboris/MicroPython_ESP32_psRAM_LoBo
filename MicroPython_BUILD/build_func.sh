@@ -1,6 +1,7 @@
 
 fs_type_fat="no"
 fs_fat_sect=4096
+fs_use_wl=""
 linplatform=""
 linprocessor=""
 linmachine=""
@@ -74,14 +75,33 @@ get_bin_size() {
 
 #----------------------
 get_config_flash_sz() {
-    local cfg_fsfat=$(grep -e CONFIG_MICROPY_FILESYSTEM_TYPE=0 sdkconfig)
-    if [ "${cfg_fsfat}" == "" ]; then
+    local cfg_fsfat=$(grep -e CONFIG_LITTLEFLASH_USE_WEAR_LEVELING=y sdkconfig)
+    if [ "${cfg_fsfat}" != "" ]; then
+        fs_use_wl="-w"
+    fi
+
+    cfg_fsfat=$(grep -e CONFIG_MICROPY_FILESYSTEM_TYPE=1 sdkconfig)
+    if [ "${cfg_fsfat}" == "CONFIG_MICROPY_FILESYSTEM_TYPE=1" ]; then
+        # FatFS
         fs_type_fat="yes"
         cfg_fsfat=$(grep -e CONFIG_WL_SECTOR_SIZE_512=y sdkconfig)
         if [ "${cfg_fsfat}" == "CONFIG_WL_SECTOR_SIZE_512=y" ]; then
             fs_fat_sect=512
         fi
+    else
+        cfg_fsfat=$(grep -e CONFIG_MICROPY_FILESYSTEM_TYPE=2 sdkconfig)
+        if [ "${cfg_fsfat}" == "CONFIG_MICROPY_FILESYSTEM_TYPE=2" ]; then
+            # LittleFS
+            fs_type_fat="yes"
+            cfg_fsfat=$(grep -e CONFIG_WL_SECTOR_SIZE_512=y sdkconfig)
+            if [ "${cfg_fsfat}" == "CONFIG_WL_SECTOR_SIZE_512=y" ]; then
+                if [ "${fs_use_wl}" == "-w" ]; then
+                    fs_fat_sect=512
+                fi
+            fi
+        fi
     fi
+
     if [ ${FLASH_SIZE} -eq 4 ]; then
         # Flash size was not set by options, check config file
         local cfg_flashsz=$(grep -e CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y sdkconfig)
@@ -209,8 +229,13 @@ set_partitions() {
         echo "internalfs,     data, ${PART_SUB_TYPE}  ,        ${fs_size}K," >> partitions_mpy.csv
     fi
     fs_start_hex=$(printf "%x\n" $fs_start)
+    local fs_sector_count=$(( ($fs_size * 1024) / $fs_fat_sect ))
+
     export CONFIG_MICROPY_INTERNALFS_START="0x${fs_start_hex}"
     export CONFIG_MICROPY_INTERNALFS_SIZE=${fs_size}
+    export CONFIG_MICROPY_BLOCK_SIZE=${fs_fat_sect}
+    export CONFIG_MICROPY_BLOCK_COUNT=${fs_sector_count}
+    export CONFIG_MICROPY_USE_WL=${fs_use_wl}
     return 0
 }
 
@@ -259,6 +284,7 @@ check_OS() {
         fi
         MK_SPIFFS_BIN="mkspiffs.exe"
         MK_FATFS_BIN="mkfatfs.exe"
+        MK_LITTLEFS_BIN="mklfs.exe"
     else
 	    if [ "${machine}" == "Linux" ]; then
 		    linplatform="$(uname -i)"
@@ -267,6 +293,7 @@ check_OS() {
 		fi
         MK_SPIFFS_BIN="mkspiffs"
         MK_FATFS_BIN="mkfatfs"
+        MK_LITTLEFS_BIN="mklfs"
     fi
     return 0
 }
@@ -339,6 +366,8 @@ check_Environment() {
         rm -f ${BUILD_BASE_DIR}/components/mkspiffs/src/mkspiffs.exe > /dev/null 2>&1
         rm -f ${BUILD_BASE_DIR}/components/mkfatfs/src/mkfatfs > /dev/null 2>&1
         rm -f ${BUILD_BASE_DIR}/components/mkfatfs/src/mkfatfs.exe > /dev/null 2>&1
+        rm -f ${BUILD_BASE_DIR}/components/mklittlefs/mklfs > /dev/null 2>&1
+        rm -f ${BUILD_BASE_DIR}/components/mklittlefs/mklfs.exe > /dev/null 2>&1
         # remove build directory and configs
         cp -f ${BUILD_BASE_DIR}/sdkconfig ${BUILD_BASE_DIR}/_sdkconfig.saved > /dev/null 2>&1
         rm -f ${BUILD_BASE_DIR}/sdkconfig > /dev/null 2>&1
@@ -477,6 +506,33 @@ build_MKFatFS() {
         else
             echo "FAILED"
             echo "================"
+            return 1
+        fi
+        export PATH=${xtensa_PATH}
+        export CROSS_COMPILE=xtensa-esp32-elf-
+    fi
+    return 0
+}
+
+# ===============================================================
+# Build mklfs program which creates LittleFS image from directory
+# ===============================================================
+#----------------
+build_MKlfsFS() {
+    if [ ! -f "components/mklittlefs/${MK_LITTLEFS_BIN}" ]; then
+        export CROSS_COMPILE=""
+        export PATH=${orig_PATH}
+
+        export BUILD_DIR_BASE=${BUILD_BASE_DIR}/build
+        echo "==============="
+        echo "Building mklfs"
+        make -C components/mklittlefs > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo "OK."
+            echo "==============="
+        else
+            echo "FAILED"
+            echo "==============="
             return 1
         fi
         export PATH=${xtensa_PATH}
@@ -647,6 +703,35 @@ executeCommand() {
         echo "Flashing default FatFS image to ESP32..."
         echo "========================================"
         make copyfatfs
+
+    # ------------------------------------
+    elif [ "${arg}" == "makelfsfs" ]; then
+        build_MKlfsFS
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
+        echo "=========================="
+        echo "Creating LittleFS image..."
+        echo "=========================="
+        make makelfsfs
+
+    # -------------------------------------
+    elif [ "${arg}" == "flashlfsfs" ]; then
+        build_MKlfsFS
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
+        echo "==================================="
+        echo "Flashing LittleFS image to ESP32..."
+        echo "==================================="
+        make flashlfsfs
+
+    # -------------------------------------
+    elif [ "${arg}" == "copylfsfs" ]; then
+        echo "==========================================="
+        echo "Flashing default LittleFS image to ESP32..."
+        echo "==========================================="
+        make copylfsfs
 
     # -------------------------------
     elif [ "${arg}" == "size" ]; then
