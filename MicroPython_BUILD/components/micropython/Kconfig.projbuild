@@ -419,8 +419,13 @@ menu "MicroPython"
             help
             LittleFS will be used on top of wear leveling system.
             This options distributes wearing of the Flash sectors evenly over the whole file system partition.
+            It is RECOMMENDED to use this option.
             Note: LittleFS block size will be the one selected for wear leveling
                   → Component config → Wear Levelling → Wear Levelling library sector size
+                  With block size of 4096 bytes the operations will be faster,
+                  but if lot of small files are used, more of the file system space will be wasted.
+                  Block size of 512 bytes is more suited if small files are used,
+                  but the file system operations will be slower. 
 
         config MICROPY_FATFS_MAX_OPEN_FILES
             int "Maximum number of opened files"

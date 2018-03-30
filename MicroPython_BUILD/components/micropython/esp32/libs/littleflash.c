@@ -79,10 +79,33 @@ static int internal_prog(const struct lfs_config *c, lfs_block_t block, lfs_off_
 
     littleFlash_t *self = (littleFlash_t *) c->context;
 
-	#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
-    esp_err_t err = wl_write(lfs_wl_handle, (block * self->sector_sz) + off, buffer, size);
+    // --- Check if block needs to be erased ---
+    // Read the block
+    esp_err_t err;
+    err = internal_read(c, block, 0, block_buffer, self->sector_sz);
+    if (err != ESP_OK) return LFS_ERR_IO;
+
+    // Check if the block was changed in a way that it must be erased before programming
+    uint8_t *buff = (uint8_t *)buffer;
+    for (int i=0; i<size; i++) {
+    	if ( !((block_buffer[off+i] == 0xFF) || (block_buffer[off+i] == buff[i])) ) {
+    		if (~block_buffer[off+i] & buff[i]) {
+    		    ESP_LOGV(TAG, "LFS_ERASE: block=%u, sect_sz=%u", block, self->sector_sz);
+    			#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+    			err = wl_erase_range(lfs_wl_handle, block * self->sector_sz, self->sector_sz);
+    			#else
+    			err = esp_partition_erase_range(self->part, block * self->sector_sz, self->sector_sz);
+    			#endif
+    		    if (err != ESP_OK) return LFS_ERR_IO;
+				break;
+    		}
+    	}
+    }
+
+    #ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
+    err = wl_write(lfs_wl_handle, (block * self->sector_sz) + off, buffer, size);
 	#else
-    esp_err_t err = esp_partition_write(self->part, (block * self->sector_sz) + off, buffer, size);
+    err = esp_partition_write(self->part, (block * self->sector_sz) + off, buffer, size);
 	#endif
 
     return err == ESP_OK ? LFS_ERR_OK : LFS_ERR_IO;
@@ -126,9 +149,16 @@ static int internal_erase(const struct lfs_config *c, lfs_block_t block)
 	}
 	else {
 	    ESP_LOGV(TAG, "LFS_ERASE: block %u already erased", block);
+	    return 1;
 	}
 
     return err == ESP_OK ? LFS_ERR_OK : LFS_ERR_IO;
+}
+
+//----------------------------------------------------------------------------
+static int internal_dummy_erase(const struct lfs_config *c, lfs_block_t block)
+{
+    return LFS_ERR_OK;
 }
 
 //--------------------------------------------------
@@ -809,7 +839,7 @@ esp_err_t littleFlash_init(const little_flash_config_t *config)
 
     littleFlash.lfs_cfg.read  = &internal_read;
     littleFlash.lfs_cfg.prog  = &internal_prog;
-    littleFlash.lfs_cfg.erase = &internal_erase;
+    littleFlash.lfs_cfg.erase = &internal_dummy_erase;
     littleFlash.lfs_cfg.sync  = &internal_sync;
 
     littleFlash.lfs_cfg.read_size   = littleFlash.sector_sz;
@@ -833,7 +863,7 @@ esp_err_t littleFlash_init(const little_flash_config_t *config)
         // Erase first 4 blocks
         for (int i=0; i<4; i++) {
         	err = internal_erase(&littleFlash.lfs_cfg, i);
-        	if (err != LFS_ERR_OK) {
+        	if (err < LFS_ERR_OK) {
                 ESP_LOGE(TAG, "Error erasing flash - %d", err);
                 goto fail;
         	}
@@ -974,4 +1004,45 @@ uint32_t littleFlash_getUsedBlocks()
 	return in_use;
 }
 
+//====================================================
+uint32_t littleFlash_trim(int max_blocks, int noerase)
+{
+	lfs_block_t block;
+	uint32_t nfree = 0;
+	uint32_t nerased = 0;
+    uint32_t nblocks = max_blocks;
+    if (nblocks == 0) nblocks = littleFlash.block_cnt;
+    littleFlash.lfs.free.off = 0;
+
+	mp_hal_set_wdt_tmo();
+    lfs_setup_free(&littleFlash.lfs);
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    uint32_t tstart = tv.tv_sec * 1000 + (tv.tv_usec / 1000);
+
+    for (int i=0; i<nblocks; i++) {
+		int err = lfs_alloc(&littleFlash.lfs, &block);
+		if (err) break;
+    	if (noerase == 0) err = internal_erase(&littleFlash.lfs_cfg, block);
+		if (err < LFS_ERR_OK) {
+		    ESP_LOGE(TAG, "Erasing block %u", block);
+			break;
+		}
+		if ((noerase == 0) && (err == LFS_ERR_OK)) nerased++;
+		nfree++;
+		if ((nerased) && ((nerased % 100) == 0)) {
+		    ESP_LOGW(TAG, "Erased %u", nerased);
+		}
+		mp_hal_reset_wdt();
+    }
+	if (nerased > 0) {
+	    gettimeofday(&tv, NULL);
+	    uint32_t tend = tv.tv_sec * 1000 + (tv.tv_usec / 1000);
+	    ESP_LOGW(TAG, "Erased %u in %d ms, %d ms/block", nerased, tend-tstart, (tend-tstart)/ nerased);
+	}
+    lfs_setup_free(&littleFlash.lfs);
+
+    return nfree;
+}
 #endif

@@ -484,4 +484,8 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 // Returns a negative error code on failure.
 int lfs_deorphan(lfs_t *lfs);
 
+
+void lfs_setup_free(lfs_t *lfs);
+int lfs_alloc(lfs_t *lfs, lfs_block_t *block);
+
 #endif

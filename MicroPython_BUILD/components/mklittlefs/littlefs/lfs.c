@@ -287,7 +287,8 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     return 0;
 }
 
-static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
+//---------------------------------------------
+int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     while (true) {
         while (lfs->free.off != lfs->free.size) {
             lfs_block_t off = lfs->free.off;
@@ -1158,10 +1159,14 @@ static int lfs_ctz_find(lfs_t *lfs,
     return 0;
 }
 
+//-----------------------------------
 static int lfs_ctz_extend(lfs_t *lfs,
         lfs_cache_t *rcache, lfs_cache_t *pcache,
         lfs_block_t head, lfs_size_t size,
         lfs_block_t *block, lfs_off_t *off) {
+
+    memset(pcache->buffer, 0xFF, lfs->cfg->prog_size);
+
     while (true) {
         // go ahead and grab a block
         lfs_block_t nblock;
@@ -1341,9 +1346,11 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file, const char *path, int flags) {
         if (err) {
             return err;
         }
-    } else if (entry.d.type == LFS_TYPE_DIR) {
+    }
+    else if (entry.d.type == LFS_TYPE_DIR) {
         return LFS_ERR_ISDIR;
-    } else if (flags & LFS_O_EXCL) {
+    }
+    else if (flags & LFS_O_EXCL) {
         return LFS_ERR_EXIST;
     }
 
@@ -1368,12 +1375,14 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file, const char *path, int flags) {
     file->cache.block = 0xffffffff;
     if (lfs->cfg->file_buffer) {
         file->cache.buffer = lfs->cfg->file_buffer;
-    } else if ((file->flags & 3) == LFS_O_RDONLY) {
+    }
+    else if ((file->flags & 3) == LFS_O_RDONLY) {
         file->cache.buffer = lfs_malloc(lfs->cfg->read_size);
         if (!file->cache.buffer) {
             return LFS_ERR_NOMEM;
         }
-    } else {
+    }
+    else {
         file->cache.buffer = lfs_malloc(lfs->cfg->prog_size);
         if (!file->cache.buffer) {
             return LFS_ERR_NOMEM;
@@ -2198,6 +2207,17 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     return lfs_deinit(lfs);
 }
 
+//-----------------------------
+void lfs_setup_free(lfs_t *lfs)
+{
+    // setup free lookahead
+    memset(lfs->free.buffer, 0, lfs->cfg->lookahead/8);
+    lfs->free.begin = 0;
+    lfs->free.size = 0;
+    lfs->free.off = 0;
+    lfs_alloc_ack(lfs);
+}
+
 //-------------------------------------------------------
 int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     int err = lfs_init(lfs, cfg);
@@ -2205,11 +2225,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
-    // setup free lookahead
-    lfs->free.begin = 0;
-    lfs->free.size = 0;
-    lfs->free.off = 0;
-    lfs_alloc_ack(lfs);
+    lfs_setup_free(lfs);
 
     // load superblock
     lfs_dir_t dir;

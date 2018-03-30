@@ -28,6 +28,8 @@
  * THE SOFTWARE.
  */
 
+#include "sdkconfig.h"
+
 #include <string.h>
 
 #include "esp_system.h"
@@ -42,6 +44,9 @@
 #include "mpversion.h"
 #include "extmod/vfs_native.h"
 #include "machine_pin.h"
+#if CONFIG_MICROPY_FILESYSTEM_TYPE == 2
+#include "libs/littleflash.h"
+#endif
 
 //extern const mp_obj_type_t mp_fat_vfs_type;
 
@@ -173,6 +178,26 @@ STATIC mp_obj_t os_sdcard_config(size_t n_args, const mp_obj_t *pos_args, mp_map
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(os_sdcard_config_obj, 0, os_sdcard_config);
 
 
+#if CONFIG_MICROPY_FILESYSTEM_TYPE == 2
+//----------------------------------------------------------
+STATIC mp_obj_t os_trim(size_t n_args, const mp_obj_t *args)
+{
+	uint32_t nblocks = 0;
+	int noerase = 0;
+	if (n_args > 0) {
+		nblocks = mp_obj_get_int(args[0]);
+	}
+	if (n_args > 1) {
+		noerase = mp_obj_get_int(args[1]);
+	}
+	uint32_t nerased = littleFlash_trim(nblocks, noerase);
+
+	return mp_obj_new_int(nerased);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(os_trim_obj, 0, 2, os_trim);
+
+#endif
+
 //==========================================================
 STATIC const mp_rom_map_elem_t os_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),		MP_ROM_QSTR(MP_QSTR_uos) },
@@ -199,6 +224,9 @@ STATIC const mp_rom_map_elem_t os_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_mountsd),			MP_ROM_PTR(&os_mount_sdcard_obj) },
     { MP_ROM_QSTR(MP_QSTR_umountsd),		MP_ROM_PTR(&os_umount_sdcard_obj) },
 	{ MP_ROM_QSTR(MP_QSTR_sdconfig),		MP_ROM_PTR(&os_sdcard_config_obj) },
+	#if CONFIG_MICROPY_FILESYSTEM_TYPE == 2
+	{ MP_ROM_QSTR(MP_QSTR_trim),			MP_ROM_PTR(&os_trim_obj) },
+	#endif
 	// Constants
 	{ MP_ROM_QSTR(MP_QSTR_SDMODE_SPI),		MP_ROM_INT(1) },
 	{ MP_ROM_QSTR(MP_QSTR_SDMODE_1LINE),	MP_ROM_INT(2) },

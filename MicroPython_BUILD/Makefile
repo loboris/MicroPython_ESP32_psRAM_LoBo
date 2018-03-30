@@ -50,7 +50,7 @@ copyfs:
 	@echo "-----------------------------"
 	@echo "$(INTERNALFS_IMAGE_COMPONENT_PATH)/spiffs_image.img"
 	@echo "-----------------------------"
-	$(ESPTOOLPY_WRITE_FLASH) $(CONFIG_MICROPY_INTERNALFS_START) $(INTERNALFS_IMAGE_COMPONENT_PATH)/spiffs_image.img
+	$(ESPTOOLPY_WRITE_FLASH) $(CONFIG_MICROPY_INTERNALFS_START) $(INTERNALFS_IMAGE_COMPONENT_PATH)/internalfs_image.img
 
 makelfsfs:
 	@echo "Making LittleFS image; Flash address: $(CONFIG_MICROPY_INTERNALFS_START), Size: $(CONFIG_MICROPY_INTERNALFS_SIZE) KB ..."
@@ -78,7 +78,7 @@ copylfsfs:
 	@echo "-----------------------------------"
 	@echo "$(INTERNALFS_IMAGE_COMPONENT_PATH)/lfs_image.img"
 	@echo "-----------------------------"
-	$(ESPTOOLPY_WRITE_FLASH) $(CONFIG_MICROPY_INTERNALFS_START) $(INTERNALFS_IMAGE_COMPONENT_PATH)/spiffs_image.img
+	$(ESPTOOLPY_WRITE_FLASH) $(CONFIG_MICROPY_INTERNALFS_START) $(INTERNALFS_IMAGE_COMPONENT_PATH)/internalfs_image.img
 
 makefatfs:
 	@echo "Making fatfs image; Flash address: $(CONFIG_MICROPY_INTERNALFS_START), Size: $(CONFIG_MICROPY_INTERNALFS_SIZE) KB ..."
@@ -108,6 +108,6 @@ copyfatfs:
 	@echo "----------------------------"
 	@echo "$(INTERNALFS_IMAGE_COMPONENT_PATH)/fatfs_image.img"
 	@echo "-----------------------------"
-	$(ESPTOOLPY_WRITE_FLASH) $(CONFIG_MICROPY_INTERNALFS_START) $(INTERNALFS_IMAGE_COMPONENT_PATH)/fatfs_image.img
+	$(ESPTOOLPY_WRITE_FLASH) $(CONFIG_MICROPY_INTERNALFS_START) $(INTERNALFS_IMAGE_COMPONENT_PATH)/internalfs_image.img
 
 include $(IDF_PATH)/make/project.mk

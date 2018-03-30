@@ -67,8 +67,12 @@ typedef struct {
 extern littleFlash_t littleFlash;
 
 esp_err_t littleFlash_init(const little_flash_config_t *config);
+
 void littleFlash_term();
+
 uint32_t littleFlash_getUsedBlocks();
+
+uint32_t littleFlash_trim(int max_blocks, int noerase);
 
 #endif
 
