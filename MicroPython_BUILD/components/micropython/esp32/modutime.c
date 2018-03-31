@@ -171,7 +171,7 @@ STATIC mp_obj_t time_mktime(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t
 
     time_t seconds = mktime(&tm_inf);
 
-    return mp_obj_new_float((float)seconds);
+    return mp_obj_new_float((double)seconds);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(time_mktime_obj, 1, time_mktime);
 
