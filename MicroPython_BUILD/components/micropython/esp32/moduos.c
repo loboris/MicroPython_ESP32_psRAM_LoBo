@@ -110,14 +110,13 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(os_dupterm_notify_obj, os_dupterm_notify);
 //------------------------------------------------------------------
 STATIC mp_obj_t os_mount_sdcard(size_t n_args, const mp_obj_t *args)
 {
-	int res = -1;
 	if (n_args > 0) {
 		int chd = mp_obj_get_int(args[0]);
 		if (chd) {
-		    int res = mount_vfs(VFS_NATIVE_TYPE_SDCARD, VFS_NATIVE_EXTERNAL_MP);
+		    mount_vfs(VFS_NATIVE_TYPE_SDCARD, VFS_NATIVE_EXTERNAL_MP);
 		}
 	}
-	else res = mount_vfs(VFS_NATIVE_TYPE_SDCARD, NULL);
+	else mount_vfs(VFS_NATIVE_TYPE_SDCARD, NULL);
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(os_mount_sdcard_obj, 0, 1, os_mount_sdcard);
@@ -126,11 +125,11 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(os_mount_sdcard_obj, 0, 1, os_mount_s
 STATIC mp_obj_t os_umount_sdcard(void)
 {
     // umount external (sdcard) file system
-	mp_obj_t sddir = mp_obj_new_str(VFS_NATIVE_EXTERNAL_MP, strlen(VFS_NATIVE_EXTERNAL_MP), false);
+	mp_obj_t sddir = mp_obj_new_str(VFS_NATIVE_EXTERNAL_MP, strlen(VFS_NATIVE_EXTERNAL_MP));
 	mp_call_function_1(MP_OBJ_FROM_PTR(&mp_vfs_umount_obj), sddir);
 
 	// Change directory to /flash
-	sddir = mp_obj_new_str(VFS_NATIVE_INTERNAL_MP, strlen(VFS_NATIVE_INTERNAL_MP), false);
+	sddir = mp_obj_new_str(VFS_NATIVE_INTERNAL_MP, strlen(VFS_NATIVE_INTERNAL_MP));
 	mp_call_function_1(MP_OBJ_FROM_PTR(&mp_vfs_chdir_obj), sddir);
 
 	return mp_const_none;

@@ -96,7 +96,6 @@ static int32_t receive_Bytes (unsigned char *buf, int size, uint32_t timeout)
 //--------------------------------------------------------------
 static int32_t Receive_Byte (unsigned char *c, uint32_t timeout)
 {
-	unsigned char ch;
 	int cb = mp_hal_stdin_rx_chr(timeout);
 
 	if (cb < 0) return -1;
@@ -508,7 +507,7 @@ int Ymodem_Transmit (char* sendFileName, unsigned int sizeFile, FILE *ffd, char 
   uint8_t packet_data[PACKET_1K_SIZE + PACKET_OVERHEAD];
   uint16_t blkNumber;
   unsigned char receivedC;
-  int i, err;
+  int err;
   uint32_t size = 0;
 
   // Wait for response from receiver
@@ -720,11 +719,8 @@ STATIC mp_obj_t ymodem_send(mp_obj_t fname_in)
 #if CONFIG_MICROPY_RX_BUFFER_SIZE > 1079
     const char *fname = mp_obj_str_get_str(fname_in);
     int fsize = 0, err = 0;
-    char fullname[128] = {'\0'};;
+    char fullname[128] = {'\0'};
     char err_msg[128] = {'\0'};
-    char cwd[128] = {'\0'};;
-    char orig_name[128] = {'\0'};
-    char *pcwd = NULL;
 
     if (physicalPath(fname, fullname) != 0) {
     	sprintf(err_msg, "File name cannot be resolved");
@@ -750,7 +746,7 @@ STATIC mp_obj_t ymodem_send(mp_obj_t fname_in)
 		uart0_raw_input = 1;
 		xSemaphoreGive(uart0_mutex);
 
-		int trans_res = Ymodem_Transmit(fname, fsize, ffd, err_msg);
+		int trans_res = Ymodem_Transmit((char *)fname, fsize, ffd, err_msg);
 
 		xSemaphoreTake(uart0_mutex, UART_SEMAPHORE_WAIT);
 	    uart0_raw_input = 0;

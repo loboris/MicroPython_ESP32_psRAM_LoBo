@@ -31,7 +31,7 @@
 
 #include "sdkconfig.h"
 
-#if CONFIG_MICROPY_USE_EVE
+#if CONFIG_MICROPY_USE_EVE_NOT_USE
 
 #include <string.h>
 

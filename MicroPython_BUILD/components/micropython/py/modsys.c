@@ -26,6 +26,7 @@
  * THE SOFTWARE.
  */
 
+#include <string.h>
 #include "py/builtin.h"
 #include "py/objlist.h"
 #include "py/objtuple.h"
@@ -146,6 +147,16 @@ STATIC mp_obj_t mp_sys_getsizeof(mp_obj_t obj) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(mp_sys_getsizeof_obj, mp_sys_getsizeof);
 
+STATIC mp_obj_t mp_sys_mpycore() {
+	mp_obj_t tuple[2];
+	tuple[0] = mp_obj_new_str(MICROPY_CORE_VERSION, strlen(MICROPY_CORE_VERSION));
+	tuple[1] = mp_obj_new_str(MICROPY_CORE_DATE, strlen(MICROPY_CORE_DATE));
+
+	return mp_obj_new_tuple(2, tuple);
+}
+MP_DEFINE_CONST_FUN_OBJ_0(mp_sys_mpycore_obj, mp_sys_mpycore);
+
+//==============================================================
 STATIC const mp_rom_map_elem_t mp_module_sys_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_sys) },
 
@@ -154,6 +165,7 @@ STATIC const mp_rom_map_elem_t mp_module_sys_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_version), MP_ROM_PTR(&version_obj) },
     { MP_ROM_QSTR(MP_QSTR_version_info), MP_ROM_PTR(&mp_sys_version_info_obj) },
     { MP_ROM_QSTR(MP_QSTR_implementation), MP_ROM_PTR(&mp_sys_implementation_obj) },
+    { MP_ROM_QSTR(MP_QSTR_mpycore), MP_ROM_PTR(&mp_sys_mpycore_obj) },
     #ifdef MICROPY_PY_SYS_PLATFORM
     { MP_ROM_QSTR(MP_QSTR_platform), MP_ROM_PTR(&platform_obj) },
     #endif

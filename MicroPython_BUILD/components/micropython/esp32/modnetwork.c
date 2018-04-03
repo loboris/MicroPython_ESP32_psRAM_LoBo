@@ -45,7 +45,7 @@
 #include "py/runtime.h"
 #include "py/mphal.h"
 #include "py/mperrno.h"
-#include "py/obj.h"
+//#include "py/obj.h"
 #include "netutils.h"
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
@@ -76,7 +76,7 @@ NORETURN void _esp_exceptions(esp_err_t e) {
       case ESP_ERR_WIFI_SSID:
         mp_raise_msg(&mp_type_OSError, "Wifi SSID Invalid");
         break;
-      case ESP_ERR_WIFI_FAIL:
+      case ESP_FAIL:
         mp_raise_msg(&mp_type_OSError, "Wifi Internal Failure");
         break;
       case ESP_ERR_WIFI_IF:
@@ -85,7 +85,7 @@ NORETURN void _esp_exceptions(esp_err_t e) {
       case ESP_ERR_WIFI_MAC:
         mp_raise_msg(&mp_type_OSError, "Wifi Invalid MAC Address");
         break;
-      case ESP_ERR_WIFI_ARG:
+      case ESP_ERR_INVALID_ARG:
         mp_raise_msg(&mp_type_OSError, "Wifi Invalid Argument");
         break;
       case ESP_ERR_WIFI_MODE:
@@ -110,7 +110,7 @@ NORETURN void _esp_exceptions(esp_err_t e) {
         mp_raise_OSError(MP_ETIMEDOUT);
         break;
       case ESP_ERR_TCPIP_ADAPTER_NO_MEM:
-      case ESP_ERR_WIFI_NO_MEM:
+      case ESP_ERR_NO_MEM:
         mp_raise_OSError(MP_ENOMEM); 
         break;
       default:
@@ -297,6 +297,7 @@ static void processEvent_callback(system_event_t *event)
 		case SYSTEM_EVENT_STA_LOST_IP: {
 				system_event_sta_got_ip_t *info = (system_event_sta_got_ip_t *)&event->event_info;
 				wifi_sta_has_ipaddress = false;
+				wifi_sta_changed_ipaddress = info->ip_changed;
 				wifi_sta_changed_ipaddress = true;
 				break;
 			}
@@ -525,11 +526,37 @@ STATIC mp_obj_t esp_disconnect(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_disconnect_obj, esp_disconnect);
 
-//--------------------------------------------
-STATIC mp_obj_t esp_status(mp_obj_t self_in) {
+//---------------------------------------------------------------
+STATIC mp_obj_t esp_status(size_t n_args, const mp_obj_t *args) {
+    if (n_args == 1) {
+        // no arguments: return None until link status is implemented
+        return mp_const_none;
+    }
+
+    // one argument: return status based on query parameter
+    switch ((uintptr_t)args[1]) {
+        case (uintptr_t)MP_OBJ_NEW_QSTR(MP_QSTR_stations): {
+            // return list of connected stations, only if in soft-AP mode
+            require_if(args[0], WIFI_IF_AP);
+            wifi_sta_list_t station_list;
+            ESP_EXCEPTIONS(esp_wifi_ap_get_sta_list(&station_list));
+            wifi_sta_info_t *stations = (wifi_sta_info_t*)station_list.sta;
+            mp_obj_t list = mp_obj_new_list(0, NULL);
+            for (int i = 0; i < station_list.num; ++i) {
+                mp_obj_tuple_t *t = mp_obj_new_tuple(1, NULL);
+                t->items[0] = mp_obj_new_bytes(stations[i].mac, sizeof(stations[i].mac));
+                mp_obj_list_append(list, t);
+            }
+            return list;
+        }
+
+        default:
+            mp_raise_ValueError("unknown status param");
+    }
+
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_status_obj, esp_status);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_status_obj, 1, 2, esp_status);
 
 //------------------------------------------
 STATIC mp_obj_t esp_scan(mp_obj_t self_in) {
@@ -700,6 +727,11 @@ STATIC mp_obj_t esp_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs
                         cfg.ap.channel = mp_obj_get_int(kwargs->table[i].value);
                         break;
                     }
+                    case QS(MP_QSTR_dhcp_hostname): {
+                        const char *s = mp_obj_str_get_str(kwargs->table[i].value);
+                        ESP_EXCEPTIONS(tcpip_adapter_set_hostname(self->if_id, s));
+                        break;
+                    }
                     default:
                         goto unknown;
                 }
@@ -734,7 +766,7 @@ STATIC mp_obj_t esp_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs
         }
         case QS(MP_QSTR_essid):
             req_if = WIFI_IF_AP;
-            val = mp_obj_new_str((char*)cfg.ap.ssid, cfg.ap.ssid_len, false);
+            val = mp_obj_new_str((char*)cfg.ap.ssid, cfg.ap.ssid_len);
             break;
         case QS(MP_QSTR_hidden):
             req_if = WIFI_IF_AP;
@@ -748,6 +780,12 @@ STATIC mp_obj_t esp_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs
             req_if = WIFI_IF_AP;
             val = MP_OBJ_NEW_SMALL_INT(cfg.ap.channel);
             break;
+        case QS(MP_QSTR_dhcp_hostname): {
+            const char *s;
+            ESP_EXCEPTIONS(tcpip_adapter_get_hostname(self->if_id, &s));
+            val = mp_obj_new_str(s, strlen(s));
+            break;
+        }
         default:
             goto unknown;
     }
@@ -927,7 +965,7 @@ STATIC mp_obj_t mod_network_stateTelnet()
 	else sprintf(state, "Unknown");
 
 	tuple[0] = mp_obj_new_int(telnet_state);
-	tuple[1] = mp_obj_new_str(state, strlen(state), false);
+	tuple[1] = mp_obj_new_str(state, strlen(state));
 
 	return mp_obj_new_tuple(2, tuple);
 }
@@ -935,12 +973,12 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_network_stateTelnet_obj, mod_network_stateT
 
 //===============================================================
 STATIC const mp_map_elem_t network_telnet_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR_start),  MP_ROM_PTR(&mod_network_startTelnet_obj) },
-    { MP_ROM_QSTR(MP_QSTR_pause),  MP_ROM_PTR(&mod_network_pauseTelnet_obj) },
-    { MP_ROM_QSTR(MP_QSTR_resume), MP_ROM_PTR(&mod_network_resumeTelnet_obj) },
-    { MP_ROM_QSTR(MP_QSTR_stop), MP_ROM_PTR(&mod_network_stopTelnet_obj) },
-    { MP_ROM_QSTR(MP_QSTR_status), MP_ROM_PTR(&mod_network_stateTelnet_obj) },
-    { MP_ROM_QSTR(MP_QSTR_stack), MP_ROM_PTR(&mod_network_TelnetMaxStack_obj) }
+    { MP_ROM_QSTR(MP_QSTR_start),	(mp_obj_t)&mod_network_startTelnet_obj },
+    { MP_ROM_QSTR(MP_QSTR_pause),	(mp_obj_t)&mod_network_pauseTelnet_obj },
+    { MP_ROM_QSTR(MP_QSTR_resume),	(mp_obj_t)&mod_network_resumeTelnet_obj },
+    { MP_ROM_QSTR(MP_QSTR_stop),	(mp_obj_t)&mod_network_stopTelnet_obj },
+    { MP_ROM_QSTR(MP_QSTR_status),	(mp_obj_t)&mod_network_stateTelnet_obj },
+    { MP_ROM_QSTR(MP_QSTR_stack),	(mp_obj_t)&mod_network_TelnetMaxStack_obj }
 };
 STATIC MP_DEFINE_CONST_DICT(network_telnet_locals_dict, network_telnet_locals_dict_table);
 
@@ -1064,13 +1102,13 @@ STATIC mp_obj_t mod_network_stateFtp()
 	else if (ftp_state == -1) sprintf(state, "Not started");
 	else if (ftp_state == -2) sprintf(state, "Busy!");
 	else sprintf(state, "Unknown");
-	tuple[2] = mp_obj_new_str(state, strlen(state), false);
+	tuple[2] = mp_obj_new_str(state, strlen(state));
 
 	if (ftp_substate == E_FTP_STE_SUB_DISCONNECTED) sprintf(state, "Data: Disconnected");
 	else if (ftp_substate == E_FTP_STE_SUB_LISTEN_FOR_DATA) sprintf(state, "Data: Listen");
 	else if (ftp_substate == E_FTP_STE_SUB_DATA_CONNECTED) sprintf(state, "Data: Connected");
 	else sprintf(state, "Unknown");
-	tuple[3] = mp_obj_new_str(state, strlen(state), false);
+	tuple[3] = mp_obj_new_str(state, strlen(state));
 
 	return mp_obj_new_tuple(4, tuple);
 }
@@ -1078,12 +1116,12 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_network_stateFtp_obj, mod_network_stateFtp)
 
 //============================================================
 STATIC const mp_map_elem_t network_ftp_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR_start),  MP_ROM_PTR(&mod_network_startFtp_obj) },
-    { MP_ROM_QSTR(MP_QSTR_pause),  MP_ROM_PTR(&mod_network_pauseFtp_obj) },
-    { MP_ROM_QSTR(MP_QSTR_resume), MP_ROM_PTR(&mod_network_resumeFtp_obj) },
-    { MP_ROM_QSTR(MP_QSTR_stop),   MP_ROM_PTR(&mod_network_stopFtp_obj) },
-    { MP_ROM_QSTR(MP_QSTR_status), MP_ROM_PTR(&mod_network_stateFtp_obj) },
-    { MP_ROM_QSTR(MP_QSTR_stack), MP_ROM_PTR(&mod_network_FtpMaxStack_obj) }
+    { MP_ROM_QSTR(MP_QSTR_start),	(mp_obj_t)&mod_network_startFtp_obj },
+    { MP_ROM_QSTR(MP_QSTR_pause),	(mp_obj_t)&mod_network_pauseFtp_obj },
+    { MP_ROM_QSTR(MP_QSTR_resume),	(mp_obj_t)&mod_network_resumeFtp_obj },
+    { MP_ROM_QSTR(MP_QSTR_stop),	(mp_obj_t)&mod_network_stopFtp_obj },
+    { MP_ROM_QSTR(MP_QSTR_status),	(mp_obj_t)&mod_network_stateFtp_obj },
+    { MP_ROM_QSTR(MP_QSTR_stack),	(mp_obj_t)&mod_network_FtpMaxStack_obj }
 };
 STATIC MP_DEFINE_CONST_DICT(network_ftp_locals_dict, network_ftp_locals_dict_table);
 
@@ -1112,16 +1150,16 @@ STATIC const mp_map_elem_t mp_module_network_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_LAN),					(mp_obj_t)&get_lan_obj },
 	#endif
 	#ifdef CONFIG_MICROPY_USE_MQTT
-	{ MP_ROM_QSTR(MP_QSTR_mqtt),					MP_ROM_PTR(&mqtt_type) },
+	{ MP_ROM_QSTR(MP_QSTR_mqtt),					(mp_obj_type_t *)&mqtt_type },
 	#endif
 	#ifdef CONFIG_MICROPY_USE_TELNET
-	{ MP_ROM_QSTR(MP_QSTR_telnet),					MP_ROM_PTR(&network_telnet_type) },
+	{ MP_ROM_QSTR(MP_QSTR_telnet),					(mp_obj_type_t *)&network_telnet_type },
 	#endif
 	#ifdef CONFIG_MICROPY_USE_FTPSERVER
-	{ MP_ROM_QSTR(MP_QSTR_ftp),						MP_ROM_PTR(&network_ftp_type) },
+	{ MP_ROM_QSTR(MP_QSTR_ftp),						(mp_obj_type_t *)&network_ftp_type },
 	#endif
 	#ifdef CONFIG_MICROPY_USE_MDNS
-	{ MP_ROM_QSTR(MP_QSTR_mDNS),					MP_ROM_PTR(&mdns_type) },
+	{ MP_ROM_QSTR(MP_QSTR_mDNS),					(mp_obj_type_t *)&mdns_type },
 	#endif
 
 #if MODNETWORK_INCLUDE_CONSTANTS

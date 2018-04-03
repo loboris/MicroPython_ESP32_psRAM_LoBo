@@ -231,7 +231,7 @@ STATIC mp_obj_t machine_onewire_readbytes(mp_obj_t self_in, mp_obj_t len_in) {
 
     owb_read_bytes(self->owb, buff, len);
 
-    return mp_obj_new_str((const char *)buff, len, 0);
+    return mp_obj_new_str((const char *)buff, len);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(machine_onewire_readbytes_obj, machine_onewire_readbytes);
 
@@ -292,7 +292,7 @@ STATIC mp_obj_t machine_onewire_rom_code(mp_obj_t self_in, mp_obj_t device_in) {
     char rom_code[17];
 	owb_string_from_rom_code(self->device_rom_codes[device], rom_code, sizeof(rom_code));
 
-    return mp_obj_new_str(rom_code, strlen(rom_code), 0);
+    return mp_obj_new_str(rom_code, strlen(rom_code));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(machine_onewire_rom_code_obj, machine_onewire_rom_code);
 
@@ -330,7 +330,7 @@ STATIC mp_obj_t machine_onewire_search(size_t n_args, const mp_obj_t *pos_args, 
    		}
    		else {
 			owb_string_from_rom_code(self->device_rom_codes[i], rom_code_s, sizeof(rom_code_s));
-			tuple[i] = mp_obj_new_str(rom_code_s, strlen(rom_code_s), 0);
+			tuple[i] = mp_obj_new_str(rom_code_s, strlen(rom_code_s));
    		}
    	}
 
@@ -582,8 +582,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_ds18x20_get_pwrmode_obj, machine_ds18x2
 
 //--------------------------------------------------------------
 STATIC mp_obj_t machine_ds18x20_get_convtime(mp_obj_t self_in) {
-    ds18x20_obj_t *self = self_in;
-
     int64_t conv_time = 0;
 	if (conv_end_time) {
 	    conv_time = mp_hal_ticks_ms() - conv_end_time;
@@ -600,7 +598,7 @@ STATIC mp_obj_t machine_ds18x20_rom_code(mp_obj_t self_in) {
     char rom_code[17];
 	owb_string_from_rom_code(self->owb_obj->device_rom_codes[self->device], rom_code, sizeof(rom_code));
 
-    return mp_obj_new_str(rom_code, strlen(rom_code), 0);
+    return mp_obj_new_str(rom_code, strlen(rom_code));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_ds18x20_rom_code_obj, machine_ds18x20_rom_code);
 

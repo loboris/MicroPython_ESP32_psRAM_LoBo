@@ -6,6 +6,7 @@
  * Copyright (c) 2013, 2014 Damien P. George
  * Copyright (c) 2015 Galen Hazelwood
  * Copyright (c) 2015-2017 Paul Sokolovsky
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -497,6 +498,11 @@ STATIC mp_uint_t lwip_tcp_send(lwip_socket_obj_t *socket, const byte *buf, mp_ui
     u16_t write_len = MIN(available, len);
 
     err_t err = tcp_write(socket->pcb.tcp, buf, write_len, TCP_WRITE_FLAG_COPY);
+
+    // If the output buffer is getting full then send the data to the lower layers
+    if (err == ERR_OK && tcp_sndbuf(socket->pcb.tcp) < TCP_SND_BUF / 4) {
+        err = tcp_output(socket->pcb.tcp);
+    }
 
     if (err != ERR_OK) {
         *_errno = error_lookup_table[-err];

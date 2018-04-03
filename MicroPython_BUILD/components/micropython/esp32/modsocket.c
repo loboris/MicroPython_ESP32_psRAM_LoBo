@@ -107,7 +107,7 @@ static int _socket_getaddrinfo2(const mp_obj_t host, const mp_obj_t portx, struc
     if (MP_OBJ_IS_SMALL_INT(port)) {
         // This is perverse, because lwip_getaddrinfo promptly converts it back to an int, but
         // that's the API we have to work with ...
-        port = mp_obj_str_binary_op(MP_BINARY_OP_MODULO, mp_obj_new_str("%s", 2, true), port);
+        port = mp_obj_str_binary_op(MP_BINARY_OP_MODULO, mp_obj_new_str("%s", 2), port);
     }
 
     const char *host_str = mp_obj_str_get_str(host);
@@ -591,7 +591,7 @@ STATIC mp_obj_t esp_socket_getaddrinfo(const mp_obj_t host, const mp_obj_t port)
             mp_obj_new_int(resi->ai_family),
             mp_obj_new_int(resi->ai_socktype),
             mp_obj_new_int(resi->ai_protocol),
-            mp_obj_new_str(resi->ai_canonname, strlen(resi->ai_canonname), false),
+            mp_obj_new_str(resi->ai_canonname, strlen(resi->ai_canonname)),
             mp_const_none
         };
         
@@ -602,7 +602,7 @@ STATIC mp_obj_t esp_socket_getaddrinfo(const mp_obj_t host, const mp_obj_t port)
             char buf[16];
             ip4addr_ntoa_r(&ip4_addr, buf, sizeof(buf));
             mp_obj_t inaddr_objs[2] = {
-                mp_obj_new_str(buf, strlen(buf), false),
+                mp_obj_new_str(buf, strlen(buf)),
                 mp_obj_new_int(ntohs(addr->sin_port))
             };
             addrinfo_objs[4] = mp_obj_new_tuple(2, inaddr_objs);

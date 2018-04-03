@@ -490,7 +490,7 @@ STATIC mp_obj_t native_vfs_getcwd(mp_obj_t vfs_in) {
 		return mp_const_none;
 	}
 
-	return mp_obj_new_str(buf, strlen(buf), false);
+	return mp_obj_new_str(buf, strlen(buf));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(native_vfs_getcwd_obj, native_vfs_getcwd);
 
@@ -509,7 +509,7 @@ STATIC mp_obj_t native_vfs_getdrive() {
 		else sprintf(drive, "/");
 	}
 
-	return mp_obj_new_str(drive, strlen(drive), false);
+	return mp_obj_new_str(drive, strlen(drive));
 }
 MP_DEFINE_CONST_FUN_OBJ_0(native_vfs_getdrive_obj, native_vfs_getdrive);
 
@@ -889,9 +889,6 @@ STATIC mp_obj_t native_vfs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t m
 			}
 		#elif CONFIG_MICROPY_FILESYSTEM_TYPE == 2
 			printf("(LittleFS ver %d.%d): ", LFS_VERSION_MAJOR, LFS_VERSION_MINOR);
-			#ifdef CONFIG_LITTLEFLASH_USE_WEAR_LEVELING
-			printf("[on top of ESP32 wear leveling]");
-			#endif
 			uint32_t used = littleFlash_getUsedBlocks();
 			f_bsize = littleFlash.lfs_cfg.block_size;
 			f_blocks = littleFlash.lfs_cfg.block_count;
@@ -910,7 +907,7 @@ STATIC mp_obj_t native_vfs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t m
 				ret = ESP_OK;
 			}
 		#endif
-		printf("\nMounted on partition '%s' [size: %d; Flash address: 0x%6X]\n", fs_partition->label, fs_partition->size, fs_partition->address);
+		printf("Mounted on partition '%s' [size: %d; Flash address: 0x%6X]\n", fs_partition->label, fs_partition->size, fs_partition->address);
 		if (ret == ESP_OK) {
 			printf("----------------\n");
 			printf("Filesystem size: %d B\n", f_blocks * f_bsize);
@@ -1006,7 +1003,7 @@ int mount_vfs(int type, char *chdir_to)
 
     // mount flash file system
     args2[0] = vfso;
-    args2[1] = mp_obj_new_str(mp, strlen(mp), false);
+    args2[1] = mp_obj_new_str(mp, strlen(mp));
     mp_call_function_n_kw(MP_OBJ_FROM_PTR(&mp_vfs_mount_obj), 2, 0, args2);
 
     if (native_vfs_mounted[type]) {

@@ -47,7 +47,7 @@
 #include "soc/dport_reg.h"
 #include "soc/rtc_cntl_reg.h"
 #include "rom/uart.h"
-#include "esp_deep_sleep.h"
+#include "esp_sleep.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_err.h"
@@ -451,8 +451,8 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
 	}
 
     if (sleep_time > 0) {
-    	if (stub_sleep) esp_deep_sleep_enable_timer_wakeup((uint64_t)(stub_sleep * 1000));
-    	else esp_deep_sleep_enable_timer_wakeup((uint64_t)(sleep_time * 1000));
+    	if (stub_sleep) esp_sleep_enable_timer_wakeup((uint64_t)(stub_sleep * 1000));
+    	else esp_sleep_enable_timer_wakeup((uint64_t)(sleep_time * 1000));
         machine_rtc_config.deepsleep_time = sleep_time;
     }
     else {
@@ -463,7 +463,7 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
 
     if (machine_rtc_config.ext0_pin >= 0) {
     	printf("EXT0=%d\n", machine_rtc_config.ext0_pin);
-        esp_deep_sleep_enable_ext0_wakeup((gpio_num_t)machine_rtc_config.ext0_pin, machine_rtc_config.ext0_level ? 1 : 0);
+        esp_sleep_enable_ext0_wakeup((gpio_num_t)machine_rtc_config.ext0_pin, machine_rtc_config.ext0_level ? 1 : 0);
 		esp_set_deep_sleep_wake_stub(&wake_stub);
     }
 
@@ -479,12 +479,12 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
     	//esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
     	uint8_t ext1_level = machine_rtc_config.ext1_level;
     	if (machine_rtc_config.ext1_level == EXT1_WAKEUP_ALL_HIGH) ext1_level = ESP_EXT1_WAKEUP_ANY_HIGH;
-        esp_deep_sleep_enable_ext1_wakeup(ext1_pins, ext1_level);
+        esp_sleep_enable_ext1_wakeup(ext1_pins, ext1_level);
 		esp_set_deep_sleep_wake_stub(&wake_stub);
     }
 
     if (machine_rtc_config.wake_on_touch) {
-        esp_deep_sleep_enable_touchpad_wakeup();
+        esp_sleep_enable_touchpad_wakeup();
     }
 
 	printf("Sleep time: time=%d, interval=%d, pin=%d, level=%d, wait=%llu\n",
@@ -537,9 +537,9 @@ STATIC mp_obj_t machine_wake_desc (void) {
     mp_obj_t tuple[2];
 
     mpsleep_get_reset_desc(reason);
-    tuple[0] = mp_obj_new_str(reason, strlen(reason), 0);
+    tuple[0] = mp_obj_new_str(reason, strlen(reason));
     mpsleep_get_wake_desc(reason);
-    tuple[1] = mp_obj_new_str(reason, strlen(reason), 0);
+    tuple[1] = mp_obj_new_str(reason, strlen(reason));
     return mp_obj_new_tuple(2, tuple);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(machine_wake_desc_obj, machine_wake_desc);
@@ -714,7 +714,7 @@ STATIC mp_obj_t mod_machine_nvs_get_str (mp_obj_t _key) {
         if (value) {
             esp_err_t ret = nvs_get_str(mpy_nvs_handle, key, value, &len);
             if ((ret == ESP_OK ) && (len > 0)) {
-                strval = mp_obj_new_str(value, strlen(value), 0);
+                strval = mp_obj_new_str(value, strlen(value));
                 free(value);
             }
         }

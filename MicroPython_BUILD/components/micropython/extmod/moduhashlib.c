@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2014 Paul Sokolovsky
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +34,7 @@
 
 #include "crypto-algorithms/sha256.h"
 #if MICROPY_PY_UHASHLIB_SHA1
-#include "lib/axtls/crypto/crypto.h"
+#include "mbedtls/sha1.h"
 #endif
 
 typedef struct _mp_obj_hash_t {
@@ -59,9 +60,10 @@ STATIC mp_obj_t sha1_update(mp_obj_t self_in, mp_obj_t arg);
 
 STATIC mp_obj_t sha1_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
     mp_arg_check_num(n_args, n_kw, 0, 1, false);
-    mp_obj_hash_t *o = m_new_obj_var(mp_obj_hash_t, char, sizeof(SHA1_CTX));
+    mp_obj_hash_t *o = m_new_obj_var(mp_obj_hash_t, char, sizeof(mbedtls_sha1_context));
     o->base.type = type;
-    SHA1_Init((SHA1_CTX*)o->state);
+    mbedtls_sha1_init((mbedtls_sha1_context*)o->state);
+    mbedtls_sha1_starts((mbedtls_sha1_context*)o->state);
     if (n_args == 1) {
         sha1_update(MP_OBJ_FROM_PTR(o), args[0]);
     }
@@ -83,7 +85,7 @@ STATIC mp_obj_t sha1_update(mp_obj_t self_in, mp_obj_t arg) {
     mp_obj_hash_t *self = MP_OBJ_TO_PTR(self_in);
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(arg, &bufinfo, MP_BUFFER_READ);
-    SHA1_Update((SHA1_CTX*)self->state, bufinfo.buf, bufinfo.len);
+    mbedtls_sha1_update((mbedtls_sha1_context*)self->state, bufinfo.buf, bufinfo.len);
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_2(sha1_update_obj, sha1_update);
@@ -102,8 +104,9 @@ MP_DEFINE_CONST_FUN_OBJ_1(hash_digest_obj, hash_digest);
 STATIC mp_obj_t sha1_digest(mp_obj_t self_in) {
     mp_obj_hash_t *self = MP_OBJ_TO_PTR(self_in);
     vstr_t vstr;
-    vstr_init_len(&vstr, SHA1_SIZE);
-    SHA1_Final((byte*)vstr.buf, (SHA1_CTX*)self->state);
+    vstr_init_len(&vstr, 20);
+    mbedtls_sha1_finish((mbedtls_sha1_context*)self->state, (byte*)vstr.buf);
+    mbedtls_sha1_free((mbedtls_sha1_context*)self->state);
     return mp_obj_new_str_from_vstr(&mp_type_bytes, &vstr);
 }
 MP_DEFINE_CONST_FUN_OBJ_1(sha1_digest_obj, sha1_digest);

@@ -477,7 +477,7 @@ STATIC mp_obj_t machine_rtc_wake_on_ext1(size_t n_args, const mp_obj_t *pos_args
     machine_rtc_config.ext1_level = (uint8_t)ext1_level;
     for (int i=0; i<EXT1_WAKEUP_MAX_PINS; i++) {
     	machine_rtc_config.ext1_pins[i] = ext1_pins[i];
-    	ext1_rtcpins[i] = machine_rtc_config.ext1_rtcpins[i];
+    	machine_rtc_config.ext1_rtcpins[i] = ext1_rtcpins[i];
     }
 
     return mp_const_none;
@@ -543,7 +543,7 @@ STATIC mp_obj_t esp_rtcmem_read_string(mp_obj_t self_in) {
 	if (rtc_mem_str_crc != crc16_le(0, (uint8_t const *)rtc_mem_str, RTC_MEM_STR_SIZE)) {
 		return mp_const_none;
 	}
-	return mp_obj_new_str(rtc_mem_str, strlen(rtc_mem_str), false);
+	return mp_obj_new_str(rtc_mem_str, strlen(rtc_mem_str));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_rtcmem_read_string_obj, esp_rtcmem_read_string);
 
@@ -602,19 +602,19 @@ STATIC void machine_rtc_print(const mp_print_t *print, mp_obj_t self_in, mp_prin
 
 //=========================================================
 STATIC const mp_map_elem_t mach_rtc_locals_dict_table[] = {
-    { MP_OBJ_NEW_QSTR(MP_QSTR_init),			MP_ROM_PTR(&mach_rtc_init_obj) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_now),				MP_ROM_PTR(&mach_rtc_now_obj) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_ntp_sync),		MP_ROM_PTR(&mach_rtc_ntp_sync_obj) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_ntp_state),		MP_ROM_PTR(&mach_rtc_sntp_state_obj) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_synced),			MP_ROM_PTR(&mach_rtc_has_synced_obj) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_wake_on_ext0),	MP_ROM_PTR(&machine_rtc_wake_on_ext0_obj) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_wake_on_ext1),	MP_ROM_PTR(&machine_rtc_wake_on_ext1_obj) },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_init),			(mp_obj_t)&mach_rtc_init_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_now),				(mp_obj_t)&mach_rtc_now_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_ntp_sync),		(mp_obj_t)&mach_rtc_ntp_sync_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_ntp_state),		(mp_obj_t)&mach_rtc_sntp_state_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_synced),			(mp_obj_t)&mach_rtc_has_synced_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_wake_on_ext0),	(mp_obj_t)&machine_rtc_wake_on_ext0_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_wake_on_ext1),	(mp_obj_t)&machine_rtc_wake_on_ext1_obj },
 
-    { MP_OBJ_NEW_QSTR(MP_QSTR_write),			MP_ROM_PTR(&esp_rtcmem_write_obj)},
-    { MP_OBJ_NEW_QSTR(MP_QSTR_read),			MP_ROM_PTR(&esp_rtcmem_read_obj)},
-    { MP_OBJ_NEW_QSTR(MP_QSTR_clear),			MP_ROM_PTR(&esp_rtcmem_clear_obj)},
-    { MP_OBJ_NEW_QSTR(MP_QSTR_write_string),	MP_ROM_PTR(&esp_rtcmem_write_string_obj)},
-    { MP_OBJ_NEW_QSTR(MP_QSTR_read_string),		MP_ROM_PTR(&esp_rtcmem_read_string_obj)},
+    { MP_OBJ_NEW_QSTR(MP_QSTR_write),			(mp_obj_t)&esp_rtcmem_write_obj},
+    { MP_OBJ_NEW_QSTR(MP_QSTR_read),			(mp_obj_t)&esp_rtcmem_read_obj},
+    { MP_OBJ_NEW_QSTR(MP_QSTR_clear),			(mp_obj_t)&esp_rtcmem_clear_obj},
+    { MP_OBJ_NEW_QSTR(MP_QSTR_write_string),	(mp_obj_t)&esp_rtcmem_write_string_obj},
+    { MP_OBJ_NEW_QSTR(MP_QSTR_read_string),		(mp_obj_t)&esp_rtcmem_read_string_obj},
 
 	// Constants
 	{ MP_ROM_QSTR(MP_QSTR_EXT1_ANYHIGH),		MP_ROM_INT(ESP_EXT1_WAKEUP_ANY_HIGH) },

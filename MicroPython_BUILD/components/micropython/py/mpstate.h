@@ -169,6 +169,10 @@ typedef struct _mp_state_vm_t {
 
     // root pointers for extmod
 
+    #if MICROPY_REPL_EVENT_DRIVEN
+    vstr_t *repl_line;
+    #endif
+
     #if MICROPY_PY_OS_DUPTERM
     mp_obj_t dupterm_objs[MICROPY_PY_OS_DUPTERM];
     mp_obj_t dupterm_arr_obj;
@@ -218,7 +222,6 @@ typedef struct _mp_state_thread_t {
     mp_obj_dict_t *dict_locals;
     mp_obj_dict_t *dict_globals;
 
-    // Note: nlr asm code has the offset of this hard-coded
     nlr_buf_t *nlr_top; // ROOT POINTER
 
     // Stack top at the start of program
@@ -226,6 +229,12 @@ typedef struct _mp_state_thread_t {
 
     #if MICROPY_STACK_CHECK
     size_t stack_limit;
+    #endif
+
+    #if MICROPY_ENABLE_PYSTACK
+    uint8_t *pystack_start;
+    uint8_t *pystack_end;
+    uint8_t *pystack_cur;
     #endif
 } mp_state_thread_t;
 

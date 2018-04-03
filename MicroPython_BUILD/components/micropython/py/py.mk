@@ -62,6 +62,7 @@ endif
 # py object files
 PY_O_BASENAME = \
 	mpstate.o \
+	nlr.o \
 	nlrx86.o \
 	nlrx64.o \
 	nlrthumb.o \
@@ -69,6 +70,7 @@ PY_O_BASENAME = \
 	nlrsetjmp.o \
 	malloc.o \
 	gc.o \
+	pystack.o \
 	qstr.o \
 	vstr.o \
 	mpprint.o \
@@ -115,6 +117,7 @@ PY_O_BASENAME = \
 	objcell.o \
 	objclosure.o \
 	objcomplex.o \
+	objdeque.o \
 	objdict.o \
 	objenumerate.o \
 	objexcept.o \

@@ -270,7 +270,7 @@ STATIC mp_obj_t mdns_host_query(mp_uint_t n_args, const mp_obj_t *pos_args, mp_m
 	else if (res == ESP_ERR_NOT_FOUND) sprintf(tmps, "Host was not found!");
 	else sprintf(tmps, "Query Failed");
 
-    return mp_obj_new_str(tmps, strlen(tmps), false);;
+    return mp_obj_new_str(tmps, strlen(tmps));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mdns_host_query_obj, 2, mdns_host_query);
 
@@ -320,21 +320,21 @@ STATIC mp_obj_t mdns_service_query(mp_uint_t n_args, const mp_obj_t *pos_args, m
 		    while (r) {
 		    	// Interface type
 				sprintf(tmps, "%s",  if_str[r->tcpip_if]);
-				t->items[0] = mp_obj_new_str(tmps, strlen(tmps), false);
+				t->items[0] = mp_obj_new_str(tmps, strlen(tmps));
 
 				// Protocol, V4 or V6
 				sprintf(tmps, "%s",  ip_protocol_str[r->ip_protocol]);
-				t->items[1] = mp_obj_new_str(tmps, strlen(tmps), false);
+				t->items[1] = mp_obj_new_str(tmps, strlen(tmps));
 
 				// Instance name
 				if (r->instance_name) sprintf(tmps, "%s", r->instance_name);
 				else sprintf(tmps, "?");
-				t->items[2] = mp_obj_new_str(tmps, strlen(tmps), false);
+				t->items[2] = mp_obj_new_str(tmps, strlen(tmps));
 
 				// Host name & port
 				if(r->hostname) {
 					sprintf(tmps, "%s.local", r->hostname);
-					t->items[3] = mp_obj_new_str(tmps, strlen(tmps), false);
+					t->items[3] = mp_obj_new_str(tmps, strlen(tmps));
 					t->items[4] = mp_obj_new_int(r->port);
 				}
 				else {
@@ -353,7 +353,7 @@ STATIC mp_obj_t mdns_service_query(mp_uint_t n_args, const mp_obj_t *pos_args, m
 						else {
 							sprintf(tmps, IPSTR, IP2STR(&(a->addr.u_addr.ip4)));
 						}
-						mp_obj_list_append(addrlist, mp_obj_new_str(tmps, strlen(tmps), false));
+						mp_obj_list_append(addrlist, mp_obj_new_str(tmps, strlen(tmps)));
 			            a = a->next;
 					}
 					t->items[5] = addrlist;
@@ -364,7 +364,7 @@ STATIC mp_obj_t mdns_service_query(mp_uint_t n_args, const mp_obj_t *pos_args, m
 		        if(r->txt_count){
 		            mp_obj_dict_t *dct = mp_obj_new_dict(0);
 		            for(int i=0; i<r->txt_count; i++){
-		            	mp_obj_dict_store(dct,  mp_obj_new_str(r->txt[i].key, strlen(r->txt[i].key), false), mp_obj_new_str(r->txt[i].value, strlen(r->txt[i].key), false));
+		            	mp_obj_dict_store(dct,  mp_obj_new_str(r->txt[i].key, strlen(r->txt[i].key)), mp_obj_new_str(r->txt[i].value, strlen(r->txt[i].key)));
 		            }
 					t->items[6] = dct;
 		        }

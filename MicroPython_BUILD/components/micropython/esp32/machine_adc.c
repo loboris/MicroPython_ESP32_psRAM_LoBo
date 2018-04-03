@@ -142,13 +142,17 @@ STATIC mp_obj_t madc_read(mp_obj_t self_in) {
         if (err != ESP_OK) mp_raise_ValueError("Set width Error");
     }
 
-    int val = 0;
-    if (self->gpio_id == GPIO_NUM_MAX) val= hall_sensor_read();
+    int adc_val = 0;
+    if (self->gpio_id == GPIO_NUM_MAX) adc_val= hall_sensor_read();
     else {
-    	esp_adc_cal_get_characteristics(adc_vref, self->atten, self->width, &characteristics);
-    	val = adc1_to_voltage(self->adc1_id, &characteristics);
+    	// Deprecated
+    	//esp_adc_cal_get_characteristics(adc_vref, self->atten, self->width, &characteristics);
+    	//adc_val = adc1_to_voltage(self->adc1_id, &characteristics);
+
+    	esp_adc_cal_value_t adc_val = esp_adc_cal_characterize(self->adc1_id, self->atten, self->width, adc_vref, &characteristics);
+    	esp_adc_cal_get_voltage(self->adc1_id, &characteristics, &adc_val);
     }
-    return MP_OBJ_NEW_SMALL_INT(val);
+    return MP_OBJ_NEW_SMALL_INT(adc_val);
 }
 MP_DEFINE_CONST_FUN_OBJ_1(madc_read_obj, madc_read);
 

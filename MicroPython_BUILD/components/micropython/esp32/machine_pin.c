@@ -281,7 +281,7 @@ STATIC mp_obj_t machine_pin_irq(size_t n_args, const mp_obj_t *pos_args, mp_map_
             mp_raise_ValueError("invalid trigger type");
         }
         if (gpio_isr_handler_add(self->id, machine_pin_isr_handler, (void*)self) != ESP_OK) {
-        	mp_raise_OSError("error adding ISR handler");
+        	mp_raise_ValueError("error adding ISR handler");
         }
     }
 

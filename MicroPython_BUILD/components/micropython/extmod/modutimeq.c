@@ -5,6 +5,7 @@
  *
  * Copyright (c) 2014 Damien P. George
  * Copyright (c) 2016-2017 Paul Sokolovsky
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +38,7 @@
 
 #define DEBUG 0
 
-// the algorithm here is modeled on CPython's heapq.py
+// the algorithm here is modelled on CPython's heapq.py
 
 struct qentry {
     mp_uint_t time;

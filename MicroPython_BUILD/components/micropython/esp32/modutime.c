@@ -143,7 +143,7 @@ STATIC mp_obj_t time_strftime(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map
 
     strftime(str_time, 127, fmt, tm_info);
 
-    return mp_obj_new_str(str_time, strlen(str_time), false);
+    return mp_obj_new_str(str_time, strlen(str_time));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(time_strftime_obj, 1, time_strftime);
 

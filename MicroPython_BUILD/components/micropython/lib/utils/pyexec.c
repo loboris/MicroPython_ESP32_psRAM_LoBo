@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +36,7 @@
 #include "py/gc.h"
 #include "py/frozenmod.h"
 #include "py/mphal.h"
-#if defined(USE_DEVICE_MODE)
+#if MICROPY_HW_ENABLE_USB
 #include "irq.h"
 #include "usb.h"
 #endif
@@ -408,7 +409,7 @@ friendly_repl_reset:
     for (;;) {
     input_restart:
 
-        #if defined(USE_DEVICE_MODE)
+        #if MICROPY_HW_ENABLE_USB
         if (usb_vcp_is_enabled()) {
             // If the user gets to here and interrupts are disabled then
             // they'll never see the prompt, traceback etc. The USB REPL needs
@@ -465,7 +466,7 @@ friendly_repl_reset:
                     if (c == '\r') {
                         mp_hal_stdout_tx_str("\r\n=== ");
                     } else {
-                        mp_hal_stdout_tx_strn(&c, 1);
+                        mp_hal_stdout_tx_strn((const char *)&c, 1);
                     }
                 }
             }

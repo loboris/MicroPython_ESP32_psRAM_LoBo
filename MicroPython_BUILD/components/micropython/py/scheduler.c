@@ -139,28 +139,28 @@ static mp_obj_t make_arg_from_carg(mp_sched_carg_t *carg, int level)
 		for (int i = 0; i < carg->n; i++) {
 			mp_sched_carg_entry_t *entry = (mp_sched_carg_entry_t *)carg->entry[i];
 			if (entry->type == MP_SCHED_ENTRY_TYPE_INT) {
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key), false),
+				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)),
 						mp_obj_new_int(entry->ival));
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_BOOL) {
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key), false),
+				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)),
 						mp_obj_new_bool(entry->ival));
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_FLOAT) {
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key), false),
+				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)),
 						mp_obj_new_float(entry->fval));
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_STR) {
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key), false),
-						mp_obj_new_str((const char*)entry->sval, entry->ival, false));
+				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)),
+						mp_obj_new_str((const char*)entry->sval, entry->ival));
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_BYTES) {
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key), false),
+				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)),
 						mp_obj_new_bytes((const byte*)entry->sval, entry->ival));
 			}
 			else if ((level == 0) && (entry->type == MP_SCHED_ENTRY_TYPE_CARG) && (strlen(entry->key) > 0) && (entry->carg)) {
 				mp_obj_t darg = make_arg_from_carg(entry->carg, 1);
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key), false), darg);
+				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)), darg);
 			}
 		}
 		arg = dct;
@@ -180,7 +180,7 @@ static mp_obj_t make_arg_from_carg(mp_sched_carg_t *carg, int level)
 				tuple[i] = mp_obj_new_float(entry->fval);
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_STR) {
-				tuple[i] = mp_obj_new_str((const char*)entry->sval, entry->ival, false);
+				tuple[i] = mp_obj_new_str((const char*)entry->sval, entry->ival);
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_BYTES) {
 				tuple[i] = mp_obj_new_bytes((const byte*)entry->sval, entry->ival);
@@ -205,7 +205,7 @@ static mp_obj_t make_arg_from_carg(mp_sched_carg_t *carg, int level)
 			arg = mp_obj_new_float(entry->fval);
 		}
 		else if (entry->type == MP_SCHED_ENTRY_TYPE_STR) {
-			arg = mp_obj_new_str((const char*)entry->sval, entry->ival, false);
+			arg = mp_obj_new_str((const char*)entry->sval, entry->ival);
 		}
 		else if (entry->type == MP_SCHED_ENTRY_TYPE_BYTES) {
 			arg = mp_obj_new_bytes((const byte*)entry->sval, entry->ival);

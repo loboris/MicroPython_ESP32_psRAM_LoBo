@@ -536,7 +536,7 @@ STATIC mp_obj_t mqtt_op_status(mp_obj_t self_in)
 	    else if (self->client->status == MQTT_STATUS_STOPPED) sprintf(sstat, "Stopped");
 	    else sprintf(sstat, "Unknown");
     }
-	tuple[1] = mp_obj_new_str(sstat, strlen(sstat), 0);
+	tuple[1] = mp_obj_new_str(sstat, strlen(sstat));
 
 	return mp_obj_new_tuple(2, tuple);
 }

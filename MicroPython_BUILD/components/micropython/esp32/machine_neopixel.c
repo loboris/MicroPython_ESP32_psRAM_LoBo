@@ -596,7 +596,7 @@ STATIC mp_obj_t machine_neopixel_corder(size_t n_args, const mp_obj_t *pos_args,
     }
     sprintf(colorder, self->px.color_order);
     if (self->px.nbits == 24) colorder[3] = '\0';
-    return mp_obj_new_str(colorder, strlen(colorder), 0);
+    return mp_obj_new_str(colorder, strlen(colorder));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(machine_neopixel_corder_obj, 0, machine_neopixel_corder);
 
@@ -711,7 +711,7 @@ STATIC mp_obj_t machine_neopixel_info(mp_obj_t self_in)
 	tuple[2] = mp_obj_new_int(self->px.nbits);
 	tuple[3] = mp_obj_new_int(self->channel);
 	tuple[4] = mp_obj_new_int(sizeof(uint32_t) * self->px.pixel_count);
-	tuple[5] = mp_obj_new_str(colorder, strlen(colorder), false);
+	tuple[5] = mp_obj_new_str(colorder, strlen(colorder));
 
 	return mp_obj_new_tuple(6, tuple);
 

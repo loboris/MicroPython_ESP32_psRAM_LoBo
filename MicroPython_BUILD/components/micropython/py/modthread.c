@@ -97,7 +97,13 @@ STATIC void *thread_entry(void *args_in)
 
     MP_THREAD_GIL_ENTER();
 
-    // signal that we are set up and running
+	#if MICROPY_ENABLE_PYSTACK
+	// TODO threading and pystack is not fully supported, for now just make a small stack
+	mp_obj_t mini_pystack[128];
+	mp_pystack_init(mini_pystack, &mini_pystack[128]);
+	#endif
+
+	// signal that we are set up and running
     mp_thread_start();
 
     // TODO set more thread-specific state here:
@@ -377,7 +383,7 @@ STATIC mp_obj_t mod_thread_getmsg()
 	}
 	else if (res == THREAD_MSG_TYPE_STRING) {
 		if (buf != NULL) {
-			tuple[2] = mp_obj_new_str((char *)buf, buflen, false);
+			tuple[2] = mp_obj_new_str((char *)buf, buflen);
 			free(buf);
 		}
 		else tuple[2] = mp_const_none;
@@ -396,7 +402,7 @@ STATIC mp_obj_t mod_thread_getname(mp_obj_t in_id) {
 	if (!res) {
 		sprintf(name,"unknown");
 	}
-	return mp_obj_new_str((char *)name, strlen(name), false);
+	return mp_obj_new_str((char *)name, strlen(name));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_thread_getname_obj, mod_thread_getname);
 
@@ -408,7 +414,7 @@ STATIC mp_obj_t mod_thread_getSelfname() {
 	if (!res) {
 		sprintf(name,"unknown");
 	}
-	return mp_obj_new_str((char *)name, strlen(name), false);
+	return mp_obj_new_str((char *)name, strlen(name));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_thread_getSelfname_obj, mod_thread_getSelfname);
 
@@ -474,7 +480,7 @@ STATIC mp_obj_t mod_thread_list(mp_uint_t n_args, const mp_obj_t *args) {
 			thr = list.threads + (sizeof(threadlistitem_t) * n);
 			thr_info[0] = mp_obj_new_int(thr->id);
 			thr_info[1] = mp_obj_new_int(thr->type);
-			thr_info[2] = mp_obj_new_str(thr->name, strlen(thr->name), false);
+			thr_info[2] = mp_obj_new_str(thr->name, strlen(thr->name));
 			if (thr->suspended) thr_info[3] = mp_obj_new_int(1);
 			else if (thr->waiting) thr_info[3] = mp_obj_new_int(2);
 			else thr_info[3] = mp_obj_new_int(0);
@@ -487,7 +493,7 @@ STATIC mp_obj_t mod_thread_list(mp_uint_t n_args, const mp_obj_t *args) {
 		if (TelnetTaskHandle) {
 			thr_info[0] = mp_obj_new_int((int)TelnetTaskHandle);
 			thr_info[1] = mp_obj_new_int(THREAD_TYPE_SERVICE);
-			thr_info[2] = mp_obj_new_str("Telnet", 6, false);
+			thr_info[2] = mp_obj_new_str("Telnet", 6);
 			thr_info[3] = mp_obj_new_int(0);
 			thr_info[4] = mp_obj_new_int(TELNET_STACK_LEN);
 			thr_info[5] = mp_obj_new_int(TELNET_STACK_LEN - uxTaskGetStackHighWaterMark(TelnetTaskHandle));
@@ -499,7 +505,7 @@ STATIC mp_obj_t mod_thread_list(mp_uint_t n_args, const mp_obj_t *args) {
 		if (FtpTaskHandle) {
 			thr_info[0] = mp_obj_new_int((int)FtpTaskHandle);
 			thr_info[1] = mp_obj_new_int(THREAD_TYPE_SERVICE);
-			thr_info[2] = mp_obj_new_str("Ftp", 3, false);
+			thr_info[2] = mp_obj_new_str("Ftp", 3);
 			thr_info[3] = mp_obj_new_int(0);
 			thr_info[4] = mp_obj_new_int(FTP_STACK_LEN);
 			thr_info[5] = mp_obj_new_int(FTP_STACK_LEN - uxTaskGetStackHighWaterMark(FtpTaskHandle));

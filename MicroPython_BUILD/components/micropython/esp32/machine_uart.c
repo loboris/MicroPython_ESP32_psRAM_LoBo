@@ -664,7 +664,7 @@ STATIC mp_obj_t machine_uart_readln(size_t n_args, const mp_obj_t *args) {
     	if (rdlen < 0) return mp_const_none;
     }
 	if (rdstr == NULL) return mp_const_none;
-	mp_obj_t res_str = mp_obj_new_str((const char *)rdstr, rdlen, false);
+	mp_obj_t res_str = mp_obj_new_str((const char *)rdstr, rdlen);
 	free(rdstr);
     return res_str;
 }

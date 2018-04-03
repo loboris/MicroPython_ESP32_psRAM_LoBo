@@ -121,6 +121,7 @@
 #define MICROPY_PY_ARRAY_SLICE_ASSIGN       (1)
 #define MICROPY_PY_ATTRTUPLE                (1)
 #define MICROPY_PY_COLLECTIONS              (1)
+#define MICROPY_PY_COLLECTIONS_DEQUE        (1)
 #define MICROPY_PY_COLLECTIONS_ORDEREDDICT  (1)
 #define MICROPY_PY_MATH                     (1)
 #define MICROPY_PY_MATH_SPECIAL_FUNCTIONS   (1)
@@ -151,8 +152,6 @@
 #define MICROPY_PY_URE                      (1)
 #define MICROPY_PY_UHEAPQ                   (1)
 #define MICROPY_PY_UTIMEQ                   (1)
-#define MICROPY_PY_UHASHLIB                 (0) // We use the ESP32 version
-#define MICROPY_PY_UHASHLIB_SHA1            (MICROPY_PY_USSL && MICROPY_SSL_AXTLS)
 #define MICROPY_PY_UBINASCII                (1)
 #define MICROPY_PY_UBINASCII_CRC32          (1)
 #define MICROPY_PY_URANDOM                  (1)
@@ -169,6 +168,10 @@
 #define MICROPY_PY_MACHINE_SPI_MAX_BAUDRATE (ets_get_cpu_frequency() * 1000000 / 200) // roughly
 #define MICROPY_PY_USSL                     (1)
 #define MICROPY_SSL_MBEDTLS                 (1)
+#define MICROPY_PY_USSL_FINALISER           (1)
+#define MICROPY_PY_UHASHLIB                 (0) // We use the ESP32 version
+#define MICROPY_PY_UHASHLIB_SHA1            (MICROPY_PY_USSL && MICROPY_SSL_MBEDTLS)
+
 #ifdef CONFIG_MICROPY_USE_WEBSOCKETS
 #define MICROPY_PY_WEBSOCKET                (1)
 #else

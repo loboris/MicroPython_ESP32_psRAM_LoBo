@@ -511,7 +511,7 @@ STATIC mp_obj_t curl_FTP_helper(size_t n_args, const mp_obj_t *pos_args, mp_map_
     body.buf[0] = '\0';
 
    	MP_THREAD_GIL_EXIT();
-   	res = Curl_FTP(type&1, url, userpass, fname, header.buf, body.buf, header.len, body.len);
+   	res = Curl_FTP(type&1, (char *)url, userpass, fname, header.buf, body.buf, header.len, body.len);
    	MP_THREAD_GIL_ENTER();
 
    	mp_obj_t tuple[3];
