@@ -5,3 +5,4 @@ xtensa-esp32-elf_psram/
 esp-idf_patches/
 *.id
 *_new.tar.xz
+*_old.tar.xz
