@@ -176,7 +176,6 @@ STATIC mp_obj_t os_sdcard_config(size_t n_args, const mp_obj_t *pos_args, mp_map
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(os_sdcard_config_obj, 0, os_sdcard_config);
 
-
 #if CONFIG_MICROPY_FILESYSTEM_TYPE == 2
 //----------------------------------------------------------
 STATIC mp_obj_t os_trim(size_t n_args, const mp_obj_t *args)
