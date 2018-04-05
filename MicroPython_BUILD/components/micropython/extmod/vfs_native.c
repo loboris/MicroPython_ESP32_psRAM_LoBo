@@ -748,7 +748,7 @@ static void _sdcard_mount()
 	else {
 		sdmmc_host_t host = SDMMC_HOST_DEFAULT();
 		sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-		if (sdcard_config.mode == 1) {
+		if (sdcard_config.mode == 2) {
 	        // Use 1-line SD mode
 		    gpio_set_pull_mode(2, GPIO_PULLUP_ONLY);
 		    gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
