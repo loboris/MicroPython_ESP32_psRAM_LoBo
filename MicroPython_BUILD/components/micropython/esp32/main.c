@@ -256,7 +256,8 @@ soft_reset:
     }
 	// ================================================
 
-    prepareSleepReset(1, "ESP32: soft reboot\r\n");
+    //ToDo: Remember the REPL mode  !!
+    prepareSleepReset(0, "ESP32: soft reboot\r\n");
     esp_restart();
 
     goto soft_reset;

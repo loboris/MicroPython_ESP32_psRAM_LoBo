@@ -347,6 +347,11 @@ raw_repl_reset:
                 vstr_reset(&line);
             } else if (c == CHAR_CTRL_D) {
                 // input finished
+                if (line.len == 0) {
+                	mp_hal_stdout_tx_str("soft reboot\r\n");
+                	vTaskDelay(1000);
+                    goto raw_repl_reset;
+                }
                 break;
             } else {
                 // let through any other raw 8-bit value
