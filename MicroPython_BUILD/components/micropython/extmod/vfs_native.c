@@ -728,6 +728,7 @@ static void _sdcard_mount()
 		sdmmc_host_t host = SDSPI_HOST_DEFAULT();
 		sdspi_slot_config_t slot_config = SDSPI_SLOT_CONFIG_DEFAULT();
 		host.slot = VSPI_HOST;
+		host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
 
 		slot_config.dma_channel = 2;
 	    gpio_pad_select_gpio(sdcard_config.miso);
@@ -748,6 +749,7 @@ static void _sdcard_mount()
 	else {
 		sdmmc_host_t host = SDMMC_HOST_DEFAULT();
 		sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+		host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
 		if (sdcard_config.mode == 2) {
 	        // Use 1-line SD mode
 		    gpio_set_pull_mode(2, GPIO_PULLUP_ONLY);

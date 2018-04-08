@@ -74,7 +74,8 @@ typedef struct _uart_ringbuf_t {
     uint16_t iput;
 } uart_ringbuf_t;
 
-STATIC const char *_parity_name[] = {"None", "1", "0"};
+static const char *_parity_name[] = {"None", "None", "Even", "Odd"};
+static const char *_stopbits_name[] = {"?", "1", "1.5", "2"};
 static QueueHandle_t UART_QUEUE[2] = {NULL};
 static QueueHandle_t uart_mutex = NULL;
 TaskHandle_t task_id[2] = {NULL};
@@ -287,6 +288,7 @@ enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_tx, ARG_rx, ARG_rts, AR
 //-----------------------------------------------------------------------------------------------
 STATIC void machine_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+
     uint32_t baudrate;
     uart_get_baudrate(self->uart_num+1, &baudrate);
     char lnend[16] = {'\0'};
@@ -313,9 +315,9 @@ STATIC void machine_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_pri
     	}
     }
 
-    mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%s, stop=%u, tx=%d, rx=%d, rts=%d, cts=%d, timeout=%u, buf_size=%u, lineend=b'%s')",
-        self->uart_num+1, baudrate, self->bits, _parity_name[self->parity],
-        self->stop, self->tx, self->rx, self->rts, self->cts, self->timeout, self->buffer_size, lnend);
+    mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%s, stop=%s, tx=%d, rx=%d, rts=%d, cts=%d, timeout=%u, buf_size=%u, lineend=b'%s')",
+        self->uart_num+1, baudrate, self->bits, _parity_name[self->parity], _stopbits_name[self->stop],
+		self->tx, self->rx, self->rts, self->cts, self->timeout, self->buffer_size, lnend);
     if (self->data_cb) {
     	mp_printf(print, "\n     data CB: True, on len: %d", self->data_cb_size);
     }
@@ -338,18 +340,16 @@ STATIC void machine_uart_init_helper(machine_uart_obj_t *self, size_t n_args, co
     // wait for all data to be transmitted before changing settings
     uart_wait_tx_done(self->uart_num+1, pdMS_TO_TICKS(1000));
 
-    // set baudrate
+    // set baudrate if needed
     uint32_t baudrate = 115200;
     if (args[ARG_baudrate].u_int > 0) {
         uart_set_baudrate(self->uart_num+1, args[ARG_baudrate].u_int);
         uart_get_baudrate(self->uart_num+1, &baudrate);
     }
 
-    // set data bits
-    if ((args[ARG_bits].u_int >= 0) && (args[ARG_bits].u_int != self->bits)) {
+    // set data bits if needed
+    if ((args[ARG_bits].u_int > 0) && (args[ARG_bits].u_int != self->bits)) {
 		switch (args[ARG_bits].u_int) {
-			case 0:
-				break;
 			case 5:
 				uart_set_word_length(self->uart_num+1, UART_DATA_5_BITS);
 				self->bits = 5;
@@ -372,32 +372,31 @@ STATIC void machine_uart_init_helper(machine_uart_obj_t *self, size_t n_args, co
 		}
     }
 
-    // set parity
+    // set parity if needed
     if (args[ARG_parity].u_obj != MP_OBJ_NULL) {
         if (args[ARG_parity].u_obj == mp_const_none) {
         	if (self->parity != UART_PARITY_DISABLE) {
                 uart_set_parity(self->uart_num+1, UART_PARITY_DISABLE);
                 self->parity = UART_PARITY_DISABLE;
-        }
+        	}
         }
         else {
+        	// 0 -> odd; 1-> even parity
             mp_int_t parity = mp_obj_get_int(args[ARG_parity].u_obj);
-            if ((parity & 1) && (self->parity != UART_PARITY_ODD)) {
-                uart_set_parity(self->uart_num+1, UART_PARITY_ODD);
-                self->parity = UART_PARITY_ODD;
-            }
-            else if (self->parity != UART_PARITY_EVEN){
+            if ((parity & 1) && (self->parity != UART_PARITY_EVEN)) {
                 uart_set_parity(self->uart_num+1, UART_PARITY_EVEN);
                 self->parity = UART_PARITY_EVEN;
+            }
+            else if (self->parity != UART_PARITY_ODD){
+                uart_set_parity(self->uart_num+1, UART_PARITY_ODD);
+                self->parity = UART_PARITY_ODD;
             }
         }
     }
 
-    // set stop bits
-    if ((args[ARG_stop].u_int >= 0) && (args[ARG_stop].u_int != self->stop)) {
+    // set stop bits if needed
+    if ((args[ARG_stop].u_int > 0) && (args[ARG_stop].u_int != self->stop)) {
 		switch (args[ARG_stop].u_int) {
-			case 0:
-				break;
 			case 1:
 				uart_set_stop_bits(self->uart_num+1, UART_STOP_BITS_1);
 				self->stop = UART_STOP_BITS_1;
@@ -462,7 +461,7 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
         nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "UART(%d) is disabled (dedicated to REPL)", uart_num));
     }
 
-     // Defaults
+     // Set defaults parameters
     uart_config_t uartcfg = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
@@ -481,8 +480,8 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     machine_uart_obj_t *self = m_new_obj(machine_uart_obj_t);
     self->base.type = &machine_uart_type;
     self->uart_num = uart_num-1;
-    self->bits = UART_DATA_8_BITS;
-    self->parity = UART_PARITY_DISABLE;
+    self->bits = 8;
+    self->parity = 0;
     self->stop = UART_STOP_BITS_1;
     self->rts = UART_PIN_NO_CHANGE;
     self->cts = UART_PIN_NO_CHANGE;
@@ -535,8 +534,7 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
 	// Remove any existing configuration
     uart_driver_delete(uart_num);
 
-    // init the peripheral
-    // Setup
+    // Initialize the peripheral with default parameters
     uart_param_config(uart_num, &uartcfg);
 
     // RX ring buffer size is set to UART_BUFF_SIZE (256), TX buffer is disabled.

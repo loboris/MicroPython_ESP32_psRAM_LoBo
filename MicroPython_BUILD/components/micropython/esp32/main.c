@@ -269,7 +269,7 @@ void micropython_entry(void) {
     ESP_LOGI("MicroPython", "[=== Started ===]");
 
 	// === Set esp32 log levels while running MicroPython ===
-	esp_log_level_set("*", CONFIG_MICRO_PY_LOG_LEVEL);
+	if (CONFIG_MICRO_PY_LOG_LEVEL < CONFIG_LOG_DEFAULT_LEVEL) esp_log_level_set("*", CONFIG_MICRO_PY_LOG_LEVEL);
 	esp_log_level_set("wifi", ESP_LOG_ERROR);
 	esp_log_level_set("rmt", ESP_LOG_ERROR);
 	#ifdef CONFIG_MICROPY_USE_OTA

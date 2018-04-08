@@ -710,20 +710,24 @@ int mp_thread_replAcceptMsg(int8_t accept) {
 //----------------------
 static int _check_wifi()
 {
+    if (wifi_network_state < 2) return 2;
+
     tcpip_adapter_if_t if_type;
     tcpip_adapter_ip_info_t info;
     wifi_mode_t wifi_mode;
 
-    esp_wifi_get_mode(&wifi_mode);
+    esp_err_t ret = esp_wifi_get_mode(&wifi_mode);
+    if (ret != ESP_OK) return 0;
     if (wifi_mode == WIFI_MODE_AP) if_type = TCPIP_ADAPTER_IF_AP;
     else if (wifi_mode == WIFI_MODE_STA) if_type = TCPIP_ADAPTER_IF_STA;
     else return 2;
 
-    tcpip_adapter_get_ip_info(if_type, &info);
+    ret = tcpip_adapter_get_ip_info(if_type, &info);
+    if (ret != ESP_OK) return 0;
     if (info.ip.addr == 0) return 0;
 
     if ((wifi_mode == WIFI_MODE_STA) && ((!wifi_sta_isconnected) || (!wifi_sta_has_ipaddress))) return 0;
-    else if ((wifi_mode == WIFI_MODE_AP) && (!wifi_ap_isconnected)) return 0;
+    else if ((wifi_mode == WIFI_MODE_AP) && ((!wifi_ap_isconnected) || (!wifi_ap_sta_isconnected))) return 0;
 
     return 1;
 }

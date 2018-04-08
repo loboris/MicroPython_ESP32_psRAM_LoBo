@@ -332,7 +332,7 @@ int mp_hal_delay_ms(uint32_t ms)
     gettimeofday(&tv, NULL);
     uint32_t tstart = ((uint32_t)tv.tv_sec * 1000) + ((uint32_t)tv.tv_usec / 1000);
 	uint32_t tend = tstart;
-	uint32_t nres = tstart;
+	uint32_t nres = tstart + (CONFIG_TASK_WDT_TIMEOUT_S * 500);
 
 	MP_THREAD_GIL_EXIT();
 
@@ -346,9 +346,9 @@ int mp_hal_delay_ms(uint32_t ms)
         vTaskDelay(2);
 
         #ifdef CONFIG_MICROPY_USE_TASK_WDT
-        if ((tend-nres) > (CONFIG_TASK_WDT_TIMEOUT_S*500)) {
+        if (tend > nres) {
         	esp_task_wdt_reset();
-        	nres = tend;
+        	nres = tend + (CONFIG_TASK_WDT_TIMEOUT_S * 500);
         }
 		#endif
 		// Break if notification received
