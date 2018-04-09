@@ -147,6 +147,25 @@ static const char* const wifi_events[] = {
 	"Ethernet got IP from connected AP",
 };
 
+static const char* const wifi_cyphers[] = {
+	"NONE",
+	"WEP40",
+	"WEP104",
+	"TKIP",
+	"CCMP",
+	"TKIP_CCMP",
+	"UNKNOWN",
+};
+
+static const char* const wifi_auth_modes[] = {
+	"OPEN",
+	"WEP",
+	"WPA_PSK",
+	"WPA2_PSK",
+	"WPA_WPA2_PSK",
+	"WPA2_ENTERPRISE",
+};
+
 static inline void esp_exceptions(esp_err_t e) {
     if (e != ESP_OK) _esp_exceptions(e);
 }
@@ -646,8 +665,8 @@ STATIC mp_obj_t esp_status(size_t n_args, const mp_obj_t *args) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_status_obj, 1, 2, esp_status);
 
-//------------------------------------------
-STATIC mp_obj_t esp_scan(mp_obj_t self_in) {
+//-------------------------------------------------------------
+STATIC mp_obj_t esp_scan(size_t n_args, const mp_obj_t *args) {
 	if (wifi_network_state < 2) {
         nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "WiFi not started"));
 	}
@@ -664,6 +683,7 @@ STATIC mp_obj_t esp_scan(mp_obj_t self_in) {
     mp_obj_t list = mp_obj_new_list(0, NULL);
     wifi_scan_config_t config = { 0 };
     // XXX how do we scan hidden APs (and if we can scan them, are they really hidden?)
+    if (n_args > 1) config.show_hidden = mp_obj_is_true(args[1]);
     MP_THREAD_GIL_EXIT();
     esp_err_t status = esp_wifi_scan_start(&config, 1);
     MP_THREAD_GIL_ENTER();
@@ -673,7 +693,7 @@ STATIC mp_obj_t esp_scan(mp_obj_t self_in) {
         wifi_ap_record_t *wifi_ap_records = calloc(count, sizeof(wifi_ap_record_t));
         ESP_EXCEPTIONS( esp_wifi_scan_get_ap_records(&count, wifi_ap_records) );
         for (uint16_t i = 0; i < count; i++) {
-            mp_obj_tuple_t *t = mp_obj_new_tuple(6, NULL);
+            mp_obj_tuple_t *t = mp_obj_new_tuple(7, NULL);
             uint8_t *x = memchr(wifi_ap_records[i].ssid, 0, sizeof(wifi_ap_records[i].ssid));
             int ssid_len = x ? x - wifi_ap_records[i].ssid : sizeof(wifi_ap_records[i].ssid);
             t->items[0] = mp_obj_new_bytes(wifi_ap_records[i].ssid, ssid_len);
@@ -681,14 +701,15 @@ STATIC mp_obj_t esp_scan(mp_obj_t self_in) {
             t->items[2] = MP_OBJ_NEW_SMALL_INT(wifi_ap_records[i].primary);
             t->items[3] = MP_OBJ_NEW_SMALL_INT(wifi_ap_records[i].rssi);
             t->items[4] = MP_OBJ_NEW_SMALL_INT(wifi_ap_records[i].authmode);
-            t->items[5] = mp_const_false; // XXX hidden?
+            t->items[5] = mp_obj_new_str(wifi_auth_modes[wifi_ap_records[i].authmode], strlen(wifi_auth_modes[wifi_ap_records[i].authmode]));
+            t->items[6] = (ssid_len == 0) ? mp_const_true : mp_const_false;
             mp_obj_list_append(list, MP_OBJ_FROM_PTR(t));
         }
         free(wifi_ap_records);
     }
     return list;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_scan_obj, esp_scan);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_scan_obj, 1, 2, esp_scan);
 
 //-------------------------------------------------
 STATIC mp_obj_t esp_isconnected(mp_obj_t self_in) {
@@ -697,20 +718,25 @@ STATIC mp_obj_t esp_isconnected(mp_obj_t self_in) {
 	}
     wlan_if_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (self->if_id == WIFI_IF_STA) {
-        //tcpip_adapter_ip_info_t info;
-        //tcpip_adapter_get_ip_info(WIFI_IF_STA, &info);
-        //return mp_obj_new_bool(info.ip.addr != 0);
-        return mp_obj_new_bool(_isConnected);
-    } else {
-        wifi_sta_list_t sta;
-        esp_wifi_ap_get_sta_list(&sta);
-        return mp_obj_new_bool(sta.num != 0);
+        return mp_obj_new_bool(((wifi_sta_isconnected) && (wifi_sta_has_ipaddress)));
+    }
+    else {
+    	bool res = false;
+    	if (wifi_ap_isconnected) {
+			wifi_sta_list_t sta;
+			esp_wifi_ap_get_sta_list(&sta);
+			res = (sta.num != 0);
+    	}
+    	return mp_obj_new_bool(res);
     }
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_isconnected_obj, esp_isconnected);
 
 //-----------------------------------------------------------------
 STATIC mp_obj_t esp_ifconfig(size_t n_args, const mp_obj_t *args) {
+	if (wifi_network_state < 2) {
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "WiFi not started"));
+	}
     wlan_if_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     tcpip_adapter_ip_info_t info;
     tcpip_adapter_dns_info_t dns_info;
@@ -764,6 +790,9 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_ifconfig_obj, 1, 2, esp_ifconfig);
 
 //---------------------------------------------------------------------------------
 STATIC mp_obj_t esp_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs) {
+	if (wifi_network_state < 2) {
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "WiFi not started"));
+	}
     if (n_args != 1 && kwargs->used != 0) {
         mp_raise_TypeError("either pos or kw args are allowed");
     }
@@ -855,6 +884,7 @@ STATIC mp_obj_t esp_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs
     mp_obj_t val;
 
     #define QS(x) (uintptr_t)MP_OBJ_NEW_QSTR(x)
+    mp_obj_tuple_t *t;
     switch ((uintptr_t)args[1]) {
         case QS(MP_QSTR_mac): {
             uint8_t mac[6];
@@ -871,7 +901,18 @@ STATIC mp_obj_t esp_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs
             break;
         case QS(MP_QSTR_authmode):
             req_if = WIFI_IF_AP;
-            val = MP_OBJ_NEW_SMALL_INT(cfg.ap.authmode);
+        	t = mp_obj_new_tuple(2, NULL);
+        	t->items[0] = MP_OBJ_NEW_SMALL_INT(cfg.ap.authmode);
+        	t->items[1] = mp_obj_new_str(wifi_auth_modes[cfg.ap.authmode], strlen(wifi_auth_modes[cfg.ap.authmode]));
+            val = MP_OBJ_FROM_PTR(t);
+            break;
+        case QS(MP_QSTR_wifimode):
+        	t = mp_obj_new_tuple(2, NULL);
+        	t->items[0] = MP_OBJ_NEW_SMALL_INT(self->if_id);
+			if (self->if_id == WIFI_IF_STA)
+				t->items[1] = mp_obj_new_str("STA_IF", 6);
+			else t->items[1] = mp_obj_new_str("AP_IF", 5);
+            val = MP_OBJ_FROM_PTR(t);
             break;
         case QS(MP_QSTR_channel):
             req_if = WIFI_IF_AP;
@@ -1289,7 +1330,6 @@ STATIC const mp_map_elem_t mp_module_network_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_AUTH_WPA_PSK),		MP_OBJ_NEW_SMALL_INT(WIFI_AUTH_WPA_PSK) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_AUTH_WPA2_PSK),		MP_OBJ_NEW_SMALL_INT(WIFI_AUTH_WPA2_PSK) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_AUTH_WPA_WPA2_PSK),	MP_OBJ_NEW_SMALL_INT(WIFI_AUTH_WPA_WPA2_PSK) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_AUTH_MAX),			MP_OBJ_NEW_SMALL_INT(WIFI_AUTH_MAX) },
 
 	#ifdef CONFIG_MICROPY_USE_ETHERNET
     { MP_OBJ_NEW_QSTR(MP_QSTR_PHY_LAN8720),			MP_OBJ_NEW_SMALL_INT(PHY_LAN8720) },

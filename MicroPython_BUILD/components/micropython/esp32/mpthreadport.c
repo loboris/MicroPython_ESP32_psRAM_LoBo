@@ -727,7 +727,7 @@ static int _check_wifi()
     if (info.ip.addr == 0) return 0;
 
     if ((wifi_mode == WIFI_MODE_STA) && ((!wifi_sta_isconnected) || (!wifi_sta_has_ipaddress))) return 0;
-    else if ((wifi_mode == WIFI_MODE_AP) && ((!wifi_ap_isconnected) || (!wifi_ap_sta_isconnected))) return 0;
+    else if ((wifi_mode == WIFI_MODE_AP) && (!wifi_ap_isconnected)) return 0;
 
     return 1;
 }
