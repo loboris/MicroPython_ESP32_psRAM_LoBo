@@ -712,6 +712,31 @@ STATIC void sdcard_print_info(const sdmmc_card_t* card, int mode)
     #endif
 }
 
+//--------------------------------------------------------------
+static void _setPins(int8_t p1, int8_t p2, int8_t p3, int8_t p4)
+{
+    if (p1 >= 0) {
+		gpio_pad_select_gpio(p1);
+		gpio_set_direction(p1, GPIO_MODE_INPUT);
+		gpio_set_pull_mode(p1, GPIO_PULLUP_ONLY);
+    }
+    if (p2 >= 0) {
+		gpio_pad_select_gpio(p2);
+		gpio_set_direction(p2, GPIO_MODE_INPUT);
+		gpio_set_pull_mode(p2, GPIO_PULLUP_ONLY);
+    }
+    if (p3 >= 0) {
+		gpio_pad_select_gpio(p3);
+		gpio_set_direction(p3, GPIO_MODE_INPUT);
+		gpio_set_pull_mode(p3, GPIO_PULLUP_ONLY);
+    }
+    if (p4 >= 0) {
+		gpio_pad_select_gpio(p4);
+		gpio_set_direction(p4, GPIO_MODE_INPUT);
+		gpio_set_pull_mode(p4, GPIO_PULLUP_ONLY);
+    }
+}
+
 //-------------------------
 static void _sdcard_mount()
 {
@@ -729,17 +754,9 @@ static void _sdcard_mount()
 		sdspi_slot_config_t slot_config = SDSPI_SLOT_CONFIG_DEFAULT();
 		host.slot = VSPI_HOST;
 		host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
-
 		slot_config.dma_channel = 2;
-	    gpio_pad_select_gpio(sdcard_config.miso);
-	    gpio_pad_select_gpio(sdcard_config.mosi);
-	    gpio_pad_select_gpio(sdcard_config.clk);
-	    gpio_pad_select_gpio(sdcard_config.cs);
-	    gpio_set_direction(sdcard_config.miso, GPIO_MODE_INPUT);
-	    gpio_set_pull_mode(sdcard_config.miso, GPIO_PULLUP_ONLY);
-	    gpio_set_pull_mode(sdcard_config.clk, GPIO_PULLUP_ONLY);
-	    gpio_set_pull_mode(sdcard_config.mosi, GPIO_PULLUP_ONLY);
-	    gpio_set_pull_mode(sdcard_config.cs, GPIO_PULLUP_ONLY);
+		_setPins(sdcard_config.miso, sdcard_config.mosi, sdcard_config.clk, sdcard_config.cs);
+
 	    slot_config.gpio_miso = sdcard_config.miso;
 	    slot_config.gpio_mosi = sdcard_config.mosi;
 	    slot_config.gpio_sck  = sdcard_config.clk;
@@ -750,12 +767,7 @@ static void _sdcard_mount()
 		sdmmc_host_t host = SDMMC_HOST_DEFAULT();
 		sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
 		host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
-	    gpio_pad_select_gpio(2);
-	    gpio_pad_select_gpio(14);
-	    gpio_pad_select_gpio(15);
-	    gpio_set_pull_mode(2, GPIO_PULLUP_ONLY);
-	    gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
-	    gpio_set_pull_mode(15, GPIO_PULLUP_ONLY);
+		_setPins(2, 14, 15, 13);
 		if (sdcard_config.mode == 2) {
 	        // Use 1-line SD mode
 	        host.flags = SDMMC_HOST_FLAG_1BIT;
@@ -763,12 +775,7 @@ static void _sdcard_mount()
 		}
 		else {
 	        // Use 4-line SD mode
-		    gpio_pad_select_gpio(4);
-		    gpio_pad_select_gpio(12);
-		    gpio_pad_select_gpio(13);
-	        gpio_set_pull_mode(4, GPIO_PULLUP_ONLY);
-	        gpio_set_pull_mode(12, GPIO_PULLUP_ONLY);
-	        gpio_set_pull_mode(13, GPIO_PULLUP_ONLY);
+			_setPins(4, 12, -1, -1);
 		}
 	    ret = esp_vfs_fat_sdmmc_mount(VFS_NATIVE_SDCARD_MOUNT_POINT, &host, &slot_config, &mount_config, &sdmmc_card);
 	}
