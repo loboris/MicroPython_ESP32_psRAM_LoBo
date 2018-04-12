@@ -368,6 +368,8 @@ extern const struct _mp_obj_module_t mp_module_bluetooth;
 typedef int32_t mp_int_t; // must be pointer size
 typedef uint32_t mp_uint_t; // must be pointer size
 typedef long mp_off_t;
+// ssize_t, off_t as required by POSIX-signatured functions in stream.h
+#include <sys/types.h>
 
 // board specifics
 

@@ -510,6 +510,16 @@ STATIC mp_uint_t socket_stream_ioctl(mp_obj_t self_in, mp_uint_t request, uintpt
         if (FD_ISSET(socket->fd, &wfds)) ret |= MP_STREAM_POLL_WR;
         if (FD_ISSET(socket->fd, &efds)) ret |= MP_STREAM_POLL_HUP;
         return ret;
+    } else if (request == MP_STREAM_CLOSE) {
+        if (socket->fd >= 0) {
+            int ret = lwip_close_r(socket->fd);
+            if (ret != 0) {
+                *errcode = errno;
+                return MP_STREAM_ERROR;
+            }
+            socket->fd = -1;
+        }
+        return 0;
     }
 
     *errcode = MP_EINVAL;
@@ -517,8 +527,8 @@ STATIC mp_uint_t socket_stream_ioctl(mp_obj_t self_in, mp_uint_t request, uintpt
 }
 
 STATIC const mp_map_elem_t socket_locals_dict_table[] = {
-    { MP_OBJ_NEW_QSTR(MP_QSTR___del__), (mp_obj_t)&socket_close_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_close), (mp_obj_t)&socket_close_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR___del__), (mp_obj_t)&mp_stream_close_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_close), (mp_obj_t)&mp_stream_close_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_bind), (mp_obj_t)&socket_bind_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_listen), (mp_obj_t)&socket_listen_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_accept), (mp_obj_t)&socket_accept_obj },

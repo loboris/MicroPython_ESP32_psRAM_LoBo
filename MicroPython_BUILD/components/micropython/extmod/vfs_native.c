@@ -750,19 +750,22 @@ static void _sdcard_mount()
 		sdmmc_host_t host = SDMMC_HOST_DEFAULT();
 		sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
 		host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
+	    gpio_pad_select_gpio(2);
+	    gpio_pad_select_gpio(14);
+	    gpio_pad_select_gpio(15);
+	    gpio_set_pull_mode(2, GPIO_PULLUP_ONLY);
+	    gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
+	    gpio_set_pull_mode(15, GPIO_PULLUP_ONLY);
 		if (sdcard_config.mode == 2) {
 	        // Use 1-line SD mode
-		    gpio_set_pull_mode(2, GPIO_PULLUP_ONLY);
-		    gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
-		    gpio_set_pull_mode(15, GPIO_PULLUP_ONLY);
 	        host.flags = SDMMC_HOST_FLAG_1BIT;
 	        slot_config.width = 1;
 		}
 		else {
 	        // Use 4-line SD mode
-	        gpio_set_pull_mode(2, GPIO_PULLUP_ONLY);
-	        gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
-	        gpio_set_pull_mode(15, GPIO_PULLUP_ONLY);
+		    gpio_pad_select_gpio(4);
+		    gpio_pad_select_gpio(12);
+		    gpio_pad_select_gpio(13);
 	        gpio_set_pull_mode(4, GPIO_PULLUP_ONLY);
 	        gpio_set_pull_mode(12, GPIO_PULLUP_ONLY);
 	        gpio_set_pull_mode(13, GPIO_PULLUP_ONLY);

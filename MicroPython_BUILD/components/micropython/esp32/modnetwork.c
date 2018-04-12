@@ -45,7 +45,6 @@
 #include "py/runtime.h"
 #include "py/mphal.h"
 #include "py/mperrno.h"
-//#include "py/obj.h"
 #include "netutils.h"
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
@@ -147,6 +146,7 @@ static const char* const wifi_events[] = {
 	"Ethernet got IP from connected AP",
 };
 
+/*
 static const char* const wifi_cyphers[] = {
 	"NONE",
 	"WEP40",
@@ -156,6 +156,7 @@ static const char* const wifi_cyphers[] = {
 	"TKIP_CCMP",
 	"UNKNOWN",
 };
+*/
 
 static const char* const wifi_auth_modes[] = {
 	"OPEN",
@@ -378,8 +379,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 		_isConnected = 1;
 		break;
 	case SYSTEM_EVENT_STA_DISCONNECTED: {
-		// This is a workaround as ESP32 WiFi libs don't currently
-		// auto-reassociate.
+		// This is a workaround as ESP32 WiFi library doesn't currently auto-reconnect.
 		_isConnected = 0;
 		system_event_sta_disconnected_t *disconn = &event->event_info.disconnected;
 		ESP_LOGI("wifi", "STA_DISCONNECTED, reason:%d", disconn->reason);
@@ -407,8 +407,9 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 					// STA is active so attempt to reconnect.
 					esp_err_t e = esp_wifi_connect();
 					if (e != ESP_OK) {
-						ESP_LOGD("wifi", "error attempting to reconnect: 0x%04x", e);
+						ESP_LOGD("wifi", "error attempting to reconnect: (%d)", e);
 					}
+					else wifi_sta_connected = true;
 				}
 			}
 		}
@@ -429,13 +430,6 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 	if (wifi_mutex) xSemaphoreGive(wifi_mutex);
 	return ESP_OK;
 }
-
-/*void error_check(bool status, const char *msg) {
-    if (!status) {
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, msg));
-    }
-}
-*/
 
 //---------------------------------------------------
 STATIC void require_if(mp_obj_t wlan_if, int if_no) {
@@ -473,7 +467,7 @@ static void _wifi_init(wifi_mode_t mode)
         ESP_LOGE("modnetwork", "Error starting WiFi(%d)", ret);
         mp_raise_OSError(ret);
     }
-    ESP_LOGD("modnetwork", "Started");
+    ESP_LOGD("modnetwork", "Started, mode %d", mode);
 }
 
 //-------------------------------------------------------------
@@ -482,28 +476,72 @@ STATIC mp_obj_t get_wlan(size_t n_args, const mp_obj_t *args) {
         mp_raise_ValueError("TCT/IP Adapter not initialized");
     }
 
-    // Get required WiFi mode
-    int if_id = (n_args > 0) ? mp_obj_get_int(args[0]) : WIFI_IF_STA;
-    if ((if_id != WIFI_IF_STA) && (if_id != WIFI_IF_AP)) {
-        mp_raise_ValueError("invalid WLAN interface identifier");
+    int if_id = 0;
+	wifi_mode_t wifi_mode = WIFI_MODE_NULL;
+
+	if (wifi_network_state == 2) {
+		// wifi started, get mode
+    	esp_err_t ret = esp_wifi_get_mode(&wifi_mode);
+    	if (ret != ESP_OK) {
+            mp_raise_ValueError("Cannot get current wifi mode");
+    	}
+    	if (wifi_mode == WIFI_MODE_STA) if_id = WIFI_IF_STA;
+    	else if_id = WIFI_IF_AP;
+		if (n_args > 0) {
+			// Get required WiFi mode
+			if_id = mp_obj_get_int(args[0]);
+			if ((if_id != WIFI_IF_STA) && (if_id != WIFI_IF_AP)) {
+				mp_raise_ValueError("invalid WLAN interface identifier");
+			}
+			// check required mode
+			if (((if_id == WIFI_IF_STA) && (wifi_mode != WIFI_MODE_STA)) ||
+				((if_id == WIFI_IF_AP) && (wifi_mode != WIFI_MODE_AP))) {
+				mp_raise_ValueError("WiFi already started in different mode");
+			}
+		}
+    }
+    else {
+    	// wifi not started
+		if (n_args > 0) {
+			// Get required WiFi mode
+			if_id = mp_obj_get_int(args[0]);
+			if ((if_id != WIFI_IF_STA) && (if_id != WIFI_IF_AP)) {
+				mp_raise_ValueError("invalid WLAN interface identifier");
+			}
+			// set required mode mode
+			if (if_id == WIFI_IF_STA) wifi_mode = WIFI_MODE_STA;
+			else wifi_mode = WIFI_MODE_AP;
+		}
+		else {
+			// set default mode: STA
+			if_id = WIFI_IF_STA;
+			wifi_mode = WIFI_MODE_STA;
+		}
+		wifi_network_state = 1;
+    	if (n_args > 1) {
+    		// we have the 2nd argument: active
+    		bool active = mp_obj_is_true(args[1]);
+    		if (active) {
+    			// Start wifi in requested mode
+				wifi_mode_t mode;
+				if (if_id == WIFI_IF_STA) mode = WIFI_MODE_STA;
+				else mode = WIFI_MODE_AP;
+				_wifi_init(mode);
+				wifi_network_state = 2;
+    		}
+    	}
     }
 
-    if (wifi_network_state < 2) {
-        wifi_mode_t mode;
-        if (if_id == WIFI_IF_STA) mode = WIFI_MODE_STA;
-        else mode = WIFI_MODE_AP;
-        _wifi_init(mode);
-        wifi_network_state = 2;
-    }
-
+	// Return the WLAN object
     if (if_id == WIFI_IF_STA) return MP_OBJ_FROM_PTR(&wlan_sta_obj);
-    else return MP_OBJ_FROM_PTR(&wlan_ap_obj);
+    return MP_OBJ_FROM_PTR(&wlan_ap_obj);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(get_wlan_obj, 0, 1, get_wlan);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(get_wlan_obj, 0, 2, get_wlan);
 
 //--------------------------------
 STATIC mp_obj_t esp_initialize() {
     if (wifi_network_state < 0) {
+    	// This is executed only once
         ESP_LOGD("modnetwork", "Initializing TCP/IP");
         tcpip_adapter_init();
         ESP_LOGD("modnetwork", "Initializing Event Loop");
@@ -526,6 +564,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(esp_initialize_obj, esp_initialize);
 #error WIFI_MODE_STA and WIFI_MODE_AP are supposed to be bitfields!
 #endif
 
+// Activate (start) Wifi
 //-------------------------------------------------------------
 STATIC mp_obj_t esp_active(size_t n_args, const mp_obj_t *args)
 {
@@ -534,15 +573,18 @@ STATIC mp_obj_t esp_active(size_t n_args, const mp_obj_t *args)
 		return mp_const_false;
 	}
 	if (n_args < 2) {
+		// Return wifi status (started/not started)
 		if (wifi_network_state == 2) return mp_const_true;
 		else return mp_const_false;
 	}
 
 	wlan_if_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
+	// Get requested action
 	bool active = mp_obj_is_true(args[1]);
+
 	if ((!active) && (wifi_network_state == 2)) {
-	  // was active, Deactivate WiFi
+	  // == wifi started, deactivation requested ==
 	  wifi_network_state = 1;
 	  wifi_sta_isconnected = false;
 	  wifi_sta_has_ipaddress = false;
@@ -553,18 +595,20 @@ STATIC mp_obj_t esp_active(size_t n_args, const mp_obj_t *args)
 	  esp_wifi_deinit();
 	}
 	else if ((active) && (wifi_network_state == 1)) {
-		// Was inactive, Activate WiFi
+		// == wifi NOT started, activation requested ==
 		wifi_mode_t mode;
 	    if (self->if_id == WIFI_IF_STA) mode = WIFI_MODE_STA;
 	    else mode = WIFI_MODE_AP;
         _wifi_init(mode);
         wifi_network_state = 2;
 	}
+	// Return new wifi status
 	if (wifi_network_state == 2) return mp_const_true;
 	else return mp_const_false;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_active_obj, 1, 2, esp_active);
 
+// Connect to access point (only in STA mode)
 //----------------------------------------------------------------
 STATIC mp_obj_t esp_connect(size_t n_args, const mp_obj_t *args) {
 
@@ -578,18 +622,21 @@ STATIC mp_obj_t esp_connect(size_t n_args, const mp_obj_t *args) {
         ESP_LOGE("modnetwork", "Error getting WiFi mode (%d)", ret);
         return mp_const_none;
     }
+    // Only connect if in STA mode
     if ((mode & WIFI_MODE_STA) == 0) return mp_const_none;
 
     mp_uint_t len;
     const char *p;
     if (n_args > 1) {
+    	// Get SSID
         memset(&wifi_sta_config, 0, sizeof(wifi_sta_config));
         p = mp_obj_str_get_data(args[1], &len);
         memcpy(wifi_sta_config.sta.ssid, p, MIN(len, sizeof(wifi_sta_config.sta.ssid)));
+        // Get password (optional)
         p = (n_args > 2) ? mp_obj_str_get_data(args[2], &len) : "";
         memcpy(wifi_sta_config.sta.password, p, MIN(len, sizeof(wifi_sta_config.sta.password)));
         if ((n_args > 3)) {
-        	// Get channel
+        	// Get channel (optional
         	int chan = mp_obj_get_int(args[3]);
         	if ((chan >= 1) && (chan <= 13)) wifi_sta_config.sta.channel = chan;
         }
@@ -682,11 +729,12 @@ STATIC mp_obj_t esp_scan(size_t n_args, const mp_obj_t *args) {
 
     mp_obj_t list = mp_obj_new_list(0, NULL);
     wifi_scan_config_t config = { 0 };
-    // XXX how do we scan hidden APs (and if we can scan them, are they really hidden?)
     if (n_args > 1) config.show_hidden = mp_obj_is_true(args[1]);
+
     MP_THREAD_GIL_EXIT();
     esp_err_t status = esp_wifi_scan_start(&config, 1);
     MP_THREAD_GIL_ENTER();
+
     if (status == 0) {
         uint16_t count = 0;
         ESP_EXCEPTIONS( esp_wifi_scan_get_ap_num(&count) );
@@ -732,6 +780,22 @@ STATIC mp_obj_t esp_isconnected(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_isconnected_obj, esp_isconnected);
 
+//----------------------------------------------
+STATIC mp_obj_t esp_isactive(mp_obj_t self_in) {
+	if (wifi_network_state < 2) {
+		return mp_obj_new_bool(false);
+	}
+
+	wifi_mode_t wifi_mode;
+    esp_err_t ret = esp_wifi_get_mode(&wifi_mode);
+    if (ret != ESP_OK) return mp_obj_new_bool(false);
+
+    if (wifi_mode == WIFI_MODE_STA) return mp_obj_new_bool(((wifi_sta_isconnected) && (wifi_sta_has_ipaddress)));
+    else if (wifi_mode == WIFI_MODE_AP) return mp_obj_new_bool(wifi_ap_isconnected);
+	return mp_obj_new_bool(false);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_isactive_obj, esp_isactive);
+
 //-----------------------------------------------------------------
 STATIC mp_obj_t esp_ifconfig(size_t n_args, const mp_obj_t *args) {
 	if (wifi_network_state < 2) {
@@ -743,7 +807,7 @@ STATIC mp_obj_t esp_ifconfig(size_t n_args, const mp_obj_t *args) {
     tcpip_adapter_get_ip_info(self->if_id, &info);
     tcpip_adapter_get_dns_info(self->if_id, TCPIP_ADAPTER_DNS_MAIN, &dns_info);
     if (n_args == 1) {
-        // get
+        // get configuration
         mp_obj_t tuple[4] = {
             netutils_format_ipv4_addr((uint8_t*)&info.ip, NETUTILS_BIG),
             netutils_format_ipv4_addr((uint8_t*)&info.netmask, NETUTILS_BIG),
@@ -751,10 +815,13 @@ STATIC mp_obj_t esp_ifconfig(size_t n_args, const mp_obj_t *args) {
             netutils_format_ipv4_addr((uint8_t*)&dns_info.ip, NETUTILS_BIG),
         };
         return mp_obj_new_tuple(4, tuple);
-    } else {
-        // set
+    }
+    else {
+        // set configuration parameters
         mp_obj_t *items;
         mp_obj_get_array_fixed_n(args[1], 4, &items);
+
+        // Static IP
         netutils_parse_ipv4_addr(items[0], (void*)&info.ip, NETUTILS_BIG);
         if (mp_obj_is_integer(items[1])) {
             // allow numeric netmask, i.e.:
@@ -767,8 +834,11 @@ STATIC mp_obj_t esp_ifconfig(size_t n_args, const mp_obj_t *args) {
         else {
             netutils_parse_ipv4_addr(items[1], (void*)&info.netmask, NETUTILS_BIG);
         }
+        // net mask
         netutils_parse_ipv4_addr(items[2], (void*)&info.gw, NETUTILS_BIG);
+        // gateway
         netutils_parse_ipv4_addr(items[3], (void*)&dns_info.ip, NETUTILS_BIG);
+
         // To set a static IP we have to disable DHCP first
         if ((self->if_id == WIFI_IF_STA) || (self->if_id == ESP_IF_ETH)) {
             esp_err_t e = tcpip_adapter_dhcpc_stop(self->if_id);
@@ -788,6 +858,7 @@ STATIC mp_obj_t esp_ifconfig(size_t n_args, const mp_obj_t *args) {
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_ifconfig_obj, 1, 2, esp_ifconfig);
 
+// Set or get wifi configuration parameters
 //---------------------------------------------------------------------------------
 STATIC mp_obj_t esp_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs) {
 	if (wifi_network_state < 2) {
@@ -989,6 +1060,7 @@ STATIC const mp_map_elem_t wlan_if_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_status), (mp_obj_t)&esp_status_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_scan), (mp_obj_t)&esp_scan_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_isconnected), (mp_obj_t)&esp_isconnected_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_isactive), (mp_obj_t)&esp_isactive_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_config), (mp_obj_t)&esp_config_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_ifconfig), (mp_obj_t)&esp_ifconfig_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_eventCB), (mp_obj_t)&esp_callback_obj },
@@ -1013,6 +1085,9 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp_phy_mode_obj, 0, 1, esp_phy_mode)
 extern const mp_obj_type_t mqtt_type;
 #endif
 
+
+// ==============================
+// ==== FTP & Telnet services ===
 
 #if defined(CONFIG_MICROPY_USE_TELNET) || defined(CONFIG_MICROPY_USE_FTPSERVER)
 #include "mpthreadport.h"

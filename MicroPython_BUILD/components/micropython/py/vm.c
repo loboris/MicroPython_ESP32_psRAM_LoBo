@@ -5,8 +5,8 @@
  *
  * Copyright (c) 2013, 2014 Damien P. George
  * Copyright (c) 2014 Paul Sokolovsky
-* Copyright (c) 2018 LoBo (https://github.com/loboris)
-  *
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -914,21 +914,22 @@ unwind_jump:;
                         code_state->sp = sp;
                         code_state->exc_sp = MP_TAGPTR_MAKE(exc_sp, currently_in_except_block);
                         mp_code_state_t *new_state = mp_obj_fun_bc_prepare_codestate(*sp, unum & 0xff, (unum >> 8) & 0xff, sp + 1);
-                        if (new_state) {
+                        #if !MICROPY_ENABLE_PYSTACK
+                        if (new_state == NULL) {
+                            // Couldn't allocate codestate on heap: in the strict case raise
+                            // an exception, otherwise just fall through to stack allocation.
+                            #if MICROPY_STACKLESS_STRICT
+                        deep_recursion_error:
+                            mp_raise_recursion_depth();
+                            #endif
+                        } else
+                        #endif
+                        {
                             new_state->prev = code_state;
                             code_state = new_state;
                             nlr_pop();
                             goto run_code_state;
                         }
-                        #if MICROPY_STACKLESS_STRICT
-                        else {
-                        deep_recursion_error:
-                            mp_raise_recursion_depth();
-                        }
-                        #else
-                        // If we couldn't allocate codestate on heap, in
-                        // non non-strict case fall thru to stack allocation.
-                        #endif
                     }
                     #endif
                     SET_TOP(mp_call_function_n_kw(*sp, unum & 0xff, (unum >> 8) & 0xff, sp + 1));
@@ -959,20 +960,21 @@ unwind_jump:;
                         // pystack is not enabled.  For pystack, they are freed when code_state is.
                         mp_nonlocal_free(out_args.args, out_args.n_alloc * sizeof(mp_obj_t));
                         #endif
-                        if (new_state) {
+                        #if !MICROPY_ENABLE_PYSTACK
+                        if (new_state == NULL) {
+                            // Couldn't allocate codestate on heap: in the strict case raise
+                            // an exception, otherwise just fall through to stack allocation.
+                            #if MICROPY_STACKLESS_STRICT
+                            goto deep_recursion_error;
+                            #endif
+                        } else
+                        #endif
+                        {
                             new_state->prev = code_state;
                             code_state = new_state;
                             nlr_pop();
                             goto run_code_state;
                         }
-                        #if MICROPY_STACKLESS_STRICT
-                        else {
-                            goto deep_recursion_error;
-                        }
-                        #else
-                        // If we couldn't allocate codestate on heap, in
-                        // non non-strict case fall thru to stack allocation.
-                        #endif
                     }
                     #endif
                     SET_TOP(mp_call_method_n_kw_var(false, unum, sp));
@@ -996,20 +998,21 @@ unwind_jump:;
                         int adjust = (sp[1] == MP_OBJ_NULL) ? 0 : 1;
 
                         mp_code_state_t *new_state = mp_obj_fun_bc_prepare_codestate(*sp, n_args + adjust, n_kw, sp + 2 - adjust);
-                        if (new_state) {
+                        #if !MICROPY_ENABLE_PYSTACK
+                        if (new_state == NULL) {
+                            // Couldn't allocate codestate on heap: in the strict case raise
+                            // an exception, otherwise just fall through to stack allocation.
+                            #if MICROPY_STACKLESS_STRICT
+                            goto deep_recursion_error;
+                            #endif
+                        } else
+                        #endif
+                        {
                             new_state->prev = code_state;
                             code_state = new_state;
                             nlr_pop();
                             goto run_code_state;
                         }
-                        #if MICROPY_STACKLESS_STRICT
-                        else {
-                            goto deep_recursion_error;
-                        }
-                        #else
-                        // If we couldn't allocate codestate on heap, in
-                        // non non-strict case fall thru to stack allocation.
-                        #endif
                     }
                     #endif
                     SET_TOP(mp_call_method_n_kw(unum & 0xff, (unum >> 8) & 0xff, sp));
@@ -1040,20 +1043,21 @@ unwind_jump:;
                         // pystack is not enabled.  For pystack, they are freed when code_state is.
                         mp_nonlocal_free(out_args.args, out_args.n_alloc * sizeof(mp_obj_t));
                         #endif
-                        if (new_state) {
+                        #if !MICROPY_ENABLE_PYSTACK
+                        if (new_state == NULL) {
+                            // Couldn't allocate codestate on heap: in the strict case raise
+                            // an exception, otherwise just fall through to stack allocation.
+                            #if MICROPY_STACKLESS_STRICT
+                            goto deep_recursion_error;
+                            #endif
+                        } else
+                        #endif
+                        {
                             new_state->prev = code_state;
                             code_state = new_state;
                             nlr_pop();
                             goto run_code_state;
                         }
-                        #if MICROPY_STACKLESS_STRICT
-                        else {
-                            goto deep_recursion_error;
-                        }
-                        #else
-                        // If we couldn't allocate codestate on heap, in
-                        // non non-strict case fall thru to stack allocation.
-                        #endif
                     }
                     #endif
                     SET_TOP(mp_call_method_n_kw_var(true, unum, sp));
@@ -1121,7 +1125,7 @@ unwind_return:
 
                 ENTRY(MP_BC_RAISE_VARARGS): {
                     MARK_EXC_IP_SELECTIVE();
-                    mp_uint_t unum = *ip++;
+                    mp_uint_t unum = *ip;
                     mp_obj_t obj;
                     if (unum == 2) {
                         mp_warning("exception chaining not supported");
@@ -1142,7 +1146,7 @@ unwind_return:
                             RAISE(obj);
                         }
                     } else {
-                        obj = POP();
+                        obj = TOP();
                     }
                     obj = mp_make_raise_obj(obj);
                     RAISE(obj);

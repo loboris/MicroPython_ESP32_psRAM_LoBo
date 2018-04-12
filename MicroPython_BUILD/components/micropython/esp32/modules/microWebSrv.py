@@ -1,10 +1,19 @@
+"""
+The MIT License (MIT)
+Copyright © 2018 Jean-Christophe Bos & HC² (www.hc2.fr)
+Copyright © 2018 LoBo (https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo)
+"""
 
-from    json        import dumps
-from    os          import stat
-import  socket
-import  gc
-import  network
-import  socket, gc, _thread, time
+
+from   json        import loads, dumps
+from   os          import stat
+import _thread
+import network
+import time
+import socket
+import websocket
+import gc
+import re
 
 try :
     from microWebTemplate import MicroWebTemplate
@@ -15,6 +24,15 @@ try :
     from microWebSocket import MicroWebSocket
 except :
     pass
+
+class MicroWebSrvRoute :
+    def __init__(self, route, method, func, routeArgNames, routeRegex) :
+        self.route         = route        
+        self.method        = method       
+        self.func          = func         
+        self.routeArgNames = routeArgNames
+        self.routeRegex    = routeRegex   
+
 
 class MicroWebSrv :
 
@@ -62,14 +80,33 @@ class MicroWebSrv :
     _pyhtmlPagesExt = '.pyhtml'
 
     # ============================================================================
+    # ===( Class globals  )=======================================================
+    # ============================================================================
+
+    _docoratedRouteHandlers = []
+
+    # ============================================================================
     # ===( Utils  )===============================================================
     # ============================================================================
 
+    @classmethod
+    def route(cls, url, method='GET'):
+        """ Adds a route handler function to the routing list """
+        def route_decorator(func):
+            item = (url, method, func)
+            cls._docoratedRouteHandlers.append(item)
+            return func
+        return route_decorator
+
+    # ----------------------------------------------------------------------------
+
+    @staticmethod
     def HTMLEscape(s) :
         return ''.join(MicroWebSrv._html_escape_chars.get(c, c) for c in s)
 
     # ----------------------------------------------------------------------------
 
+    @staticmethod
     def _tryAllocByteArray(size) :
         for x in range(10) :
             try :
@@ -81,9 +118,10 @@ class MicroWebSrv :
 
     # ----------------------------------------------------------------------------
 
-    def _tryStartThread(func, args=()) :
-        _ = _thread.stack_size(8*1024)
-        for x in range(4) :
+    @staticmethod
+    def _tryStartThread(func, args=(), stacksize=8192) :
+        _ = _thread.stack_size(stacksize)
+        for x in range(10) :
             try :
                 gc.collect()
                 th = _thread.start_new_thread("MicroWebServer", func, args)
@@ -93,6 +131,8 @@ class MicroWebSrv :
         return False
 
     # ----------------------------------------------------------------------------
+
+    @staticmethod
     def _unquote(s) :
         r = s.split('%')
         for i in range(1, len(r)) :
@@ -105,11 +145,13 @@ class MicroWebSrv :
 
     # ----------------------------------------------------------------------------
 
+    @staticmethod
     def _unquote_plus(s) :
         return MicroWebSrv._unquote(s.replace('+', ' '))
 
     # ----------------------------------------------------------------------------
 
+    @staticmethod
     def _fileExists(path) :
         try :
             stat(path)
@@ -119,6 +161,7 @@ class MicroWebSrv :
 
     # ----------------------------------------------------------------------------
 
+    @staticmethod
     def _isPyHTMLFile(filename) :
         return filename.lower().endswith(MicroWebSrv._pyhtmlPagesExt)
 
@@ -127,11 +170,11 @@ class MicroWebSrv :
     # ============================================================================
 
     def __init__( self,
-                  routeHandlers = None,
+                  routeHandlers = [],
                   port          = 80,
                   bindIP        = '0.0.0.0',
                   webPath       = "/flash/www" ) :
-        self._routeHandlers = routeHandlers
+
         self._srvAddr       = (bindIP, port)
         self._webPath       = webPath
         self._notFoundUrl   = None
@@ -144,6 +187,25 @@ class MicroWebSrv :
         self.WebSocketThreaded       = True
         self.WebSocketStackSize      = 4096
         self.AcceptWebSocketCallback = None
+
+        self._routeHandlers = []
+        routeHandlers += self._docoratedRouteHandlers
+        for route, method, func in routeHandlers :
+            routeParts = route.split('/')
+            # -> ['', 'users', '<uID>', 'addresses', '<addrID>', 'test', '<anotherID>']
+            routeArgNames = []
+            routeRegex    = ''
+            for s in routeParts :
+                if s.startswith('<') and s.endswith('>') :
+                    routeArgNames.append(s[1:-1])
+                    routeRegex += '/(\\w*)'
+                elif s :
+                    routeRegex += '/' + s
+            routeRegex += '$'
+            # -> '/users/(\w*)/addresses/(\w*)/test/(\w*)$'
+            routeRegex = re.compile(routeRegex)
+
+            self._routeHandlers.append(MicroWebSrvRoute(route, method, func, routeArgNames, routeRegex))
 
     # ============================================================================
     # ===( Server Process )=======================================================
@@ -168,18 +230,22 @@ class MicroWebSrv :
                     # gc.collect()
                     time.sleep_ms(2)
                     continue
-            except :
+            except Exception as e:
+                if not self.isThreaded:
+                    print(e)
                 break
             self._client(self, client, cliAddr)
         self._started = False
+        self._state = "Stoped"
+        self.thID = None
 
     # ============================================================================
     # ===( Functions )============================================================
     # ============================================================================
 
-    def Start(self, threaded=True) :
+    def Start(self, threaded=True, stackSize=8192) :
         if not self._started :
-            if not network.WLAN().isconnected():
+            if not network.WLAN().isactive():
                 print("WLAN not connected!")
                 return
             gc.collect()
@@ -195,7 +261,7 @@ class MicroWebSrv :
             # using non-blocking socket
             self._server.settimeout(0.5)
             if threaded :
-                th = MicroWebSrv._tryStartThread(self._serverProcess)
+                th = MicroWebSrv._tryStartThread(self._serverProcess, stacksize=stackSize)
                 if th:
                     self.thID = th
             else :
@@ -206,6 +272,8 @@ class MicroWebSrv :
     def Stop(self) :
         if self._started :
             self._server.close()
+            if self.isThreaded:
+                _ = _thread.notify(self.thID, _thread.EXIT)
 
     # ----------------------------------------------------------------------------
 
@@ -237,17 +305,30 @@ class MicroWebSrv :
         return None
 
     # ----------------------------------------------------------------------------
-
+    
     def GetRouteHandler(self, resUrl, method) :
         if self._routeHandlers :
-            resUrl = resUrl.upper()
+            #resUrl = resUrl.upper()
+            if resUrl.endswith('/') :
+                resUrl = resUrl[:-1]
             method = method.upper()
-            for route in self._routeHandlers :
-                if len(route) == 3 and            \
-                   route[0].upper() == resUrl and \
-                   route[1].upper() == method :
-                   return route[2]
-        return None
+            for rh in self._routeHandlers :
+                if rh.method == method :
+                    m = rh.routeRegex.match(resUrl)
+                    if m :   # found matching route?
+                        if rh.routeArgNames :
+                            routeArgs = {}
+                            for i, name in enumerate(rh.routeArgNames) :
+                                value = m.group(i+1)
+                                try :
+                                    value = int(value)
+                                except :
+                                    pass
+                                routeArgs[name] = value
+                            return (rh.func, routeArgs)
+                        else :
+                            return (rh.func, None)
+        return (None, None)
 
     # ----------------------------------------------------------------------------
 
@@ -272,7 +353,7 @@ class MicroWebSrv :
         # ------------------------------------------------------------------------
 
         def __init__(self, microWebSrv, socket, addr) :
-            socket.settimeout(4)
+            socket.settimeout(2)
             self._microWebSrv   = microWebSrv
             self._socket        = socket
             self._addr          = addr
@@ -285,6 +366,7 @@ class MicroWebSrv :
             self._headers       = { }
             self._contentType   = None
             self._contentLength = 0
+            
             self._processRequest()
 
         # ------------------------------------------------------------------------
@@ -296,9 +378,12 @@ class MicroWebSrv :
                     if self._parseHeader(response) :
                         upg = self._getConnUpgrade()
                         if not upg :
-                            routeHandler = self._microWebSrv.GetRouteHandler(self._resPath, self._method)
+                            routeHandler, routeArgs = self._microWebSrv.GetRouteHandler(self._resPath, self._method)
                             if routeHandler :
-                                routeHandler(self, response)
+                                if routeArgs is not None:
+                                    routeHandler(self, response, routeArgs)
+                                else:
+                                    routeHandler(self, response)
                             elif self._method.upper() == "GET" :
                                 filepath = self._microWebSrv._physPathFromURLPath(self._resPath)
                                 if filepath :
@@ -470,6 +555,14 @@ class MicroWebSrv :
                         value = MicroWebSrv._unquote(param[1]) if len(param) > 1 else ''
                         res[MicroWebSrv._unquote(param[0])] = value
             return res
+
+        # ------------------------------------------------------------------------
+
+        def ReadRequestContentAsJSON(self) :
+            try :
+                return loads(self.ReadRequestContent())
+            except :
+                return None
         
     # ============================================================================
     # ===( Class Response  )======================================================
@@ -485,13 +578,15 @@ class MicroWebSrv :
         # ------------------------------------------------------------------------
 
         def _write(self, data) :
+            if type(data) == str:
+                data = data.encode()
             return self._client._socket.write(data)
 
         # ------------------------------------------------------------------------
 
         def _writeFirstLine(self, code) :
             reason = self._responseCodes.get(code, ('Unknown reason', ))[0]
-            self._write("HTTP/1.0 %s %s\r\n" % (code, reason))
+            self._write("HTTP/1.1 %s %s\r\n" % (code, reason))
 
         # ------------------------------------------------------------------------
 
@@ -510,6 +605,11 @@ class MicroWebSrv :
 
         # ------------------------------------------------------------------------
 
+        def _writeServerHeader(self) :
+            self._writeHeader("Server", "MicroWebSrv by JC`zic")
+
+        # ------------------------------------------------------------------------
+
         def _writeEndHeader(self) :
             self._write("\r\n")
 
@@ -523,9 +623,9 @@ class MicroWebSrv :
             if contentLength > 0 :
                 self._writeContentTypeHeader(contentType, contentCharset)
                 self._writeHeader("Content-Length", contentLength)
-            self._writeHeader("Server", "MicroWebSrv by JC`zic")
+            self._writeServerHeader()
             self._writeHeader("Connection", "close")
-            self._writeEndHeader()        
+            self._writeEndHeader()
 
         # ------------------------------------------------------------------------
 
@@ -536,6 +636,8 @@ class MicroWebSrv :
             if isinstance(headers, dict) :
                 for header in headers :
                     self._writeHeader(header, headers[header])
+            self._writeServerHeader()
+            self._writeEndHeader()
 
         # ------------------------------------------------------------------------
 
@@ -555,9 +657,10 @@ class MicroWebSrv :
             if 'MicroWebTemplate' in globals() :
                 with open(filepath, 'r') as file :
                     code = file.read()
-                mWebTmpl = MicroWebTemplate(code, escapeStrFunc=MicroWebSrv.HTMLEscape)
+                mWebTmpl = MicroWebTemplate(code, escapeStrFunc=MicroWebSrv.HTMLEscape, filepath=filepath)
                 try :
-                    return self.WriteResponseOk(headers, "text/html", "UTF-8", mWebTmpl.Execute())
+                    tmplResult = mWebTmpl.Execute()
+                    return self.WriteResponse(200, headers, "text/html", "UTF-8", tmplResult)
                 except Exception as ex :
                     return self.WriteResponse( 500,
     	                                       None,
@@ -609,7 +712,7 @@ class MicroWebSrv :
         # ------------------------------------------------------------------------
 
         def WriteResponseJSONOk(self, obj=None, headers=None) :
-            return self.WriteResponseOk(headers, "application/json", "UTF-8", dumps(obj))
+            return self.WriteResponse(200, headers, "application/json", "UTF-8", dumps(obj))
 
         # ------------------------------------------------------------------------
 

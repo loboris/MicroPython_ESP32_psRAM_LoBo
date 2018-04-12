@@ -152,7 +152,19 @@ STATIC mp_uint_t file_obj_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t arg,
 		// fsync() not implemented.
 		return 0;
 
-	} else {
+    } else if (request == MP_STREAM_CLOSE) {
+        // if fs==NULL then the file is closed and in that case this method is a no-op
+        if (self->fd != -1) {
+    		int res = close(self->fd);
+    		self->fd = -1;
+    		if (res < 0) {
+                *errcode = errno;
+                return MP_STREAM_ERROR;
+    		}
+        }
+        return 0;
+
+    } else {
 		ESP_LOGD(TAG, "ioctl(%d, %d, ..): error %d", self->fd, request, MP_EINVAL);
 		*errcode = MP_EINVAL;
 		return MP_STREAM_ERROR;

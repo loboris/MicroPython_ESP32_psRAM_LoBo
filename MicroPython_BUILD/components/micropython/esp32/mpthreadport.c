@@ -282,9 +282,9 @@ STATIC void mp_clean_thread(thread_t *th)
 {
 	if (th->threadQueue) {
 		int n = 1;
-		while (n) {
+		while (n > 0) {
 			n = uxQueueMessagesWaiting(th->threadQueue);
-			if (n) {
+			if (n > 0) {
 				thread_msg_t msg;
 				xQueueReceive(th->threadQueue, &msg, 0);
 				if (msg.strdata != NULL) free(msg.strdata);
@@ -322,24 +322,6 @@ int mp_thread_mutex_lock(mp_thread_mutex_t *mutex, int wait) {
 //-----------------------------------------------------
 void mp_thread_mutex_unlock(mp_thread_mutex_t *mutex) {
     xSemaphoreGive(mutex->handle);
-}
-
-// Terminate all Python threads
-// used before entering sleep/reset
-//---------------------------
-void mp_thread_deinit(void) {
-    mp_thread_mutex_lock(&thread_mutex, 1);
-    for (thread_t *th = thread; th != NULL; th = th->next) {
-        // don't delete the current task
-        if (th->id == xTaskGetCurrentTaskHandle()) {
-            continue;
-        }
-    	mp_clean_thread(th);
-        vTaskDelete(th->id);
-    }
-    mp_thread_mutex_unlock(&thread_mutex);
-    // allow FreeRTOS to clean-up the threads
-    vTaskDelay(2);
 }
 
 //--------------------------------------
@@ -443,6 +425,17 @@ int mp_thread_notify(TaskHandle_t id, uint32_t value) {
         }
     }
     if (id == 0) res = 1;
+    mp_thread_mutex_unlock(&thread_mutex);
+    return res;
+}
+
+//---------------------------
+int mp_thread_num_threads() {
+	int res = 0;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+        if (th->id != xTaskGetCurrentTaskHandle()) res++;
+    }
     mp_thread_mutex_unlock(&thread_mutex);
     return res;
 }

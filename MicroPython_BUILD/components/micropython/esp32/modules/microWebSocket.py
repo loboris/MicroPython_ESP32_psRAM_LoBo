@@ -1,8 +1,16 @@
+"""
+The MIT License (MIT)
+Copyright © 2018 Jean-Christophe Bos & HC² (www.hc2.fr)
+Copyright © 2018 LoBo (https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo)
+"""
 
 from   hashlib     import sha1
 from   binascii    import b2a_base64
 from   struct      import pack
-import gc, _thread, time
+import _thread
+import time
+import gc
+import websocket
 
 class MicroWebSocket :
 
@@ -26,6 +34,7 @@ class MicroWebSocket :
     # ===( Utils  )===============================================================
     # ============================================================================
 
+    @staticmethod
     def _tryAllocByteArray(size) :
         for x in range(10) :
             try :
@@ -37,6 +46,7 @@ class MicroWebSocket :
 
     # ----------------------------------------------------------------------------
 
+    @staticmethod
     def _tryStartThread(func, args=(), stackSize=4096) :
         _ = _thread.stack_size(stackSize)
         for x in range(4) :
@@ -61,6 +71,7 @@ class MicroWebSocket :
         self.ClosedCallback     = None
         self.thID               = None
         self.isThreaded         = threaded
+
         if self._handshake(httpResponse) :
             self._ctrlBuf = MicroWebSocket._tryAllocByteArray(0x7D)
             self._msgBuf  = MicroWebSocket._tryAllocByteArray(maxRecvLen)
@@ -71,7 +82,7 @@ class MicroWebSocket :
                     th = MicroWebSocket._tryStartThread(self._wsProcess, (acceptCallback, ), stackSize)
                     if th:
                         self.thID = th
-                    return
+                        return
                 else :
                     self._wsProcess(acceptCallback)
                     return
@@ -89,8 +100,9 @@ class MicroWebSocket :
         try :
             key = self._httpCli.GetRequestHeaders().get('Sec-WebSocket-Key', None)
             if key :
-                r = sha1(key + self._handshakeSign).digest()
-                r = b2a_base64(r).decode()
+                key += self._handshakeSign
+                r = sha1(key.encode()).digest()
+                r = b2a_base64(r).decode().strip()
                 httpResponse.WriteSwitchProto("websocket", { "Sec-WebSocket-Accept" : r })
                 return True
         except :
@@ -106,7 +118,6 @@ class MicroWebSocket :
             acceptCallback(self, self._httpCli)
         except Exception as ex :
             print("MicroWebSocket : Error on accept callback (%s)." % str(ex))
-
         while not self._closed :
             if self.isThreaded:
                 notify = _thread.getnotification()
@@ -115,7 +126,6 @@ class MicroWebSocket :
                     break
             if not self._receiveFrame() :
                 self.Close()
-
         if self.ClosedCallback :
             try :
                 self.ClosedCallback(self)
@@ -126,7 +136,6 @@ class MicroWebSocket :
 
     def _receiveFrame(self) :
         try :
-
             b = self._socket.read(2)
             if not b or len(b) != 2 :
                 return False
@@ -163,7 +172,8 @@ class MicroWebSocket :
                     buf = memoryview(self._msgBuf)[self._msgLen:]
                     if length > len(buf) :
                         return False
-                    if self._socket.readinto(buf, length) != length :
+                    x = self._socket.readinto(buf[0:length])
+                    if x != length :
                         return False
                     if masked :
                         for i in range(length) :
@@ -194,7 +204,8 @@ class MicroWebSocket :
                 if length > len(self._ctrlBuf) :
                     return False
                 if length > 0 :
-                    if self._socket.readinto(self._ctrlBuf, length) != length :
+                    x = self._socket.readinto(self._ctrlBuf[0:length])
+                    if x != length :
                         return False
                     pingData = memoryview(self._ctrlBuf)[:length]
                 else :
@@ -222,9 +233,12 @@ class MicroWebSocket :
                         if dataLen > 0 :
                             if dataLen >= 0x7E :
                                 self._socket.write(pack('>H', dataLen))
-                            return self._socket.write(data) == dataLen
+                            ret = self._socket.write(data) == dataLen
                         else :
-                            return True
+                            ret = True
+                        if self._socket is not self._socket :
+                            self._socket.flush()   # CPython needs flush to continue protocol
+                        return ret
                 except :
                     pass
         return False

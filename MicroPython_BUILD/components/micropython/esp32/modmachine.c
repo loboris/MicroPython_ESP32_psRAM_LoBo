@@ -278,10 +278,7 @@ void prepareSleepReset(uint8_t hrst, char *msg)
 	internalUmount();
 
 	if (!hrst) {
-		mp_thread_deinit();
-
 		if (msg) mp_hal_stdout_tx_str(msg);
-
 		// deinitialise peripherals
 		//ToDo: deinitialize other peripherals, threads, services, ...
 		machine_pins_deinit();
@@ -462,7 +459,7 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
     }
 
     if (machine_rtc_config.ext0_pin >= 0) {
-    	printf("EXT0=%d\n", machine_rtc_config.ext0_pin);
+    	ESP_LOGD("DEEP SLEEP", "EXT0=%d\n", machine_rtc_config.ext0_pin);
         esp_sleep_enable_ext0_wakeup((gpio_num_t)machine_rtc_config.ext0_pin, machine_rtc_config.ext0_level ? 1 : 0);
 		esp_set_deep_sleep_wake_stub(&wake_stub);
     }
@@ -475,7 +472,7 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
         }
     }
     if (ext1_pins != 0) {
-    	printf("EXT1 = [%llx]\n", ext1_pins);
+    	ESP_LOGD("DEEP SLEEP", "EXT1 = [%llx]\n", ext1_pins);
     	//esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
     	uint8_t ext1_level = machine_rtc_config.ext1_level;
     	if (machine_rtc_config.ext1_level == EXT1_WAKEUP_ALL_HIGH) ext1_level = ESP_EXT1_WAKEUP_ANY_HIGH;
@@ -487,9 +484,9 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
         esp_sleep_enable_touchpad_wakeup();
     }
 
-	printf("Sleep time: time=%d, interval=%d, pin=%d, level=%d, wait=%llu\n",
+	ESP_LOGD("DEEP SLEEP", "Sleep time: time=%d, interval=%d, pin=%d, level=%d, wait=%llu\n",
 			sleep_time, stub_sleep, led_pin, args[ARG_stub_ledlevel].u_bool, wait_in_stub);
-    prepareSleepReset(0, "ESP32: DEEP SLEEP\n");
+    prepareSleepReset(0, NULL);
 
     if ((stub_sleep) || (led_pin >= 0)) {
     	if (led_pin >= 0) {
