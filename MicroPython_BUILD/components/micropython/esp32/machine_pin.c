@@ -165,7 +165,7 @@ STATIC mp_obj_t machine_pin_obj_init_helper(const machine_pin_obj_t *self, size_
 
 	// configure the pin for gpio
     if (rtc_gpio_is_valid_gpio(self->id)) rtc_gpio_deinit(self->id);
-    if (self->id < 28) gpio_pad_select_gpio(self->id);
+    gpio_pad_select_gpio(self->id);
 
     // set initial value (do this before configuring mode/pull)
     if (args[ARG_value].u_obj != MP_OBJ_NULL) {

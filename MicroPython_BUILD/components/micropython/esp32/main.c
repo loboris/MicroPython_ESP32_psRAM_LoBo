@@ -270,10 +270,19 @@ void micropython_entry(void) {
 
 	// === Set esp32 log levels while running MicroPython ===
 	if (CONFIG_MICRO_PY_LOG_LEVEL < CONFIG_LOG_DEFAULT_LEVEL) esp_log_level_set("*", CONFIG_MICRO_PY_LOG_LEVEL);
-	esp_log_level_set("wifi", ESP_LOG_ERROR);
-	esp_log_level_set("rmt", ESP_LOG_ERROR);
+	if ((CONFIG_LOG_DEFAULT_LEVEL > ESP_LOG_WARN) && (CONFIG_MICRO_PY_LOG_LEVEL > ESP_LOG_WARN)){
+		esp_log_level_set("wifi", ESP_LOG_WARN);
+		esp_log_level_set("rmt", ESP_LOG_WARN);
+		esp_log_level_set("tcpip_adapter", ESP_LOG_WARN);
+		esp_log_level_set("event", ESP_LOG_WARN);
+		esp_log_level_set("nvs", ESP_LOG_WARN);
+		esp_log_level_set("phy_init", ESP_LOG_WARN);
+		esp_log_level_set("wl_flash", ESP_LOG_WARN);
+		esp_log_level_set("RTC_MODULE", ESP_LOG_WARN);
+	}
 	#ifdef CONFIG_MICROPY_USE_OTA
-	esp_log_level_set("OTA_UPDATE", ESP_LOG_DEBUG);
+	if (CONFIG_LOG_DEFAULT_LEVEL >= ESP_LOG_DEBUG) esp_log_level_set("OTA_UPDATE", ESP_LOG_DEBUG);
+	else esp_log_level_set("OTA_UPDATE", CONFIG_LOG_DEFAULT_LEVEL);
 	#endif
 
     nvs_flash_init();

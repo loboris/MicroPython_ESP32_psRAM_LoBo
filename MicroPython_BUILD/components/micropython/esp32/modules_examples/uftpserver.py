@@ -148,8 +148,8 @@ def ftpserver(timeout = 300, inthread = False, prnip = True):
     if prnip:
         print ("Starting ftp server. Version 1.2")
 
-    if not network.WLAN().isconnected():
-        print("Not connected!")
+    if not network.WLAN().wifiactive():
+        print("WiFi not started!")
         return
 
     DATA_PORT = 1050

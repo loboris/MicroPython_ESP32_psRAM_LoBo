@@ -700,29 +700,20 @@ int mp_thread_replAcceptMsg(int8_t accept) {
 
 #if defined(CONFIG_MICROPY_USE_TELNET) || defined(CONFIG_MICROPY_USE_FTPSERVER)
 // Check if WiFi connection is available
-//----------------------
-static int _check_wifi()
+//-----------------------
+static bool _check_wifi()
 {
-    if (wifi_network_state < 2) return 2;
+    if (wifi_network_state < 2) return false;
 
-    tcpip_adapter_if_t if_type;
-    tcpip_adapter_ip_info_t info;
+    bool res = 0;
     wifi_mode_t wifi_mode;
 
     esp_err_t ret = esp_wifi_get_mode(&wifi_mode);
-    if (ret != ESP_OK) return 0;
-    if (wifi_mode == WIFI_MODE_AP) if_type = TCPIP_ADAPTER_IF_AP;
-    else if (wifi_mode == WIFI_MODE_STA) if_type = TCPIP_ADAPTER_IF_STA;
-    else return 2;
-
-    ret = tcpip_adapter_get_ip_info(if_type, &info);
-    if (ret != ESP_OK) return 0;
-    if (info.ip.addr == 0) return 0;
-
-    if ((wifi_mode == WIFI_MODE_STA) && ((!wifi_sta_isconnected) || (!wifi_sta_has_ipaddress))) return 0;
-    else if ((wifi_mode == WIFI_MODE_AP) && (!wifi_ap_isconnected)) return 0;
-
-    return 1;
+    if (ret == ESP_OK) {
+		if ((wifi_mode & WIFI_MODE_STA) && ((wifi_sta_isconnected) && (wifi_sta_has_ipaddress))) res = true;
+		if ((wifi_mode & WIFI_MODE_AP) && wifi_ap_isconnected) res = true;
+    }
+    return res;
 }
 #endif
 
@@ -730,45 +721,40 @@ static int _check_wifi()
 //===================================
 void telnet_task (void *pvParameters)
 {
-    int res;
     // Initialize telnet, create rx buffer and mutex
     telnet_init();
 
     // Check if WiFi connection is available
-    res = _check_wifi();
-    while ( res == 0) {
+    while (!_check_wifi()) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        res = _check_wifi();
+        if (telnet_stop_requested()) goto exit;
     }
-    if (res == 2) goto exit;
 
     // We have WiFi connection, enable telnet
     telnet_enable();
 
     while (1) {
-        res = telnet_run();
+        int res = telnet_run();
         if ( res < 0) {
             if (res == -1) {
                 ESP_LOGD("[Telnet]", "\nRun Error");
             }
+            // -2 is returned if Telnet stop was requested by user
             break;
         }
 
         vTaskDelay(1);
 
         // ---- Check if WiFi is still available ----
-        res = _check_wifi();
-        if (res == 0) {
+        if (!_check_wifi()) {
             bool was_enabled = telnet_isenabled();
             telnet_disable();
-            while ( res == 0) {
+            while (!_check_wifi()) {
                 vTaskDelay(200 / portTICK_PERIOD_MS);
-                res = _check_wifi();
-                if (res == 2) goto exit;
+                if (telnet_stop_requested()) goto exit;
             }
             if (was_enabled) telnet_enable();
         }
-        else if (res == 2) break;
         // ------------------------------------------
     }
 exit:
@@ -802,17 +788,14 @@ uintptr_t mp_thread_createTelnetTask(size_t stack_size)
 //================================
 void ftp_task (void *pvParameters)
 {
-    int res;
     uint64_t elapsed, time_ms = mp_hal_ticks_ms();
     // Initialize ftp, create rx buffer and mutex
     ftp_init();
 
-    res = _check_wifi();
-    while ( res == 0) {
+    while (!_check_wifi()) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        res = _check_wifi();
+        if (ftp_stop_requested()) goto exit;
     }
-    if (res == 2) goto exit;
 
     // We have WiFi connection, enable ftp
     ftp_enable();
@@ -822,29 +805,27 @@ void ftp_task (void *pvParameters)
         elapsed = mp_hal_ticks_ms() - time_ms;
         time_ms = mp_hal_ticks_ms();
 
-        res = ftp_run(elapsed);
+        int res = ftp_run(elapsed);
         if (res < 0) {
             if (res == -1) {
                 ESP_LOGD("[Ftp]", "\nRun Error");
             }
+            // -2 is returned if Ftp stop was requested by user
             break;
         }
 
         vTaskDelay(1);
 
         // ---- Check if WiFi is still available ----
-        res = _check_wifi();
-        if (res == 0) {
+        if (!_check_wifi()) {
             bool was_enabled = ftp_isenabled();
             ftp_disable();
-            while ( res == 0) {
+            while (!_check_wifi()) {
                 vTaskDelay(200 / portTICK_PERIOD_MS);
-                res = _check_wifi();
-                if (res == 2) goto exit;
+                if (ftp_stop_requested()) goto exit;
             }
             if (was_enabled) ftp_enable();
         }
-        else if (res == 2) break;
         // ------------------------------------------
     }
 exit:

@@ -1394,6 +1394,16 @@ bool ftp_terminate (void) {
 	return res;
 }
 
+//-------------------------
+bool ftp_stop_requested() {
+	if ((FtpTaskHandle == NULL) || (ftp_mutex == NULL)) return false;
+	if (xSemaphoreTake(ftp_mutex, FTP_MUTEX_TIMEOUT_MS / portTICK_PERIOD_MS) !=pdTRUE) return false;
+
+	bool res = (ftp_stop == 1);
+	xSemaphoreGive(ftp_mutex);
+	return res;
+}
+
 //-------------------------------
 int32_t ftp_get_maxstack (void) {
 	if ((FtpTaskHandle == NULL) || (ftp_mutex == NULL)) return -1;

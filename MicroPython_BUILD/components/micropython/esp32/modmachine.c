@@ -52,6 +52,7 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_pm.h"
+#include "esp_wifi.h"
 #include "driver/uart.h"
 
 #include "py/obj.h"
@@ -64,6 +65,7 @@
 #include "mpsleep.h"
 #include "machine_rtc.h"
 #include "uart.h"
+#include "modnetwork.h"
 
 #if MICROPY_PY_MACHINE
 
@@ -176,7 +178,7 @@ static void RTC_IRAM_ATTR wake_stub()
     if ((machine_rtc_config.deepsleep_time) && (machine_rtc_config.deepsleep_interval)) {
 		// == Set the out pin to active level if configured
     	if (machine_rtc_config.stub_outpin >= 0) {
-    		if (machine_rtc_config.stub_outpin < 28) gpio_pad_select_gpio(machine_rtc_config.stub_outpin);
+    		gpio_pad_select_gpio(machine_rtc_config.stub_outpin);
     		if (machine_rtc_config.stub_outpin < 32)
     			gpio_output_set(machine_rtc_config.stub_outpin_level << machine_rtc_config.stub_outpin,
     					(machine_rtc_config.stub_outpin_level ? 0 : 1) << machine_rtc_config.stub_outpin,
@@ -279,6 +281,17 @@ void prepareSleepReset(uint8_t hrst, char *msg)
 
 	if (!hrst) {
 		if (msg) mp_hal_stdout_tx_str(msg);
+		// stop and deinitialize WiFi
+		if (wifi_network_state == WIFI_STATE_STARTED) {
+			wifi_network_state = WIFI_STATE_STOPPED;
+			wifi_sta_isconnected = false;
+			wifi_sta_has_ipaddress = false;
+			wifi_sta_changed_ipaddress = false;
+			wifi_ap_isconnected = false;
+			wifi_ap_sta_isconnected = false;
+			esp_wifi_stop();
+			esp_wifi_deinit();
+		}
 		// deinitialise peripherals
 		//ToDo: deinitialize other peripherals, threads, services, ...
 		machine_pins_deinit();

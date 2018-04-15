@@ -723,6 +723,16 @@ bool telnet_terminate (void) {
 	return true;
 }
 
+//----------------------------
+bool telnet_stop_requested() {
+	if ((TelnetTaskHandle == NULL) || (telnet_mutex == NULL)) return false;
+	if (xSemaphoreTake(telnet_mutex, TELNET_MUTEX_TIMEOUT_MS / portTICK_PERIOD_MS) !=pdTRUE) return false;
+
+	bool res = (telnet_stop == 1);
+	xSemaphoreGive(telnet_mutex);
+	return res;
+}
+
 //----------------------------------
 int32_t telnet_get_maxstack (void) {
 	if ((TelnetTaskHandle == NULL) || (telnet_mutex == NULL)) return -1;

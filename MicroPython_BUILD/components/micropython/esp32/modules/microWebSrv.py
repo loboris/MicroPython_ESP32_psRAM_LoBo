@@ -245,7 +245,7 @@ class MicroWebSrv :
 
     def Start(self, threaded=True, stackSize=8192) :
         if not self._started :
-            if not network.WLAN().isactive():
+            if not network.WLAN().wifiactive():
                 print("WLAN not connected!")
                 return
             gc.collect()
