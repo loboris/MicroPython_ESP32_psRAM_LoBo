@@ -322,7 +322,12 @@ STATIC void machine_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_pri
     	mp_printf(print, "\n     data CB: True, on len: %d", self->data_cb_size);
     }
     if (self->pattern_cb) {
-    	mp_printf(print, "\n     pattern CB: True, pattern: [%s]", self->pattern);
+    	char pattern[80] = {'\0'};
+    	for (int i=0; i<self->pattern_len; i++) {
+    		if ((self->pattern[i] >= 0x20) && (self->pattern[i] < 0x7f)) pattern[strlen(pattern)] = self->pattern[i];
+    		else sprintf(pattern+strlen(pattern), "\\x%02x", self->pattern[i]);
+    	}
+    	mp_printf(print, "\n     pattern CB: True, pattern: b'%s'", pattern);
     }
     if (self->error_cb) {
     	mp_printf(print, "\n     error CB: True");
@@ -438,10 +443,16 @@ STATIC void machine_uart_init_helper(machine_uart_obj_t *self, size_t n_args, co
     if (args[ARG_timeout].u_int >= 0) self->timeout = args[ARG_timeout].u_int;
 
     // set line end
-    if (MP_OBJ_IS_STR(args[ARG_lineend].u_obj)) {
-    	size_t lnendlen;
-    	const char *lnend = mp_obj_str_get_data(args[ARG_lineend].u_obj, &lnendlen);
-    	if ((lnend) && (lnendlen > 0) && (lnendlen < 3)) sprintf((char *)self->lineend, "%s", lnend);
+    mp_buffer_info_t lnend_buff;
+	mp_obj_type_t *type = mp_obj_get_type(args[ARG_lineend].u_obj);
+	if (type->buffer_p.get_buffer != NULL) {
+		int ret = type->buffer_p.get_buffer(args[ARG_lineend].u_obj, &lnend_buff, MP_BUFFER_READ);
+		if (ret == 0) {
+			if ((lnend_buff.len > 0) && (lnend_buff.len < sizeof(self->lineend))) {
+				memset(self->lineend, 0, sizeof(self->lineend));
+				memcpy(self->lineend, lnend_buff.buf, lnend_buff.len);
+			}
+		}
 	}
 }
 
@@ -684,8 +695,12 @@ STATIC mp_obj_t machine_uart_callback(size_t n_args, const mp_obj_t *pos_args, m
 	mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
+    int datalen = -1;
+    mp_buffer_info_t pattern_buff;
     int cbtype = args[ARG_type].u_int;
+
     if ((!MP_OBJ_IS_FUN(args[ARG_func].u_obj)) && (!MP_OBJ_IS_METH(args[ARG_func].u_obj))) {
+    	// CB function not given, disable callback
     	if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
         switch(cbtype) {
             case UART_CB_TYPE_DATA:
@@ -707,29 +722,43 @@ STATIC mp_obj_t machine_uart_callback(size_t n_args, const mp_obj_t *pos_args, m
         return mp_const_none;
     }
 
+    // Get callback parameters
+    switch(cbtype) {
+        case UART_CB_TYPE_DATA:
+            if ((args[ARG_datalen].u_int <= 0) || (args[ARG_datalen].u_int >= self->buffer_size)) {
+    			mp_raise_ValueError("invalid data length");
+            }
+            datalen = args[ARG_datalen].u_int;
+            break;
+        case UART_CB_TYPE_PATTERN:
+        	{
+        		bool has_pattern = false;
+				mp_obj_type_t *type = mp_obj_get_type(args[ARG_pattern].u_obj);
+				if (type->buffer_p.get_buffer != NULL) {
+					int ret = type->buffer_p.get_buffer(args[ARG_pattern].u_obj, &pattern_buff, MP_BUFFER_READ);
+					if (ret == 0) {
+						if ((pattern_buff.len > 0) && (pattern_buff.len <= sizeof(self->pattern))) has_pattern = true;
+					}
+				}
+				if (!has_pattern) {
+					mp_raise_ValueError("invalid pattern");
+				}
+        	}
+            break;
+        default:
+        	break;
+    }
 
-    int datalen = -1;
-    size_t patternlen = 0;
-    const char * pattern = NULL;
-
-    if (MP_OBJ_IS_STR(args[ARG_pattern].u_obj)) {
-    	pattern = mp_obj_str_get_data(args[ARG_pattern].u_obj, &patternlen);
-    	if (patternlen > sizeof(self->pattern)) patternlen = sizeof(self->pattern);
-	}
-
-    if ((args[ARG_datalen].u_int >= 0) && (args[ARG_datalen].u_int < self->buffer_size)) datalen = args[ARG_datalen].u_int;
-
+    // Set the callback
 	if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
     switch(cbtype) {
         case UART_CB_TYPE_DATA:
-    		if (datalen >= 0) self->data_cb_size = datalen;
+    		self->data_cb_size = datalen;
     		self->data_cb = args[ARG_func].u_obj;
             break;
         case UART_CB_TYPE_PATTERN:
-        	if (pattern) {
-        		memcpy(self->pattern, pattern, patternlen);
-        		self->pattern_len = patternlen;
-        	}
+			memcpy(self->pattern, pattern_buff.buf, pattern_buff.len);
+			self->pattern_len = pattern_buff.len;
     		self->pattern_cb = args[ARG_func].u_obj;
             break;
         case UART_CB_TYPE_ERROR:

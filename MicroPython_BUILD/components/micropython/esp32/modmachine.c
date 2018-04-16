@@ -848,6 +848,20 @@ STATIC mp_obj_t mod_machine_stdin_disable(mp_obj_t pattern_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_machine_stdin_disable_obj, mod_machine_stdin_disable);
 
+//---------------------------------------
+STATIC mp_obj_t mod_machine_reset_wdt() {
+	mp_hal_reset_wdt();
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_machine_reset_wdt_obj, mod_machine_reset_wdt);
+
+//-------------------------------------
+STATIC mp_obj_t mod_machine_set_wdt() {
+	mp_hal_set_wdt_tmo();
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_machine_set_wdt_obj, mod_machine_set_wdt);
+
 
 //===============================================================
 STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
@@ -859,6 +873,8 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
 
     { MP_ROM_QSTR(MP_QSTR_freq),					MP_ROM_PTR(&machine_freq_obj) },
     { MP_ROM_QSTR(MP_QSTR_reset),					MP_ROM_PTR(&machine_reset_obj) },
+    { MP_ROM_QSTR(MP_QSTR_resetWDT),				MP_ROM_PTR(&mod_machine_reset_wdt_obj) },
+    { MP_ROM_QSTR(MP_QSTR_setWDT),					MP_ROM_PTR(&mod_machine_set_wdt_obj) },
     { MP_ROM_QSTR(MP_QSTR_unique_id),				MP_ROM_PTR(&machine_unique_id_obj) },
     { MP_ROM_QSTR(MP_QSTR_idle),					MP_ROM_PTR(&machine_idle_obj) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_deepsleep),			MP_ROM_PTR(&machine_deepsleep_obj) },
