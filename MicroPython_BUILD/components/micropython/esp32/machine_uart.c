@@ -333,7 +333,7 @@ STATIC void machine_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_pri
     	if (inverted[0] != '\0') strcat(inverted, ", ");
     	strcat(inverted, "RTS");
     }
-    printf("INV %08x, %08x\n", self->inverted, (uint32_t)UART_INVERSE_TXD);
+
     mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%s, stop=%s, tx=%d, rx=%d, rts=%d, cts=%d, inverted: [%s]\n",
         self->uart_num+1, baudrate, self->bits, _parity_name[self->parity], _stopbits_name[self->stop],
 		self->tx, self->rx, self->rts, self->cts, inverted);
