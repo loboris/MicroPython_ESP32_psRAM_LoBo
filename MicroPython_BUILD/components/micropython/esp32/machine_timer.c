@@ -670,7 +670,7 @@ STATIC const mp_map_elem_t machine_timer_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_init),		(mp_obj_t)&machine_timer_init_obj },
     { MP_ROM_QSTR(MP_QSTR_value),		(mp_obj_t)&machine_timer_value_obj },
     { MP_ROM_QSTR(MP_QSTR_events),		(mp_obj_t)&machine_timer_events_obj },
-    { MP_ROM_QSTR(MP_QSTR_reshot),		(mp_obj_t)&machine_timer_shot_obj },
+    { MP_ROM_QSTR(MP_QSTR_reshoot),		(mp_obj_t)&machine_timer_shot_obj },
     { MP_ROM_QSTR(MP_QSTR_start),		(mp_obj_t)&machine_timer_start_obj },
     { MP_ROM_QSTR(MP_QSTR_stop),		(mp_obj_t)&machine_timer_pause_obj },
     { MP_ROM_QSTR(MP_QSTR_pause),		(mp_obj_t)&machine_timer_pause_obj },

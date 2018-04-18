@@ -63,6 +63,7 @@ typedef struct _machine_uart_obj_t {
     uint32_t *data_cb;
     uint32_t *pattern_cb;
     uint32_t *error_cb;
+    uint32_t inverted;
     uint8_t end_task;
     uint8_t lineend[3];
 } machine_uart_obj_t;
@@ -149,10 +150,10 @@ static void _sched_callback(mp_obj_t function, int uart, int type, int iarglen, 
 	if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_INT, uart, NULL, NULL)) return;
 	if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_INT, type, NULL, NULL)) return;
 	if (sarg) {
-		if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_INT, iarglen, NULL, NULL)) return;
+		if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_STR, iarglen, sarg, NULL)) return;
 	}
 	else {
-		if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_STR, iarglen, sarg, NULL)) return;
+		if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_INT, iarglen, NULL, NULL)) return;
 	}
 	mp_sched_schedule(function, mp_const_none, carg);
 }
@@ -281,9 +282,10 @@ static const mp_arg_t allowed_args[] = {
     { MP_QSTR_timeout,		MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
     { MP_QSTR_buffer_size,	MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 512} },
     { MP_QSTR_lineend,		MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = mp_const_none} },
+    { MP_QSTR_inverted,		MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_int = -1} },
 };
 
-enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_tx, ARG_rx, ARG_rts, ARG_cts, ARG_timeout, ARG_buffer_size, ARG_lineend };
+enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_tx, ARG_rx, ARG_rts, ARG_cts, ARG_timeout, ARG_buffer_size, ARG_lineend, ARG_inverted };
 
 //-----------------------------------------------------------------------------------------------
 STATIC void machine_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
@@ -314,10 +316,28 @@ STATIC void machine_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_pri
     		lnend_idx++;
     	}
     }
-
-    mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%s, stop=%s, tx=%d, rx=%d, rts=%d, cts=%d, timeout=%u, buf_size=%u, lineend=b'%s')",
+    char inverted[24] = {'\0'};
+    if (self->inverted & (uint32_t)UART_INVERSE_RXD) {
+    	if (inverted[0] != '\0') strcat(inverted, ", ");
+    	strcat(inverted, "RX");
+    }
+    if (self->inverted & (uint32_t)UART_INVERSE_TXD) {
+    	if (inverted[0] != '\0') strcat(inverted, ", ");
+    	strcat(inverted, "TX");
+    }
+    if (self->inverted & (uint32_t)UART_INVERSE_CTS) {
+    	if (inverted[0] != '\0') strcat(inverted, ", ");
+    	strcat(inverted, "CTS");
+    }
+    if (self->inverted & (uint32_t)UART_INVERSE_RTS) {
+    	if (inverted[0] != '\0') strcat(inverted, ", ");
+    	strcat(inverted, "RTS");
+    }
+    printf("INV %08x, %08x\n", self->inverted, (uint32_t)UART_INVERSE_TXD);
+    mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%s, stop=%s, tx=%d, rx=%d, rts=%d, cts=%d, inverted: [%s]\n",
         self->uart_num+1, baudrate, self->bits, _parity_name[self->parity], _stopbits_name[self->stop],
-		self->tx, self->rx, self->rts, self->cts, self->timeout, self->buffer_size, lnend);
+		self->tx, self->rx, self->rts, self->cts, inverted);
+    mp_printf(print, "        timeout=%u, buf_size=%u, lineend=b'%s')",	self->timeout, self->buffer_size, lnend);
     if (self->data_cb) {
     	mp_printf(print, "\n     data CB: True, on len: %d", self->data_cb_size);
     }
@@ -420,6 +440,12 @@ STATIC void machine_uart_init_helper(machine_uart_obj_t *self, size_t n_args, co
 		}
     }
 
+    // set inverted pins
+    if ((args[ARG_inverted].u_int > -1) && (args[ARG_inverted].u_int != self->inverted)) {
+    	self->inverted = args[ARG_inverted].u_int & (UART_INVERSE_RXD | UART_INVERSE_TXD | UART_INVERSE_RTS | UART_INVERSE_CTS);
+    	uart_set_line_inverse(self->uart_num+1, self->inverted);
+    }
+
     // set pins
     if (((self->tx == -2) && (args[ARG_tx].u_int == UART_PIN_NO_CHANGE)) ||	((self->rx == -2) && (args[ARG_rx].u_int == UART_PIN_NO_CHANGE))) {
         nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "Tx&Rx pins must be set: u=machine.UART(uart_num, tx=pin, rx=pin)"));
@@ -435,8 +461,16 @@ STATIC void machine_uart_init_helper(machine_uart_obj_t *self, size_t n_args, co
 
 		if (args[ARG_tx].u_int != UART_PIN_NO_CHANGE)  self->tx  = args[ARG_tx].u_int;
 		if (args[ARG_rx].u_int != UART_PIN_NO_CHANGE)  self->rx  = args[ARG_rx].u_int;
-		if (args[ARG_rts].u_int != UART_PIN_NO_CHANGE) self->rts = args[ARG_rts].u_int;
-		if (args[ARG_cts].u_int != UART_PIN_NO_CHANGE) self->cts = args[ARG_cts].u_int;
+		if ((self->rts != args[ARG_rts].u_int) || (self->cts != args[ARG_cts].u_int)) {
+			if (args[ARG_rts].u_int != UART_PIN_NO_CHANGE) self->rts = args[ARG_rts].u_int;
+			if (args[ARG_cts].u_int != UART_PIN_NO_CHANGE) self->cts = args[ARG_cts].u_int;
+			// set flow control
+			int fwc = 0;
+			if (self->rts >= 0) fwc |= UART_HW_FLOWCTRL_RTS;
+			if (self->cts >= 0) fwc |= UART_HW_FLOWCTRL_CTS;
+			// Only when UART_HW_FLOWCTRL_RTS is set, will the rx_thresh value be set.
+			uart_set_hw_flow_ctrl(self->uart_num+1, fwc, UART_FIFO_LEN / 4 * 3);
+		}
     }
 
     // set timeout
@@ -496,6 +530,7 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     self->stop = UART_STOP_BITS_1;
     self->rts = UART_PIN_NO_CHANGE;
     self->cts = UART_PIN_NO_CHANGE;
+    self->inverted = UART_INVERSE_DISABLE;
     self->timeout = 0;
     self->pattern[0] = 0;
     self->pattern_len = 0;
@@ -773,6 +808,33 @@ STATIC mp_obj_t machine_uart_callback(size_t n_args, const mp_obj_t *pos_args, m
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(machine_uart_callback_obj, 2, machine_uart_callback);
 
+//---------------------------------------------------------------------------
+STATIC mp_obj_t machine_uart_write_break(size_t n_args, const mp_obj_t *args)
+{
+    machine_uart_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(args[1], &bufinfo, MP_BUFFER_READ);
+
+    // break signal length
+    // unit: one BIT time at current_baudrate
+    int nbreak = nbreak = mp_obj_get_int_truncated(args[2]);
+    if ((nbreak < 1) || (nbreak > 255)) {
+		mp_raise_ValueError("values 1 - 255 are allowed");
+    }
+
+    int len = bufinfo.len;
+    if (n_args == 4) {
+    	len = mp_obj_get_int_truncated(args[3]);
+    	if ((len < 0) || (len > bufinfo.len)) len = bufinfo.len;;
+    }
+
+    int bytes_written = uart_write_bytes_with_break(self->uart_num+1, (const char*)bufinfo.buf, len, nbreak);
+
+    return MP_OBJ_NEW_SMALL_INT(bytes_written);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_uart_write_break_obj, 3, 4, machine_uart_write_break);
+
 
 //=================================================================
 STATIC const mp_rom_map_elem_t machine_uart_locals_dict_table[] = {
@@ -783,6 +845,7 @@ STATIC const mp_rom_map_elem_t machine_uart_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_readline),		MP_ROM_PTR(&mp_stream_unbuffered_readline_obj) },
     { MP_ROM_QSTR(MP_QSTR_readinto),		MP_ROM_PTR(&mp_stream_readinto_obj) },
     { MP_ROM_QSTR(MP_QSTR_write),			MP_ROM_PTR(&mp_stream_write_obj) },
+    { MP_ROM_QSTR(MP_QSTR_write_break),		MP_ROM_PTR(&machine_uart_write_break_obj) },
     { MP_ROM_QSTR(MP_QSTR_readln),			MP_ROM_PTR(&machine_uart_readln_obj) },
     { MP_ROM_QSTR(MP_QSTR_flush),			MP_ROM_PTR(&machine_uart_flush_obj) },
     { MP_ROM_QSTR(MP_QSTR_callback),		MP_ROM_PTR(&machine_uart_callback_obj) },
@@ -791,6 +854,12 @@ STATIC const mp_rom_map_elem_t machine_uart_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_CBTYPE_DATA),		MP_ROM_INT(UART_CB_TYPE_DATA) },
     { MP_ROM_QSTR(MP_QSTR_CBTYPE_PATTERN),	MP_ROM_INT(UART_CB_TYPE_PATTERN) },
     { MP_ROM_QSTR(MP_QSTR_CBTYPE_ERROR),	MP_ROM_INT(UART_CB_TYPE_ERROR) },
+
+	{ MP_ROM_QSTR(MP_QSTR_INV_RX),			MP_ROM_INT(UART_INVERSE_RXD >> 1) },
+	{ MP_ROM_QSTR(MP_QSTR_INV_TX),			MP_ROM_INT(UART_INVERSE_TXD >> 1) },
+	{ MP_ROM_QSTR(MP_QSTR_INV_CTS),			MP_ROM_INT(UART_INVERSE_CTS >> 1) },
+	{ MP_ROM_QSTR(MP_QSTR_INV_RTS),			MP_ROM_INT(UART_INVERSE_RTS >> 1) },
+	{ MP_ROM_QSTR(MP_QSTR_INV_NONE),		MP_ROM_INT(0) },
 };
 STATIC MP_DEFINE_CONST_DICT(machine_uart_locals_dict, machine_uart_locals_dict_table);
 

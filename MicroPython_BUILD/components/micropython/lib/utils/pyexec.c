@@ -374,6 +374,7 @@ raw_repl_reset:
             return ret;
         }
     }
+    return 0;
 }
 
 int pyexec_friendly_repl(void) {
@@ -499,6 +500,7 @@ friendly_repl_reset:
             return ret;
         }
     }
+    return 0;
 }
 
 #endif // MICROPY_REPL_EVENT_DRIVEN

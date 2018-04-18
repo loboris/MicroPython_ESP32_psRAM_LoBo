@@ -63,6 +63,7 @@ extern TaskHandle_t FtpTaskHandle;
 extern int MainTaskCore;
 
 TaskHandle_t MainTaskHandle = NULL;
+TaskHandle_t ReplTaskHandle = NULL;
 
 uint8_t main_accept_msg = 1;
 
@@ -200,7 +201,13 @@ STATIC void freertos_entry(void *arg) {
 //------------------------------------------------------------------------------------------------------------------------------
 TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack_size, int priority, char *name, bool same_core)
 {
-    // store thread entry function into a global variable so we can access it
+	bool is_repl = (strcmp(name, "REPLthread") == 0);
+	if (is_repl) {
+		if (ReplTaskHandle) {
+	        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "REPL thread already started"));
+		}
+	}
+	// store thread entry function into a global variable so we can access it
     ext_thread_entry = entry;
 
     // Check thread stack size
@@ -247,6 +254,7 @@ TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack
         nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
     }
 
+	if (is_repl) ReplTaskHandle = id;
     // adjust the stack_size to provide room to recover from hitting the limit
     //*stack_size -= 1024;
 
@@ -265,7 +273,8 @@ TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack
     th->waiting = 0;
     th->deleted = 0;
     th->notifyed = 0;
-    th->type = THREAD_TYPE_PYTHON;
+    if (is_repl) th->type = THREAD_TYPE_REPL;
+    else th->type = THREAD_TYPE_PYTHON;
     thread = th;
 
     mp_thread_mutex_unlock(&thread_mutex);
@@ -680,6 +689,23 @@ int mp_thread_list(thread_list_t *list) {
 
 //------------------------------------------
 int mp_thread_replAcceptMsg(int8_t accept) {
+	int res = main_accept_msg;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+    	 if (th->id == xTaskGetCurrentTaskHandle()) {
+    		 if ((th->id == ReplTaskHandle) && (accept >= 0)) {
+    			 main_accept_msg = accept & 1;
+    		 }
+			 break;
+    	 }
+    }
+    mp_thread_mutex_unlock(&thread_mutex);
+
+    return res;
+}
+
+//------------------------------------------
+int mp_thread_mainAcceptMsg(int8_t accept) {
 	int res = main_accept_msg;
     mp_thread_mutex_lock(&thread_mutex, 1);
     for (thread_t *th = thread; th != NULL; th = th->next) {

@@ -50,6 +50,8 @@
 #define RTC_MEM_INT_SIZE 64
 #define RTC_MEM_STR_SIZE 2048
 
+char mpy_time_zone[64] = {'\0'};
+
 static int RTC_DATA_ATTR rtc_mem_int[RTC_MEM_INT_SIZE] = { 0 };
 static char RTC_DATA_ATTR rtc_mem_str[RTC_MEM_STR_SIZE] = { 0 };
 static uint16_t RTC_DATA_ATTR rtc_mem_int_crc;
@@ -268,6 +270,29 @@ void sntp_task (void *pvParameters)
     vTaskDelete(NULL);
 }
 
+//--------------------------------------------
+void tz_fromto_NVS(char *gettzs, char *settzs)
+{
+	size_t len = 0;
+    char value[64] = {'\0'};
+    if (gettzs) {
+    	gettzs[0] = '\0';
+        esp_err_t ret = nvs_get_str(mpy_nvs_handle, "MpyTimeZone", NULL, &len);
+        if ((ret == ESP_OK ) && (len > 0) && (len < 64)) {
+    		esp_err_t ret = nvs_get_str(mpy_nvs_handle, "MpyTimeZone", value, &len);
+    		if ((ret == ESP_OK ) && (len > 0) && (len < 64)) {
+    			if (gettzs) strcpy(gettzs, value);
+    		}
+        }
+    }
+	if (settzs) {
+		esp_err_t esp_err = nvs_set_str(mpy_nvs_handle, "MpyTimeZone", settzs);
+		if (ESP_OK == esp_err) {
+			nvs_commit(mpy_nvs_handle);
+		}
+	}
+}
+
 //---------------------------------------------------------------------------------------------
 STATIC mp_obj_t mach_rtc_ntp_sync(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     static const mp_arg_t allowed_args[] = {
@@ -291,23 +316,30 @@ STATIC mp_obj_t mach_rtc_ntp_sync(size_t n_args, const mp_obj_t *pos_args, mp_ma
 		if ((strlen(srvn) > 3) && (strlen(srvn) < 64)) sprintf(srv_name, "%s", srvn);
 	}
 
-    char tz[64];
-    #ifdef MICROPY_TIMEZONE
-    // ===== Set time zone ======
-    sprintf(tz, "%s", MICROPY_TIMEZONE);
+	if (strlen(mpy_time_zone) == 0) {
+		// Try to get tz from NVS
+		tz_fromto_NVS(mpy_time_zone, NULL);
+		if (strlen(mpy_time_zone) == 0) {
+			#ifdef MICROPY_TIMEZONE
+			// ===== Set default time zone ======
+			snprintf(mpy_time_zone, sizeof(mpy_time_zone)-1, "%s", MICROPY_TIMEZONE);
+			#endif
+		}
+	}
+
     if (args[2].u_obj != mp_const_none) {
+    	// get TZ argument
     	const char *tzs = mp_obj_str_get_str(args[2].u_obj);
-    	if (strlen(tzs) < 64) {
-    	    sprintf(tz, "%s", tzs);
+    	if ((strlen(tzs) < 2) && (strlen(tzs) < 64)) {
+    	    sprintf(mpy_time_zone, "%s", tzs);
+    		tz_fromto_NVS(NULL, mpy_time_zone);
+    	}
+    	else {
+    		mp_raise_ValueError("tz string length must be 3 - 64");
     	}
     }
-    setenv("TZ", tz, 1);
+    setenv("TZ", mpy_time_zone, 1);
     tzset();
-    // ==========================
-	#else
-    tz[0] = '\0';
-    #endif
-
 
 	if (sntp_mutex == NULL) {
 		// Create sntp mutex

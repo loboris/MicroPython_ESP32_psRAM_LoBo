@@ -36,13 +36,11 @@
 #include "py/mpthread.h"
 #include "mphalport.h"
 
-extern TaskHandle_t MainTaskHandle;
-
 
 /****************************************************************/
 // _thread module
 
-STATIC size_t thread_stack_size = MP_THREAD_DEFAULT_STACK_SIZE;
+size_t thread_stack_size = MP_THREAD_DEFAULT_STACK_SIZE;
 
 //--------------------------------------------------------------------------
 STATIC mp_obj_t mod_thread_stack_size(size_t n_args, const mp_obj_t *args) {
@@ -78,8 +76,8 @@ typedef struct _thread_entry_args_t {
     mp_obj_t args[];
 } thread_entry_args_t;
 
-//--------------------------------------
-STATIC void *thread_entry(void *args_in)
+//-------------------------------
+void *thread_entry(void *args_in)
 {
     // Execution begins here for a new thread.  We do not have the GIL.
 
@@ -312,9 +310,15 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_thread_isnotified_obj, mod_thread_isnotifie
 
 //--------------------------------------
 STATIC mp_obj_t mod_thread_getREPLId() {
-    return mp_obj_new_int_from_uint((uintptr_t)MainTaskHandle);
+    return mp_obj_new_int_from_uint((uintptr_t)ReplTaskHandle);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_thread_getREPLId_obj, mod_thread_getREPLId);
+
+//--------------------------------------
+STATIC mp_obj_t mod_thread_getMAINId() {
+    return mp_obj_new_int_from_uint((uintptr_t)MainTaskHandle);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_thread_getMAINId_obj, mod_thread_getMAINId);
 
 //--------------------------------------
 STATIC mp_obj_t mod_thread_getnotify() {
@@ -439,6 +443,7 @@ STATIC mp_obj_t mod_thread_list(mp_uint_t n_args, const mp_obj_t *args) {
 			char th_type[8] = {'\0'};
 			char th_state[16] = {'\0'};
 			if (thr->type == THREAD_TYPE_MAIN) sprintf(th_type, "MAIN");
+			else if (thr->type == THREAD_TYPE_REPL) sprintf(th_type, "REPL");
 			else if (thr->type == THREAD_TYPE_PYTHON) sprintf(th_type, "PYTHON");
 			else if (thr->type == THREAD_TYPE_SERVICE) sprintf(th_type, "SERVICE");
 			else sprintf(th_type, "Unknown");
@@ -532,6 +537,19 @@ STATIC mp_obj_t mod_thread_replAcceptMsg(mp_uint_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_thread_replAcceptMsg_obj, 0, 1, mod_thread_replAcceptMsg);
 
+//--------------------------------------------------------------------------------
+STATIC mp_obj_t mod_thread_mainAcceptMsg(mp_uint_t n_args, const mp_obj_t *args) {
+	int res = 0;
+    if (n_args == 0) {
+    	res = mp_thread_mainAcceptMsg(-1);
+    }
+    else {
+    	res = mp_thread_mainAcceptMsg(mp_obj_is_true(args[0]));
+    }
+	return mp_obj_new_bool(res);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_thread_mainAcceptMsg_obj, 0, 1, mod_thread_mainAcceptMsg);
+
 //-----------------------------------------------------------------------------
 STATIC mp_obj_t mod_thread_waitnotify(mp_uint_t n_args, const mp_obj_t *args) {
 	uint32_t tmo = portMAX_DELAY;
@@ -588,7 +606,9 @@ STATIC const mp_rom_map_elem_t mp_module_thread_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_getnotification),		MP_ROM_PTR(&mod_thread_getnotify_obj) },
     { MP_ROM_QSTR(MP_QSTR_isnotified),			MP_ROM_PTR(&mod_thread_isnotified_obj) },
     { MP_ROM_QSTR(MP_QSTR_getReplID),			MP_ROM_PTR(&mod_thread_getREPLId_obj) },
+    { MP_ROM_QSTR(MP_QSTR_getMainID),			MP_ROM_PTR(&mod_thread_getMAINId_obj) },
     { MP_ROM_QSTR(MP_QSTR_replAcceptMsg),		MP_ROM_PTR(&mod_thread_replAcceptMsg_obj) },
+    { MP_ROM_QSTR(MP_QSTR_mainAcceptMsg),		MP_ROM_PTR(&mod_thread_mainAcceptMsg_obj) },
     { MP_ROM_QSTR(MP_QSTR_sendmsg),				MP_ROM_PTR(&mod_thread_sendmsg_obj) },
     { MP_ROM_QSTR(MP_QSTR_getmsg),				MP_ROM_PTR(&mod_thread_getmsg_obj) },
     { MP_ROM_QSTR(MP_QSTR_list),				MP_ROM_PTR(&mod_thread_list_obj) },

@@ -100,6 +100,14 @@ menu "MicroPython"
 			        bool "Verbose"
 			endchoice
 
+	    config MICROPY_USE_THREADED_REPL
+	        bool "Start REPL in separate thread"
+	        default n
+	        help
+	        Start the REPL in its own thread
+	        Running REPL in thread may solve some issues with uasyncio
+	        and long running or infinite loops
+	
 	    config MICROPY_RX_BUFFER_SIZE
 	        int "RX buffer size"
 	        range 256 4096
@@ -121,6 +129,7 @@ menu "MicroPython"
 	        help
 	        Run MicroPython tasks on both cores, if not selected MicroPython tasks are created pinned to one core
 	        WARNING: When enabled, it may introduce some issues with uasyncio and threads
+	                 not recommended for now!
 	
 	    config MICROPY_TASK_PRIORITY
 	        int "Main task priority"
@@ -131,9 +140,9 @@ menu "MicroPython"
 	
 	    config MICROPY_STACK_SIZE
 	        int "MicroPython stack size (KB)"
-	        range 8 32 if !SPIRAM_SUPPORT
-	        range 8 64 if SPIRAM_SUPPORT
-	        default 20
+	        range 6 32 if !SPIRAM_SUPPORT
+	        range 6 64 if SPIRAM_SUPPORT
+	        default 16
 	        help
 	        Set the size of the MicroPython stack in Kbytes.
 	

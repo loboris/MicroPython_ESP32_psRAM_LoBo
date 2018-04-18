@@ -31,10 +31,26 @@
 #ifndef MICROPY_INCLUDED_ESP32_MODMACHINE_H
 #define MICROPY_INCLUDED_ESP32_MODMACHINE_H
 
+#include "sdkconfig.h"
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "py/obj.h"
 #include "driver/rtc_io.h"
+
+#define MPY_MIN_STACK_SIZE	(6*1024)
+#if CONFIG_SPIRAM_SUPPORT
+#define MPY_MAX_STACK_SIZE	(64*1024)
+#define MPY_MIN_HEAP_SIZE	(128*1024)
+#define MPY_MAX_HEAP_SIZE	(3584*1024)
+#else
+#define MPY_MAX_STACK_SIZE	(32*1024)
+#define MPY_MIN_HEAP_SIZE	(48*1024)
+#if defined(CONFIG_MICROPY_USE_CURL) && defined(CONFIG_MICROPY_USE_CURL_TLS)
+#define MPY_MAX_HEAP_SIZE	(72*1024)
+#else
+#define MPY_MAX_HEAP_SIZE	(96*1024)
+#endif
+#endif
 
 #define EXT1_WAKEUP_ALL_HIGH	2    //!< Wake the chip when all selected GPIOs go high
 #define EXT1_WAKEUP_MAX_PINS	4
@@ -76,6 +92,8 @@ extern const mp_obj_type_t machine_onewire_type;
 extern const mp_obj_type_t machine_ds18x20_type;
 
 extern nvs_handle mpy_nvs_handle;
+extern int mpy_repl_stack_size;
+extern int mpy_heap_size;
 
 void machine_pins_init(void);
 void machine_pins_deinit(void);

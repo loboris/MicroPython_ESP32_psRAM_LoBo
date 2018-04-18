@@ -72,6 +72,8 @@
 nvs_handle mpy_nvs_handle = 0;
 
 machine_rtc_config_t RTC_DATA_ATTR machine_rtc_config = {0};
+int mpy_repl_stack_size = CONFIG_MICROPY_STACK_SIZE * 1024;
+int mpy_heap_size = CONFIG_MICROPY_HEAP_SIZE * 1024;
 
 
 // === Variables stored in RTC_SLOW_MEM ===
@@ -862,6 +864,47 @@ STATIC mp_obj_t mod_machine_set_wdt() {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_machine_set_wdt_obj, mod_machine_set_wdt);
 
+//-----------------------------------------------------------------------
+static void _set_stack_heap(char *key, int value, int valmin, int valmax)
+{
+	checkNVS();
+
+    if ((value != 0) && ((value < valmin) || (value > valmax))) {
+    	mp_raise_msg(&mp_type_OSError, "Invalid size");
+    }
+
+    esp_err_t esp_err = nvs_set_i32(mpy_nvs_handle, key, value);
+    if (ESP_OK == esp_err) {
+        nvs_commit(mpy_nvs_handle);
+    }
+    else if (ESP_ERR_NVS_NOT_ENOUGH_SPACE == esp_err || ESP_ERR_NVS_PAGE_FULL == esp_err || ESP_ERR_NVS_NO_FREE_PAGES == esp_err) {
+    	mp_raise_msg(&mp_type_OSError, "No space available for NVS variable.");
+    }
+    else if (ESP_ERR_NVS_INVALID_NAME == esp_err || ESP_ERR_NVS_KEY_TOO_LONG == esp_err) {
+    	mp_raise_msg(&mp_type_OSError, "NVS Key invalid or too long");
+    }
+}
+
+//----------------------------------------------------------
+STATIC mp_obj_t mod_machine_set_stack_size (mp_obj_t _value)
+{
+    int value = mp_obj_get_int_truncated(_value);
+    value &= 0x7FFFFFFC;
+	_set_stack_heap("MPY_StackSize", value, MPY_MIN_STACK_SIZE, MPY_MAX_STACK_SIZE);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_machine_set_stack_size_obj, mod_machine_set_stack_size);
+
+//-----------------------------------------------------------
+STATIC mp_obj_t mod_machine_set_heap_size (mp_obj_t _value)
+{
+    int value = mp_obj_get_int_truncated(_value);
+    value &= 0x7FFFFFFC;
+	_set_stack_heap("MPY_HeapSize", value, MPY_MIN_HEAP_SIZE, MPY_MAX_HEAP_SIZE);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_machine_set_heap_size_obj, mod_machine_set_heap_size);
+
 
 //===============================================================
 STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
@@ -882,6 +925,8 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_wake_description),	MP_ROM_PTR(&machine_wake_desc_obj) },
     { MP_ROM_QSTR(MP_QSTR_heap_info),				MP_ROM_PTR(&machine_heap_info_obj) },
     { MP_ROM_QSTR(MP_QSTR_stdin_disable),			MP_ROM_PTR(&mod_machine_stdin_disable_obj) },
+    { MP_ROM_QSTR(MP_QSTR_SetStackSize),			MP_ROM_PTR(&mod_machine_set_stack_size_obj) },
+    { MP_ROM_QSTR(MP_QSTR_SetHeapSize),				MP_ROM_PTR(&mod_machine_set_heap_size_obj) },
 
     { MP_OBJ_NEW_QSTR(MP_QSTR_nvs_setint),			MP_ROM_PTR(&mod_machine_nvs_set_int_obj) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_nvs_getint),			MP_ROM_PTR(&mod_machine_nvs_get_int_obj) },

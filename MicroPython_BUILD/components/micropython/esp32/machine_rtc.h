@@ -29,9 +29,11 @@
 #ifndef MACHRTC_H_
 #define MACHRTC_H_
 
+extern char mpy_time_zone[64];
 extern const mp_obj_type_t mach_rtc_type;
 extern xSemaphoreHandle sntp_mutex;
 
 void rtc_init0(void);
+void tz_fromto_NVS(char *gettzs, char *settzs);
 
 #endif // MACHRTC_H_
