@@ -260,8 +260,14 @@ STATIC void mqtt_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_
     mp_printf(print, "Mqtt[%s](Server: %s:%u, Status: %s\n", self->name, self->client->settings->host, self->client->settings->port, sstat);
     if ((self->client->status != MQTT_STATUS_STOPPING) && (self->client->status != MQTT_STATUS_STOPPED)) {
 		mp_printf(print, "     Client ID: %s, Clean session=%s, Keepalive=%d sec, QoS=%d, Retain=%s, Secure=%s\n",
-				self->client->settings->client_id, (self->client->settings->clean_session ? "True" : "False"), self->client->settings->keepalive, self->client->settings->lwt_qos,
-				(self->client->settings->lwt_retain ? "True" : "False"), (self->client->settings->use_ssl ? "True" : "False"));
+				self->client->settings->client_id, (self->client->settings->clean_session ? "True" : "False"), self->client->settings->keepalive,
+				self->client->settings->lwt_qos, (self->client->settings->lwt_retain ? "True" : "False"), (self->client->settings->use_ssl ? "True" : "False"));
+		if(self->client->settings->lwt_topic != NULL && self->client->settings->lwt_topic[0] != '\0')
+		{	// lwt_topic not NULL or empty; Note: qos and retain are shared settings
+			mp_printf(print, "     LWT: QoS=%d, LWT Retain=%s, Topic='%s', LWT LWT Message='%s'\n",
+					self->client->settings->lwt_qos , (self->client->settings->lwt_retain ? "True" : "False"), 
+					self->client->settings->lwt_topic,self->client->settings->lwt_msg);
+		}
     }
 	if ((self->client->settings->xMqttTask) && (self->client->settings->xMqttSendingTask)) {
 		mp_printf(print, "     Used stack: %u/%u + %u/%u\n",
@@ -276,7 +282,7 @@ STATIC void mqtt_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_
 STATIC mp_obj_t mqtt_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args)
 {
 	enum { ARG_name, ARG_host, ARG_user, ARG_pass, ARG_port, ARG_reconnect, ARG_clientid, ARG_cleansess, ARG_keepalive, ARG_qos, ARG_retain, ARG_secure,
-		   ARG_datacb, ARG_connected, ARG_disconnected, ARG_subscribed, ARG_unsubscribed, ARG_published };
+		   ARG_datacb, ARG_connected, ARG_disconnected, ARG_subscribed, ARG_unsubscribed, ARG_published, ARG_lwt_topic, ARG_lwt_message };
 
     const mp_arg_t mqtt_init_allowed_args[] = {
 			{ MP_QSTR_name,   	    	MP_ARG_REQUIRED | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
@@ -297,6 +303,9 @@ STATIC mp_obj_t mqtt_make_new(const mp_obj_type_t *type, size_t n_args, size_t n
 			{ MP_QSTR_subscribed_cb,  	MP_ARG_KW_ONLY  | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
 			{ MP_QSTR_unsubscribed_cb, 	MP_ARG_KW_ONLY  | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
 			{ MP_QSTR_published_cb,		MP_ARG_KW_ONLY  | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
+			{ MP_QSTR_lwt_topic,		MP_ARG_KW_ONLY  | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
+			{ MP_QSTR_lwt_message,		MP_ARG_KW_ONLY  | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
+					
 	};
 	mp_arg_val_t args[MP_ARRAY_SIZE(mqtt_init_allowed_args)];
 	mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(mqtt_init_allowed_args), mqtt_init_allowed_args, args);
@@ -337,14 +346,24 @@ STATIC mp_obj_t mqtt_make_new(const mp_obj_type_t *type, size_t n_args, size_t n
     }
     if (MP_OBJ_IS_STR(args[ARG_clientid].u_obj)) {
         snprintf(self->client->settings->client_id, CONFIG_MQTT_MAX_CLIENT_LEN, mp_obj_str_get_str(args[ARG_clientid].u_obj));
-    }
+    } else if (MP_OBJ_IS_STR(args[ARG_name].u_obj)) {
+		snprintf(self->client->settings->client_id, CONFIG_MQTT_MAX_CLIENT_LEN, mp_obj_str_get_str(args[ARG_name].u_obj));
+	}	
     else sprintf(self->client->settings->client_id, "mpy_mqtt_client");
 
     self->client->settings->auto_reconnect = args[ARG_reconnect].u_int;
     self->client->settings->keepalive = args[ARG_keepalive].u_int;
     self->client->settings->clean_session = args[ARG_cleansess].u_int;
-    sprintf(self->client->settings->lwt_topic, "/lwt");
-    sprintf(self->client->settings->lwt_msg, "offline");
+
+    //allows to connect to Thingspeak and other brokers that do not support lwt
+	if (MP_OBJ_IS_STR(args[ARG_lwt_topic].u_obj)) {
+		snprintf(self->client->settings->lwt_topic, CONFIG_MQTT_MAX_LWT_TOPIC, mp_obj_str_get_str(args[ARG_lwt_topic].u_obj));
+	} 
+	if (MP_OBJ_IS_STR(args[ARG_lwt_message].u_obj)) { 		
+		snprintf(self->client->settings->lwt_msg, CONFIG_MQTT_MAX_LWT_MSG, mp_obj_str_get_str(args[ARG_lwt_message].u_obj));
+		self->client->settings->lwt_msg_len = strlen(self->client->settings->lwt_msg);
+	}
+	//settings shared for publish and lwt
     self->client->settings->lwt_qos = args[ARG_qos].u_int;
     self->client->settings->lwt_retain = args[ARG_retain].u_int;
 
@@ -547,7 +566,7 @@ STATIC mp_obj_t mqtt_op_stop(mp_obj_t self_in)
 {
     mqtt_obj_t *self = self_in;
     int status = checkClient(self);
-
+	//todo: clean disconnect to prevent LWT from kicking in
     if (status < 2) {
 		mqtt_stop(self->client);
 		vTaskDelay(100 / portTICK_RATE_MS);
