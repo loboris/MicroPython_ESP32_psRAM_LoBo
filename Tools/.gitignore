@@ -3,7 +3,7 @@ esp-idf_psram/
 xtensa-esp32-elf/
 xtensa-esp32-elf_psram/
 esp-idf_patches/
-esp_idf_patches_novi/
+esp-idf_patches_novi/
 *.id
 *_new.tar.xz
 *_old.tar.xz
