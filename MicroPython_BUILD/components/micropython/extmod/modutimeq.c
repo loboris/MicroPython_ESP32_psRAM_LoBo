@@ -27,14 +27,12 @@
  */
 
 #include <string.h>
-
+#include <math.h>
 #include "py/objlist.h"
 #include "py/runtime.h"
 #include "py/smallint.h"
 
 #if MICROPY_PY_UTIMEQ
-
-#define MODULO MICROPY_PY_UTIME_TICKS_PERIOD
 
 #define DEBUG 0
 
@@ -56,27 +54,28 @@ typedef struct _mp_obj_utimeq_t {
 
 STATIC mp_uint_t utimeq_id;
 
+//--------------------------------------------------
 STATIC mp_obj_utimeq_t *get_heap(mp_obj_t heap_in) {
     return MP_OBJ_TO_PTR(heap_in);
 }
 
+//----------------------------------------------------------------------
 STATIC bool time_less_than(struct qentry *item, struct qentry *parent) {
-    mp_uint_t item_tm = item->time;
-    mp_uint_t parent_tm = parent->time;
-    mp_uint_t res = parent_tm - item_tm;
+    uint64_t item_tm = item->time;
+    uint64_t parent_tm = parent->time;
+    int64_t res = parent_tm - item_tm;
     if (res == 0) {
         // TODO: This actually should use the same "ring" logic
         // as for time, to avoid artifacts when id's overflow.
-        return item->id < parent->id;
+        return (item->id < parent->id);
     }
-    if ((mp_int_t)res < 0) {
-        res += MODULO;
-    }
-    return res && res < (MODULO / 2);
+    return (res < 0);
 }
 
+//------------------------------------------------------------------------------------------------------------
 STATIC mp_obj_t utimeq_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
     mp_arg_check_num(n_args, n_kw, 1, 1, false);
+
     mp_uint_t alloc = mp_obj_get_int(args[0]);
     mp_obj_utimeq_t *o = m_new_obj_var(mp_obj_utimeq_t, struct qentry, alloc);
     o->base.type = type;
@@ -86,6 +85,7 @@ STATIC mp_obj_t utimeq_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     return MP_OBJ_FROM_PTR(o);
 }
 
+//------------------------------------------------------------------------------------
 STATIC void heap_siftdown(mp_obj_utimeq_t *heap, mp_uint_t start_pos, mp_uint_t pos) {
     struct qentry item = heap->items[pos];
     while (pos > start_pos) {
@@ -102,6 +102,7 @@ STATIC void heap_siftdown(mp_obj_utimeq_t *heap, mp_uint_t start_pos, mp_uint_t 
     heap->items[pos] = item;
 }
 
+//-------------------------------------------------------------
 STATIC void heap_siftup(mp_obj_utimeq_t *heap, mp_uint_t pos) {
     mp_uint_t start_pos = pos;
     mp_uint_t end_pos = heap->len;
@@ -131,10 +132,12 @@ STATIC mp_obj_t mod_utimeq_heappush(size_t n_args, const mp_obj_t *args) {
         mp_raise_msg(&mp_type_IndexError, "queue overflow");
     }
     mp_uint_t l = heap->len;
+    // time argument can be float or integer
+    // if float, convert it to 64-bit integer
     uint64_t itime;
     if (mp_obj_is_float(args[1])) {
     	mp_float_t time = mp_obj_float_get(args[1]);
-        itime = (uint64_t)time;
+        itime = (uint64_t)(round(time));
     }
     else itime = mp_obj_get_int64(args[1]);
 
@@ -160,7 +163,7 @@ STATIC mp_obj_t mod_utimeq_heappop(mp_obj_t heap_in, mp_obj_t list_ref) {
     }
 
     struct qentry *item = &heap->items[0];
-    ret->items[0] = mp_obj_new_int(item->time);
+    ret->items[0] = mp_obj_new_int_from_ull(item->time);
     ret->items[1] = item->callback;
     ret->items[2] = item->args;
     heap->len -= 1;
@@ -182,11 +185,12 @@ STATIC mp_obj_t mod_utimeq_peektime(mp_obj_t heap_in) {
     }
 
     struct qentry *item = &heap->items[0];
-    return mp_obj_new_int(item->time);
+    return mp_obj_new_int_from_ull(item->time);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_utimeq_peektime_obj, mod_utimeq_peektime);
 
 #if DEBUG
+//-------------------------------------------------
 STATIC mp_obj_t mod_utimeq_dump(mp_obj_t heap_in) {
     mp_obj_utimeq_t *heap = get_heap(heap_in);
     for (int i = 0; i < heap->len; i++) {
@@ -198,6 +202,7 @@ STATIC mp_obj_t mod_utimeq_dump(mp_obj_t heap_in) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_utimeq_dump_obj, mod_utimeq_dump);
 #endif
 
+//-------------------------------------------------------------------
 STATIC mp_obj_t utimeq_unary_op(mp_unary_op_t op, mp_obj_t self_in) {
     mp_obj_utimeq_t *self = MP_OBJ_TO_PTR(self_in);
     switch (op) {
@@ -207,6 +212,7 @@ STATIC mp_obj_t utimeq_unary_op(mp_unary_op_t op, mp_obj_t self_in) {
     }
 }
 
+//===========================================================
 STATIC const mp_rom_map_elem_t utimeq_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_push), MP_ROM_PTR(&mod_utimeq_heappush_obj) },
     { MP_ROM_QSTR(MP_QSTR_pop), MP_ROM_PTR(&mod_utimeq_heappop_obj) },
@@ -215,9 +221,9 @@ STATIC const mp_rom_map_elem_t utimeq_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_dump), MP_ROM_PTR(&mod_utimeq_dump_obj) },
     #endif
 };
-
 STATIC MP_DEFINE_CONST_DICT(utimeq_locals_dict, utimeq_locals_dict_table);
 
+//========================================
 STATIC const mp_obj_type_t utimeq_type = {
     { &mp_type_type },
     .name = MP_QSTR_utimeq,
@@ -226,13 +232,14 @@ STATIC const mp_obj_type_t utimeq_type = {
     .locals_dict = (void*)&utimeq_locals_dict,
 };
 
+//=================================================================
 STATIC const mp_rom_map_elem_t mp_module_utimeq_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_utimeq) },
     { MP_ROM_QSTR(MP_QSTR_utimeq), MP_ROM_PTR(&utimeq_type) },
 };
-
 STATIC MP_DEFINE_CONST_DICT(mp_module_utimeq_globals, mp_module_utimeq_globals_table);
 
+//========================================
 const mp_obj_module_t mp_module_utimeq = {
     .base = { &mp_type_module },
     .globals = (mp_obj_dict_t*)&mp_module_utimeq_globals,

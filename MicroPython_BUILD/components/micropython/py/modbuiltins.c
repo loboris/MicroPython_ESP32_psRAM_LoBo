@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -547,6 +548,23 @@ STATIC mp_obj_t mp_builtin_locals(void) {
 }
 MP_DEFINE_CONST_FUN_OBJ_0(mp_builtin_locals_obj, mp_builtin_locals);
 
+// LoBo: Get or set float print precision
+extern int float_precision;
+//-----------------------------------------------------------------------------------
+STATIC mp_obj_t mp_builtin_set_float_precision(size_t n_args, const mp_obj_t *args) {
+	if (n_args > 0) {
+		mp_int_t prec = mp_obj_get_int(args[0]);
+		if ((prec >= 4) && (prec <= 16)) {
+			float_precision = prec;
+		}
+		else {
+			mp_raise_ValueError("Precision must be 4 - 16");
+		}
+	}
+    return mp_obj_new_int(float_precision);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_builtin_set_float_precision_obj, 0, 1, mp_builtin_set_float_precision);
+
 // These are defined in terms of MicroPython API functions right away
 MP_DEFINE_CONST_FUN_OBJ_1(mp_builtin_id_obj, mp_obj_id);
 MP_DEFINE_CONST_FUN_OBJ_1(mp_builtin_len_obj, mp_obj_len);
@@ -669,6 +687,7 @@ STATIC const mp_rom_map_elem_t mp_module_builtins_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_round), MP_ROM_PTR(&mp_builtin_round_obj) },
     { MP_ROM_QSTR(MP_QSTR_sorted), MP_ROM_PTR(&mp_builtin_sorted_obj) },
     { MP_ROM_QSTR(MP_QSTR_sum), MP_ROM_PTR(&mp_builtin_sum_obj) },
+    { MP_ROM_QSTR(MP_QSTR_float_precision), MP_ROM_PTR(&mp_builtin_set_float_precision_obj) },
 
     // built-in exceptions
     { MP_ROM_QSTR(MP_QSTR_BaseException), MP_ROM_PTR(&mp_type_BaseException) },

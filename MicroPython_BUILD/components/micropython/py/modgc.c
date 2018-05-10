@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -40,6 +41,19 @@ STATIC mp_obj_t py_gc_collect(void) {
 #endif
 }
 MP_DEFINE_CONST_FUN_OBJ_0(gc_collect_obj, py_gc_collect);
+
+// collect_iflow(): run a garbage collection if more then given value is used
+STATIC mp_obj_t py_gc_collect_if(mp_obj_t val_in) {
+    mp_int_t val = mp_obj_get_int(val_in);
+    gc_info_t info;
+    gc_info(&info);
+	if (info.used >= val) {
+		gc_collect();
+		return mp_const_true;
+	}
+	else return mp_const_false;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(gc_collect_if_obj, py_gc_collect_if);
 
 // disable(): disable the garbage collector
 STATIC mp_obj_t gc_disable(void) {
@@ -96,15 +110,16 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(gc_threshold_obj, 0, 1, gc_threshold);
 #endif
 
 STATIC const mp_rom_map_elem_t mp_module_gc_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_gc) },
-    { MP_ROM_QSTR(MP_QSTR_collect), MP_ROM_PTR(&gc_collect_obj) },
-    { MP_ROM_QSTR(MP_QSTR_disable), MP_ROM_PTR(&gc_disable_obj) },
-    { MP_ROM_QSTR(MP_QSTR_enable), MP_ROM_PTR(&gc_enable_obj) },
-    { MP_ROM_QSTR(MP_QSTR_isenabled), MP_ROM_PTR(&gc_isenabled_obj) },
-    { MP_ROM_QSTR(MP_QSTR_mem_free), MP_ROM_PTR(&gc_mem_free_obj) },
-    { MP_ROM_QSTR(MP_QSTR_mem_alloc), MP_ROM_PTR(&gc_mem_alloc_obj) },
+    { MP_ROM_QSTR(MP_QSTR___name__),	MP_ROM_QSTR(MP_QSTR_gc) },
+    { MP_ROM_QSTR(MP_QSTR_collect),		MP_ROM_PTR(&gc_collect_obj) },
+    { MP_ROM_QSTR(MP_QSTR_collectif),	MP_ROM_PTR(&gc_collect_if_obj) },
+    { MP_ROM_QSTR(MP_QSTR_disable),		MP_ROM_PTR(&gc_disable_obj) },
+    { MP_ROM_QSTR(MP_QSTR_enable),		MP_ROM_PTR(&gc_enable_obj) },
+    { MP_ROM_QSTR(MP_QSTR_isenabled),	MP_ROM_PTR(&gc_isenabled_obj) },
+    { MP_ROM_QSTR(MP_QSTR_mem_free),	MP_ROM_PTR(&gc_mem_free_obj) },
+    { MP_ROM_QSTR(MP_QSTR_mem_alloc),	MP_ROM_PTR(&gc_mem_alloc_obj) },
     #if MICROPY_GC_ALLOC_THRESHOLD
-    { MP_ROM_QSTR(MP_QSTR_threshold), MP_ROM_PTR(&gc_threshold_obj) },
+    { MP_ROM_QSTR(MP_QSTR_threshold),	MP_ROM_PTR(&gc_threshold_obj) },
     #endif
 };
 

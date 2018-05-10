@@ -67,6 +67,10 @@ void mp_obj_print_helper(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_t
     }
 #endif
     mp_obj_type_t *type = mp_obj_get_type(o_in);
+    if (type == NULL) {
+        mp_print_str(print, "(nil)");
+        return;
+    }
     if (type->print != NULL) {
         type->print((mp_print_t*)print, o_in, kind);
     } else {
@@ -243,9 +247,10 @@ mp_int_t mp_obj_get_int(mp_const_obj_t arg) {
                 "can't convert %s to int", mp_obj_get_type_str(arg)));
         }
     }
+    return 0;
 }
 
-uint64_t mp_obj_get_int64(mp_const_obj_t arg) {
+int64_t mp_obj_get_int64(mp_const_obj_t arg) {
     // This function essentially performs implicit type conversion to int64
     // Note that Python does NOT provide implicit type conversion from
     // float to int in the core expression language, try some_list[1.0].
@@ -265,6 +270,7 @@ uint64_t mp_obj_get_int64(mp_const_obj_t arg) {
                 "can't convert %s to int", mp_obj_get_type_str(arg)));
         }
     }
+    return 0;
 }
 
 mp_int_t mp_obj_get_int_truncated(mp_const_obj_t arg) {

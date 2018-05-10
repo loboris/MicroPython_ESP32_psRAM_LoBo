@@ -32,6 +32,8 @@
 #include "rom/ets_sys.h"
 #include "sdkconfig.h"
 
+#define MICROPY_DEBUG_PRINTERS				(0)
+
 // object representation and NLR handling
 #define MICROPY_OBJ_REPR                    (MICROPY_OBJ_REPR_A)
 #define MICROPY_NLR_SETJMP                  (1)
@@ -47,13 +49,14 @@
 #define MICROPY_COMP_MODULE_CONST           (1)
 #define MICROPY_COMP_TRIPLE_TUPLE_ASSIGN    (1)
 
-// optimisations
+// optimizations
 #define MICROPY_OPT_COMPUTED_GOTO           (1)
 #define MICROPY_OPT_MPZ_BITWISE             (1)
 
 // Python internal features
 #define MICROPY_READER_VFS                  (1)
 #define MICROPY_ENABLE_GC                   (1)
+//#define MICROPY_GC_CONSERVATIVE_CLEAR       (0)
 #define MICROPY_ENABLE_FINALISER            (1)
 #define MICROPY_STACK_CHECK                 (1)
 #define MICROPY_ENABLE_EMERGENCY_EXCEPTION_BUF (1)
@@ -78,8 +81,8 @@
 #define MICROPY_QSTR_EXTRA_POOL             mp_qstr_frozen_const_pool
 #define MICROPY_CAN_OVERRIDE_BUILTINS       (1)
 #define MICROPY_USE_INTERNAL_ERRNO          (1)
-#define MICROPY_USE_INTERNAL_PRINTF         (0) // ESP32 SDK requires its own printf
-#define MICROPY_PY_SYS_EXC_INFO             (1)
+#define MICROPY_USE_INTERNAL_PRINTF         (0) // ESP32 SDK requires its own printf, do NOT change
+//#define MICROPY_PY_SYS_EXC_INFO             (0)
 #define MICROPY_ENABLE_SCHEDULER            (1)
 #define MICROPY_SCHEDULER_DEPTH             (8)
 
@@ -89,7 +92,11 @@
 // control over Python builtins
 #define MICROPY_PY_FUNCTION_ATTRS           (1)
 #define MICROPY_PY_STR_BYTES_CMP_WARN       (1)
+#ifdef CONFIG_MICROPY_USE_UNICODE
 #define MICROPY_PY_BUILTINS_STR_UNICODE     (1)
+#else
+#define MICROPY_PY_BUILTINS_STR_UNICODE     (0)
+#endif
 #define MICROPY_PY_BUILTINS_STR_CENTER      (1)
 #define MICROPY_PY_BUILTINS_STR_PARTITION   (1)
 #define MICROPY_PY_BUILTINS_STR_SPLITLINES  (1)
@@ -164,8 +171,6 @@
 #define MICROPY_PY_MACHINE_SPI_MSB          (0)
 #define MICROPY_PY_MACHINE_SPI_LSB          (1)
 #define MICROPY_PY_MACHINE_SPI_MAKE_NEW     machine_hw_spi_make_new
-#define MICROPY_PY_MACHINE_SPI_MIN_DELAY    (0)
-#define MICROPY_PY_MACHINE_SPI_MAX_BAUDRATE (ets_get_cpu_frequency() * 1000000 / 200) // roughly
 #define MICROPY_PY_USSL                     (1)
 #define MICROPY_SSL_MBEDTLS                 (1)
 #define MICROPY_PY_USSL_FINALISER           (1)
@@ -177,14 +182,15 @@
 #else
 #define MICROPY_PY_WEBSOCKET                (0)
 #endif
-#define MICROPY_PY_OS_DUPTERM      			(0)
-#define MICROPY_PY_WEBREPL   		        (0)
+#define MICROPY_PY_OS_DUPTERM               (0) // not supported, do NOT change
+#define MICROPY_PY_WEBREPL                  (0) // not supported, do NOT change
 
 #ifdef CONFIG_MICROPY_PY_FRAMEBUF
 #define MICROPY_PY_FRAMEBUF                 (1)
 #else
 #define MICROPY_PY_FRAMEBUF                 (0)
 #endif
+#define MICROPY_PY_USOCKET_EVENTS           (MICROPY_PY_WEBREPL)
 
 /*
  * Defined in 'component.mk'
@@ -205,8 +211,8 @@
 #endif
 #define MICROPY_FATFS_RPATH                 (2)
 #define MICROPY_FATFS_MAX_SS                (4096)
-#define MICROPY_FATFS_MAX_LFN               (CONFIG_FATFS_MAX_LFN)  // Get from config
-#define MICROPY_FATFS_LFN_CODE_PAGE         (CONFIG_FATFS_CODEPAGE) // Get from config
+#define MICROPY_FATFS_MAX_LFN               (CONFIG_FATFS_MAX_LFN)  // Get from sdkconfig
+#define MICROPY_FATFS_LFN_CODE_PAGE         (CONFIG_FATFS_CODEPAGE) // Get from sdkconfig
 
 #define mp_type_fileio                      nativefs_type_fileio
 #define mp_type_textio                      nativefs_type_textio
@@ -320,16 +326,9 @@ extern const struct _mp_obj_module_t mp_module_bluetooth;
 
 #define MP_STATE_PORT MP_STATE_VM
 
-#if CONFIG_SPIRAM_SUPPORT
 #define MICROPY_PORT_ROOT_POINTERS \
-    const char *readline_hist[80]; \
-    mp_obj_list_t mod_network_nic_list;                         \
+    const char *readline_hist[20]; \
     mp_obj_t machine_pin_irq_handler[40];
-#else
-#define MICROPY_PORT_ROOT_POINTERS \
-    const char *readline_hist[16]; \
-    mp_obj_t machine_pin_irq_handler[40];
-#endif
 
 // type definitions for the specific machine
 #define BYTES_PER_WORD (4)

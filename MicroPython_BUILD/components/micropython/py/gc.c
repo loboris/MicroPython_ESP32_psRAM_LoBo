@@ -27,7 +27,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-
+#include "esp_log.h"
 #include "py/gc.h"
 #include "py/runtime.h"
 
@@ -96,7 +96,7 @@
 #define FTB_CLEAR(block) do { MP_STATE_MEM(gc_finaliser_table_start)[(block) / BLOCKS_PER_FTB] &= (~(1 << ((block) & 7))); } while (0)
 #endif
 
-#if MICROPY_PY_THREAD && !MICROPY_PY_THREAD_GIL
+#if MICROPY_PY_THREAD && MICROPY_PY_THREAD_GIL
 #define GC_ENTER() mp_thread_mutex_lock(&MP_STATE_MEM(gc_mutex), 1)
 #define GC_EXIT() mp_thread_mutex_unlock(&MP_STATE_MEM(gc_mutex))
 #else
@@ -619,7 +619,7 @@ size_t gc_nbytes(const void *ptr) {
 
 #if 0
 // old, simple realloc that didn't expand memory in place
-void *gc_realloc(void *ptr, mp_uint_t n_bytes) {
+void *gc_realloc(void *ptr, size_t n_bytes, bool allow_move) {
     mp_uint_t n_existing = gc_nbytes(ptr);
     if (n_bytes <= n_existing) {
         return ptr;

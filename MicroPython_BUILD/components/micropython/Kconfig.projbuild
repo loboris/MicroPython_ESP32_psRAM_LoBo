@@ -100,6 +100,14 @@ menu "MicroPython"
 			        bool "Verbose"
 			endchoice
 
+	    config MICROPY_USE_UNICODE
+	        bool "Enable UNICODE support in MicroPython"
+	        default y
+	        help
+	        Enable UNICODE support in MicroPython
+	        Running without UNICODE support may solve some issues,
+	        also the string operations may be faster
+	
 	    config MICROPY_USE_THREADED_REPL
 	        bool "Start REPL in separate thread"
 	        default n
@@ -304,7 +312,21 @@ menu "MicroPython"
 	        default n
 	        help
 	        Include CURL module into build
-	        Using CURLmodule will add ~230 KB to your flash code size
+	        Using CURL module will add ~230 KB to your flash code size
+	
+	    config MICROPY_USE_GPS
+	        bool "Use GPS module"
+	        default y
+	        help
+	        Include GPS module into build
+	
+	    config MICROPY_GPS_SERVICE_STACK
+	        int "GPS service stack size"
+	        depends on MICROPY_USE_GPS
+	        default 3072
+            range 3072 6144
+	        help
+	        Set the stack size of GPS service task
 	
 	    config MICROPY_USE_CURL_TLS
 	        bool "Enable TLS in Curl module"
@@ -339,39 +361,84 @@ menu "MicroPython"
 	
 	    menu "MQTT Configuration"
 	        depends on MICROPY_USE_MQTT
-		    config MQTT_PROTOCOL_311
-		        bool "Use protocol version 3.1.1"
-		        default y
-		        help
-			        Use protocol version 3.1.1
-			        If not set, protocol version 3.1.0 is used
-
-		    config MQTT_PRIORITY
-		        int "MQTT task priority"
-		        default MICROPY_TASK_PRIORITY
-		        range 1 20
-		        help
-			        FreeRTOS task priority of the Mqtt task
-			        Default is MicroPython task priority
-
-		    config MQTT_BUFFER_SIZE_BYTE
-		        int "MQTT send/receive buffer size"
-		        default 256
-		        range 256 2048
-		        help
-			        Send/Receive buffer size in bytes
-			        More than buffer size bytes can be received...
-			        Publish payload size is limited to this size.
-			        Keep in mind that 4*CONFIG_MQTT_BUFFER_SIZE_BYTE queue buffer will also be created.
-
-		    config MQTT_MAX_PAYLOAD_SIZE
-		        int "MQTT max payload size"
-		        default 2048
-		        range MQTT_BUFFER_SIZE_BYTE 16384
-		        help
-			        Maximum payload size which can be received
-			        If the payload size is larger, it will be truncated
-
+			config MQTT_PROTOCOL_311
+			    bool "Enable MQTT protocol 3.1.1"
+			    default y
+			    help
+			        If not, this library will use MQTT protocol 3.1
+			
+			config MQTT_TRANSPORT_SSL
+			    bool "Enable MQTT over SSL"
+			    default y
+			    help
+			        Enable MQTT transport over SSL with mbedtls
+			
+			config MQTT_TRANSPORT_WEBSOCKET
+			    bool "Enable MQTT over Websocket"
+			    default y
+			    help
+			        Enable MQTT transport over Websocket.
+			
+			config MQTT_TRANSPORT_WEBSOCKET_SECURE
+			    bool "Enable MQTT over Websocket Secure"
+			    default y
+			    depends on MQTT_TRANSPORT_WEBSOCKET
+			    depends on MQTT_TRANSPORT_SSL
+			    help
+			        Enable MQTT transport over Websocket Secure.
+			
+			config MQTT_USE_CUSTOM_CONFIG
+			    bool "MQTT Using custom configurations"
+			    default n
+			    help
+			        Custom MQTT configurations.
+			
+			config MQTT_TCP_DEFAULT_PORT
+			    int "Default MQTT over TCP port"
+			    default 1883
+			    depends on MQTT_USE_CUSTOM_CONFIG
+			    help
+			        Default MQTT over TCP port
+			
+			config MQTT_SSL_DEFAULT_PORT
+			    int "Default MQTT over SSL port"
+			    default 8883
+			    depends on MQTT_USE_CUSTOM_CONFIG
+			    depends on MQTT_TRANSPORT_SSL
+			    help
+			        Default MQTT over SSL port
+			        
+			config MQTT_WS_DEFAULT_PORT
+			    int "Default MQTT over Websocket port"
+			    default 80
+			    depends on MQTT_USE_CUSTOM_CONFIG
+			    depends on MQTT_TRANSPORT_WEBSOCKET
+			    help
+			        Default MQTT over Websocket port
+			
+			config MQTT_WSS_DEFAULT_PORT
+			    int "Default MQTT over Websocket Secure port"
+			    default 443
+			    depends on MQTT_USE_CUSTOM_CONFIG
+			    depends on MQTT_TRANSPORT_WEBSOCKET
+			    depends on MQTT_TRANSPORT_WEBSOCKET_SECURE
+			    help
+			        Default MQTT over Websocket Secure port
+			
+			config MQTT_BUFFER_SIZE
+			    int "Default MQTT Buffer Size"
+			    default 1024
+			    depends on MQTT_USE_CUSTOM_CONFIG
+			    help
+			        This buffer size using for both transmit and receive
+			
+			config MQTT_TASK_STACK_SIZE
+			    int "MQTT task stack size"
+			    default 6144
+			    depends on MQTT_USE_CUSTOM_CONFIG
+			    help
+			        MQTT task stack size
+			
 			config MQTT_LOG_LEVEL
 			    int
 			    default 0 if MQTT_LOG_LEVEL0

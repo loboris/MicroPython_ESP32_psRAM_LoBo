@@ -32,54 +32,21 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-#include "driver/uart.h"
-
-#include "py/runtime.h"
+#include "machine_uart.h"
 #include "py/stream.h"
 #include "py/mperrno.h"
 #include "py/mphal.h"
 #include "modmachine.h"
+#include "sdkconfig.h"
 
-#define UART_CB_TYPE_DATA		1
-#define UART_CB_TYPE_PATTERN	2
-#define UART_CB_TYPE_ERROR		3
-#define UART_BUFF_SIZE			256
 
-typedef struct _machine_uart_obj_t {
-    mp_obj_base_t base;
-    uart_port_t uart_num;
-    int8_t bits;
-    int8_t parity;
-    int8_t stop;
-    int8_t tx;
-    int8_t rx;
-    int8_t rts;
-    int8_t cts;
-    int data_cb_size;
-    uint8_t pattern[16];
-    uint8_t pattern_len;
-    uint16_t timeout;       // timeout waiting for first char (in ms)
-    uint16_t buffer_size;
-    uint32_t *data_cb;
-    uint32_t *pattern_cb;
-    uint32_t *error_cb;
-    uint32_t inverted;
-    uint8_t end_task;
-    uint8_t lineend[3];
-} machine_uart_obj_t;
-
-typedef struct _uart_ringbuf_t {
-    uint8_t *buf;
-    uint16_t size;
-    uint16_t iget;
-    uint16_t iput;
-} uart_ringbuf_t;
+extern int MainTaskCore;
 
 static const char *_parity_name[] = {"None", "None", "Even", "Odd"};
 static const char *_stopbits_name[] = {"?", "1", "1.5", "2"};
 static QueueHandle_t UART_QUEUE[2] = {NULL};
 static QueueHandle_t uart_mutex = NULL;
-TaskHandle_t task_id[2] = {NULL};
+static TaskHandle_t task_id[2] = {NULL};
 
 static uart_ringbuf_t uart_buffer[2];
 static uart_ringbuf_t *uart_buf[2] = {NULL};
@@ -94,8 +61,9 @@ static void uart_ringbuf_alloc(uint8_t uart_num, uint16_t sz)
 	uart_buf[uart_num] = &uart_buffer[uart_num];
 }
 
-//-----------------------------------------------------------------------
-static int uart_buf_get(uart_ringbuf_t *r, uint8_t *dest, uint16_t len) {
+//--------------------------------------------------------------
+int uart_buf_get(uart_ringbuf_t *r, uint8_t *dest, uint16_t len)
+{
     if (r->iget == r->iput) return -1; // input buffer empty
 
     int res = 0;
@@ -112,8 +80,9 @@ static int uart_buf_get(uart_ringbuf_t *r, uint8_t *dest, uint16_t len) {
     return res;
 }
 
-//-------------------------------------------------------------------------
-static int uart_buf_put(uart_ringbuf_t *r, uint8_t *source, uint16_t len) {
+//----------------------------------------------------------------
+int uart_buf_put(uart_ringbuf_t *r, uint8_t *source, uint16_t len)
+{
 	int res = 0;
 	for (int i=0; i<len; i++) {
 	    if (r->iput >= r->size) return 1; // overflow
@@ -122,8 +91,8 @@ static int uart_buf_put(uart_ringbuf_t *r, uint8_t *source, uint16_t len) {
 	return res;
 }
 
-//---------------------------------------------------------------------------------------------
-static int match_pattern(uint8_t *text, int text_length, uint8_t *pattern, int pattern_length)
+//-------------------------------------------------------------------------------------
+int match_pattern(uint8_t *text, int text_length, uint8_t *pattern, int pattern_length)
 {
 	int c, d, e, position = -1;
 
@@ -263,6 +232,143 @@ static void uart_event_task(void *pvParameters)
     dtmp = NULL;
     task_id[self->uart_num] = NULL;
     vTaskDelete(NULL);
+}
+
+//-----------------------------------------------------------------------------
+char *_uart_read(uart_port_t uart_num, int timeout, char *lnend, char *lnstart)
+{
+    char *rdstr = NULL;
+    int rdlen = -1;
+    int minlen = strlen(lnend);
+    if (lnstart) minlen += strlen(lnstart);
+
+	if (timeout == 0) {
+		if (uart_mutex) {
+			if (xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS) != pdTRUE) {
+				return NULL;
+			}
+		}
+    	// check for minimal length
+		if (uart_buf[uart_num]->iput < minlen) {
+	    	if (uart_mutex) xSemaphoreGive(uart_mutex);
+	    	return NULL;
+		}
+		while (1) {
+			rdlen = match_pattern(uart_buf[uart_num]->buf, uart_buf[uart_num]->iput, (uint8_t *)lnend, strlen(lnend));
+			if (rdlen >= 0) {
+				// found, pull data, including pattern from buffer
+				rdlen += 2;
+				rdstr = calloc(rdlen+1, 1);
+				if (rdstr) {
+					uart_buf_get(uart_buf[uart_num], (uint8_t *)rdstr, rdlen);
+					rdstr[rdlen] = 0;
+					if (lnstart) {
+						// Match beginning string
+						char *start_ptr = strstr(rdstr, lnstart);
+						if (start_ptr) {
+							if (start_ptr != rdstr) {
+								char *new_rdstr = strdup(start_ptr);
+								free(rdstr);
+								rdstr = new_rdstr;
+							}
+							break;
+						}
+						else {
+							free(rdstr);
+							rdstr = NULL;
+							rdlen = -1;
+							break;
+						}
+					}
+					else break;
+				}
+				else {
+					rdlen = -1;
+					break;
+				}
+			}
+			else break;
+		}
+    	if (uart_mutex) xSemaphoreGive(uart_mutex);
+    	if (rdlen < 0) return NULL;
+    }
+    else {
+    	// wait until lnend received or timeout
+    	int wait = timeout;
+        int buflen = 0;
+    	mp_hal_set_wdt_tmo();
+		while (wait > 0) {
+			if (uart_mutex) {
+				if (xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS) != pdTRUE) {
+					vTaskDelay(10 / portTICK_PERIOD_MS);
+					wait -= 10;
+					mp_hal_reset_wdt();
+					continue;
+				}
+			}
+			if (buflen < uart_buf[uart_num]->iput) {
+				// ** new data received, reset timeout
+				buflen = uart_buf[uart_num]->iput;
+				wait = timeout;
+			}
+			if (uart_buf[uart_num]->iput < minlen) {
+				// ** too few characters received
+		    	if (uart_mutex) xSemaphoreGive(uart_mutex);
+	    		vTaskDelay(10 / portTICK_PERIOD_MS);
+				wait -= 10;
+				mp_hal_reset_wdt();
+				continue;
+			}
+
+			while (1) {
+				// * Check if lineend pattern is received
+				rdlen = match_pattern(uart_buf[uart_num]->buf, uart_buf[uart_num]->iput, (uint8_t *)lnend, strlen(lnend));
+				if (rdlen >= 0) {
+					rdlen += 2;
+					// * found, pull data, including pattern from buffer
+					rdstr = calloc(rdlen+1, 1);
+					if (rdstr) {
+						uart_buf_get(uart_buf[uart_num], (uint8_t *)rdstr, rdlen);
+						rdstr[rdlen] = 0;
+						if (lnstart) {
+							// * Find beginning of the sentence
+							char *start_ptr = strstr(rdstr, lnstart);
+							if (start_ptr) {
+								// === received string ending with lnend and starting with lnstart
+								if (start_ptr != rdstr) {
+									char *new_rdstr = strdup(start_ptr);
+									free(rdstr);
+									rdstr = new_rdstr;
+								}
+								break;
+							}
+							else {
+								free(rdstr);
+								rdstr = NULL;
+								break;
+							}
+						}
+						else break;	// === received string ending with lineend
+					}
+					else {
+						// error allocating buffer, finish
+						wait = 0;
+						break;
+					}
+				}
+				else break;
+			}
+	    	if (uart_mutex) xSemaphoreGive(uart_mutex);
+
+	    	if (rdstr) break;
+	    	if (wait > 0) {
+				vTaskDelay(10 / portTICK_PERIOD_MS);
+				wait -= 10;
+				mp_hal_reset_wdt();
+	    	}
+		}
+    }
+	return rdstr;
 }
 
 
@@ -584,7 +690,7 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     uart_param_config(uart_num, &uartcfg);
 
     // RX ring buffer size is set to UART_BUFF_SIZE (256), TX buffer is disabled.
-    esp_err_t res = uart_driver_install(uart_num, UART_BUFF_SIZE, 0, 10, &UART_QUEUE[self->uart_num], 0);
+    esp_err_t res = uart_driver_install(uart_num, UART_BUFF_SIZE, 0, 20, &UART_QUEUE[self->uart_num], 0);
     if (res != ESP_OK) {
         nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "UART(%d) Error installing driver", uart_num));
     }
@@ -598,7 +704,11 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     uart_disable_pattern_det_intr(uart_num);
 
     //Create a task to handle UART event from ISR
-    if (task_id[self->uart_num] == NULL) xTaskCreate(uart_event_task, "uart_event_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+4, &task_id[self->uart_num]);
+	#if CONFIG_MICROPY_USE_BOTH_CORES
+    if (task_id[self->uart_num] == NULL) xTaskCreate(uart_event_task, "uart_event_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &task_id[self->uart_num]);
+	#else
+    if (task_id[self->uart_num] == NULL) xTaskCreatePinnedToCore(uart_event_task, "uart_event_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &task_id[self->uart_num], MainTaskCore);
+	#endif
 
     return MP_OBJ_FROM_PTR(self);
 }
@@ -636,83 +746,26 @@ STATIC mp_obj_t machine_uart_flush(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_uart_flush_obj, machine_uart_flush);
 
-//------------------------------------------------------------------------
-STATIC mp_obj_t machine_uart_readln(size_t n_args, const mp_obj_t *args) {
+//-----------------------------------------------------------------
+mp_obj_t machine_uart_readln(size_t n_args, const mp_obj_t *args) {
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
-    uint8_t *rdstr = NULL;
-    int rdlen = -1;
-	int lnendlen = strlen((char *)self->lineend);
-	if (lnendlen == 0) return mp_const_none;
-
 	int timeout = self->timeout;
-	if (n_args == 2) timeout = mp_obj_get_int(args[1]);
+	if (n_args > 1) timeout = mp_obj_get_int(args[1]);
 
-	if (timeout == 0) {
-		if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
-    	// just return the buffer content if line end was found
-		if (uart_buf[self->uart_num]->iput < lnendlen) {
-	    	if (uart_mutex) xSemaphoreGive(uart_mutex);
-	    	return mp_const_none;
-		}
-		rdlen = match_pattern(uart_buf[self->uart_num]->buf, uart_buf[self->uart_num]->iput, self->lineend, lnendlen);
-		if (rdlen >= 0) {
-			// found, pull data, including pattern from buffer
-			rdlen += lnendlen;
-			rdstr = calloc(rdlen+1, 1);
-			if (rdstr) {
-				uart_buf_get(uart_buf[self->uart_num], rdstr, rdlen);
-				rdstr[rdlen] = 0;
-			}
-		}
-    	if (uart_mutex) xSemaphoreGive(uart_mutex);
-    	if (rdlen < 0) return mp_const_none;
-    }
-    else {
-    	// wait until line end received or timeout
-    	int wait = timeout;
-        int buflen = 0;
-    	mp_hal_set_wdt_tmo();
-		MP_THREAD_GIL_EXIT();
-		while (wait > 0) {
-			if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
-			if (buflen < uart_buf[self->uart_num]->iput) {
-				buflen = uart_buf[self->uart_num]->iput;
-				wait = timeout; // new data received, reset timeout
-			}
-			if (uart_buf[self->uart_num]->iput < lnendlen) {
-		    	if (uart_mutex) xSemaphoreGive(uart_mutex);
-	    		vTaskDelay(10 / portTICK_PERIOD_MS);
-				wait -= 10;
-				mp_hal_reset_wdt();
-				continue;
-			}
-			rdlen = match_pattern(uart_buf[self->uart_num]->buf, uart_buf[self->uart_num]->iput, self->lineend, lnendlen);
-			if (rdlen >= 0) {
-				rdlen += lnendlen;
-				// found, pull data, including pattern from buffer
-				rdstr = calloc(rdlen+1, 1);
-				if (rdstr) {
-					uart_buf_get(uart_buf[self->uart_num], rdstr, rdlen);
-					rdstr[rdlen] = 0;
-				}
-		    	if (uart_mutex) xSemaphoreGive(uart_mutex);
-				break;
-			}
-	    	if (uart_mutex) xSemaphoreGive(uart_mutex);
-    		vTaskDelay(10 / portTICK_PERIOD_MS);
-			wait -= 10;
-			mp_hal_reset_wdt();
-		}
-		MP_THREAD_GIL_ENTER();
-    	if (rdlen < 0) return mp_const_none;
-    }
+	const char *startstr = NULL;
+	if (n_args > 2) startstr = mp_obj_str_get_str(args[2]);
+
+	MP_THREAD_GIL_EXIT();
+	char *rdstr = _uart_read(self->uart_num, timeout, (char *)self->lineend, (char *)startstr);
+	MP_THREAD_GIL_ENTER();
+
 	if (rdstr == NULL) return mp_const_none;
-	mp_obj_t res_str = mp_obj_new_str((const char *)rdstr, rdlen);
-	free(rdstr);
+	mp_obj_t res_str = mp_obj_new_str((const char *)rdstr, strlen(rdstr));
+	if (rdstr != NULL) free(rdstr);
     return res_str;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_uart_readln_obj, 1, 2, machine_uart_readln);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_uart_readln_obj, 1, 3, machine_uart_readln);
 
 
 //-----------------------------------------------------------------------------------------------
@@ -878,7 +931,11 @@ STATIC mp_uint_t machine_uart_read(mp_obj_t self_in, void *buf_in, mp_uint_t siz
     int bytes_read = 0;
     if (self->timeout == 0) {
     	// just return the buffer content
-    	if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
+		if (uart_mutex) {
+			if (xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS) != pdTRUE) {
+				return 0;
+			}
+		}
     	bytes_read = uart_buf_get(uart_buf[self->uart_num], (uint8_t *)buf_in, size);
     	if (uart_mutex) xSemaphoreGive(uart_mutex);
     	if (bytes_read < 0) bytes_read = 0;
@@ -889,7 +946,14 @@ STATIC mp_uint_t machine_uart_read(mp_obj_t self_in, void *buf_in, mp_uint_t siz
 		int wait = self->timeout;
 		MP_THREAD_GIL_EXIT();
 		while (wait > 0) {
-	    	if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
+			if (uart_mutex) {
+				if (xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS) != pdTRUE) {
+		    		vTaskDelay(2 / portTICK_PERIOD_MS);
+					wait -= 2;
+					mp_hal_reset_wdt();
+					continue;
+				}
+			}
 			if (uart_buf[self->uart_num]->iput < size) {
 		    	if (uart_mutex) xSemaphoreGive(uart_mutex);
 	    		vTaskDelay(2 / portTICK_PERIOD_MS);

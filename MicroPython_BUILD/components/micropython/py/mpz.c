@@ -1588,8 +1588,8 @@ bool mpz_as_uint_checked(const mpz_t *i, mp_uint_t *value) {
     return true;
 }
 
-bool mpz_as_int64_checked(const mpz_t *i, uint64_t *value) {
-    uint64_t val = 0;
+bool mpz_as_int64_checked(const mpz_t *i, int64_t *value) {
+    int64_t val = 0;
     mpz_dig_t *d = i->dig + i->len;
 
     while (d-- > i->dig) {

@@ -144,7 +144,7 @@ def url_open(url):
 
 
 def get_pkg_metadata(name):
-    f = url_open("https://pypi.python.org/pypi/%s/json" % name)
+    f = url_open("https://pypi.org/pypi/%s/json" % name)
     try:
         return json.load(f)
     finally:
@@ -212,9 +212,7 @@ def install(to_install, install_path=None):
                 deps = deps.decode("utf-8").split("\n")
                 to_install.extend(deps)
     except Exception as e:
-        print("Error installing '{}': {}, packages may be partially installed".format(
-                pkg_spec, e),
-            file=sys.stderr)
+        print("Error installing '{}': {}, packages may be partially installed".format(pkg_spec, e))
 
 def get_install_path():
     global install_path

@@ -194,9 +194,7 @@ PY_O_BASENAME = \
 	../extmod/vfs.o \
 	../extmod/vfs_reader.o \
 	../extmod/utime_mphal.o \
-	../extmod/uos_dupterm.o \
 	../lib/embed/abort_.o \
-	../lib/utils/printf.o \
 	../extmod/vfs_native.o \
 	../extmod/vfs_native_file.o \
 	../extmod/vfs_native_misc.o

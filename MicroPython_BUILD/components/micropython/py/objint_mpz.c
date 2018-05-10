@@ -410,14 +410,15 @@ mp_int_t mp_obj_int_get_checked(mp_const_obj_t self_in) {
             mp_raise_msg(&mp_type_OverflowError, "overflow converting long int to machine word");
         }
     }
+    return 0;
 }
 
-uint64_t mp_obj_int64_get_checked(mp_const_obj_t self_in) {
+int64_t mp_obj_int64_get_checked(mp_const_obj_t self_in) {
     if (MP_OBJ_IS_SMALL_INT(self_in)) {
         return MP_OBJ_SMALL_INT_VALUE(self_in);
     } else {
         const mp_obj_int_t *self = MP_OBJ_TO_PTR(self_in);
-        uint64_t value;
+        int64_t value;
         if (mpz_as_int64_checked(&self->mpz, &value)) {
             return value;
         } else {
@@ -425,6 +426,23 @@ uint64_t mp_obj_int64_get_checked(mp_const_obj_t self_in) {
             mp_raise_msg(&mp_type_OverflowError, "overflow converting int64 to machine word");
         }
     }
+    return 0;
+}
+
+uint64_t mp_obj_uint64_get_checked(mp_const_obj_t self_in) {
+    if (MP_OBJ_IS_SMALL_INT(self_in)) {
+        return MP_OBJ_SMALL_INT_VALUE(self_in);
+    } else {
+        const mp_obj_int_t *self = MP_OBJ_TO_PTR(self_in);
+        uint64_t value;
+        if (mpz_as_uint64_checked(&self->mpz, &value)) {
+            return value;
+        } else {
+            // overflow
+            mp_raise_msg(&mp_type_OverflowError, "overflow converting uint64 to machine word");
+        }
+    }
+    return 0;
 }
 
 #if MICROPY_PY_BUILTINS_FLOAT

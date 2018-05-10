@@ -38,20 +38,6 @@
 #include "driver/rtc_io.h"
 
 #define MPY_MIN_STACK_SIZE	(6*1024)
-#if CONFIG_SPIRAM_SUPPORT
-#define MPY_MAX_STACK_SIZE	(64*1024)
-#define MPY_MIN_HEAP_SIZE	(128*1024)
-#define MPY_MAX_HEAP_SIZE	(3584*1024)
-#else
-#define MPY_MAX_STACK_SIZE	(32*1024)
-#define MPY_MIN_HEAP_SIZE	(48*1024)
-#if defined(CONFIG_MICROPY_USE_CURL) && defined(CONFIG_MICROPY_USE_CURL_TLS)
-#define MPY_MAX_HEAP_SIZE	(72*1024)
-#else
-#define MPY_MAX_HEAP_SIZE	(96*1024)
-#endif
-#endif
-
 #define EXT1_WAKEUP_ALL_HIGH	2    //!< Wake the chip when all selected GPIOs go high
 #define EXT1_WAKEUP_MAX_PINS	4
 
@@ -75,6 +61,17 @@ typedef struct {
     uint8_t		stub_outpin_level;
 } machine_rtc_config_t;
 
+extern bool mpy_use_spiram;
+extern int MPY_DEFAULT_STACK_SIZE;
+extern int MPY_MAX_STACK_SIZE;
+extern int MPY_DEFAULT_HEAP_SIZE;
+extern int MPY_MIN_HEAP_SIZE;
+extern int MPY_MAX_HEAP_SIZE;
+extern int hdr_maxlen;
+extern int body_maxlen;
+extern int ssh2_hdr_maxlen;
+extern int ssh2_body_maxlen;
+
 extern machine_rtc_config_t machine_rtc_config;
 
 extern const mp_obj_type_t machine_timer_type;
@@ -90,7 +87,9 @@ extern const mp_obj_type_t machine_neopixel_type;
 extern const mp_obj_type_t machine_dht_type;
 extern const mp_obj_type_t machine_onewire_type;
 extern const mp_obj_type_t machine_ds18x20_type;
-
+#ifdef CONFIG_MICROPY_USE_GPS
+extern const mp_obj_type_t machine_gps_type;
+#endif
 extern nvs_handle mpy_nvs_handle;
 extern int mpy_repl_stack_size;
 extern int mpy_heap_size;

@@ -36,6 +36,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "rom/uart.h"
+#include "driver/uart.h"
 #include "esp_task_wdt.h"
 
 #include "py/obj.h"
@@ -52,10 +53,15 @@
 #endif
 
 uint32_t mp_hal_wdg_rst_tmo = 0;
-uint64_t mp_hal_ticks_base = 0;
+RTC_DATA_ATTR uint64_t mp_hal_ticks_base;
 
 static bool stdin_disable = false;
 static char stdin_enable_pattern[16] = "";
+
+STATIC uint8_t stdin_ringbuf_array[CONFIG_MICROPY_RX_BUFFER_SIZE];
+ringbuf_t stdin_ringbuf = {stdin_ringbuf_array, sizeof(stdin_ringbuf_array), 0, 0};
+
+extern void mp_handle_pending(void);
 
 //--------------------------------
 void disableStdin(const char *pat)
@@ -93,9 +99,6 @@ void mp_hal_set_wdt_tmo()
 }
 
 
-STATIC uint8_t stdin_ringbuf_array[CONFIG_MICROPY_RX_BUFFER_SIZE];
-ringbuf_t stdin_ringbuf = {stdin_ringbuf_array, sizeof(stdin_ringbuf_array), 0, 0};
-
 // wait until at least one character is received or the timeout expires
 //---------------------------------------
 int mp_hal_stdin_rx_chr(uint32_t timeout)
@@ -119,13 +122,15 @@ int mp_hal_stdin_rx_chr(uint32_t timeout)
 		c = ringbuf_get(&stdin_ringbuf);
     	if (c < 0) {
     		// no character in ring buffer
-        	// wait 10 ms for character
+        	// wait max 10 ms for character
     	   	MP_THREAD_GIL_EXIT();
         	if ( xSemaphoreTake( uart0_semaphore, 10 / portTICK_PERIOD_MS ) == pdTRUE ) {
+        		// received
         	   	MP_THREAD_GIL_ENTER();
                 c = ringbuf_get(&stdin_ringbuf);
         	}
         	else {
+        		// not received
         	   	MP_THREAD_GIL_ENTER();
         		c = -1;
         	}
@@ -149,7 +154,10 @@ int mp_hal_stdin_rx_chr(uint32_t timeout)
 					pattern[pattern_idx++] = c;
 					pattern[pattern_idx] = '\0';
 					if (strstr(stdin_enable_pattern, pattern) == stdin_enable_pattern) {
-						if (strlen(stdin_enable_pattern) == strlen(pattern)) stdin_disable = false;
+						if (strlen(stdin_enable_pattern) == strlen(pattern)) {
+							// pattern received, enable stdin
+							stdin_disable = false;
+						}
 					}
     			}
     			return -1;
@@ -161,7 +169,9 @@ int mp_hal_stdin_rx_chr(uint32_t timeout)
         int raw = uart0_raw_input;
     	xSemaphoreGive(uart0_mutex);
         if (raw == 0) {
-        	MICROPY_EVENT_POLL_HOOK
+        	// check pending exception
+        	//MICROPY_EVENT_POLL_HOOK
+	        mp_handle_pending();
         }
     }
     return -1;
@@ -186,26 +196,31 @@ static void telnet_stdout_tx_str(const char *str, uint32_t len)
 }
 #endif
 
+// send newline character to printf channel
 //-------------------------------
 void mp_hal_stdout_tx_newline() {
 	#ifdef CONFIG_MICROPY_USE_TELNET
    	if (telnet_loggedin()) telnet_tx_strn("\r\n", 2);
-   	else uart_tx_one_char('\n');
+   	else {
+   		uart_tx_one_char('\n');
+   	}
 	#else
    	uart_tx_one_char('\n');
 	#endif
 }
 
+// send NULL ending string to printf channel
 //------------------------------------------
 void mp_hal_stdout_tx_str(const char *str) {
+	if (str == NULL) return;
 	#ifdef CONFIG_MICROPY_USE_TELNET
    	if (telnet_loggedin()) telnet_tx_strn(str, strlen(str));
    	else {
-   	   	//MP_THREAD_GIL_EXIT();
+   	   	MP_THREAD_GIL_EXIT();
    	    while (*str) {
    	        uart_tx_one_char(*str++);
    	    }
-   	   	//MP_THREAD_GIL_ENTER();
+   	   	MP_THREAD_GIL_ENTER();
    	}
 	#else
    	MP_THREAD_GIL_EXIT();
@@ -216,16 +231,18 @@ void mp_hal_stdout_tx_str(const char *str) {
 	#endif
 }
 
+// send 'len' characters from string buffer to printf channel
 //---------------------------------------------------------
 void mp_hal_stdout_tx_strn(const char *str, uint32_t len) {
+	if (str == NULL) return;
 	#ifdef CONFIG_MICROPY_USE_TELNET
    	if (telnet_loggedin()) telnet_tx_strn(str, len);
    	else {
-   	   	//MP_THREAD_GIL_EXIT();
+   	   	MP_THREAD_GIL_EXIT();
    	    while (len--) {
    	        uart_tx_one_char(*str++);
    	    }
-   		//MP_THREAD_GIL_ENTER();
+   		MP_THREAD_GIL_ENTER();
    	}
 	#else
    	MP_THREAD_GIL_EXIT();
@@ -236,27 +253,29 @@ void mp_hal_stdout_tx_strn(const char *str, uint32_t len) {
 	#endif
 }
 
+// Efficiently convert "\n" to "\r\n"
 //----------------------------------------------------------------
 void mp_hal_stdout_tx_strn_cooked(const char *str, uint32_t len) {
+	if (str == NULL) return;
 	#ifdef CONFIG_MICROPY_USE_TELNET
    	if (telnet_loggedin()) telnet_stdout_tx_str(str, len);
    	else {
-   	   	//MP_THREAD_GIL_EXIT();
+   	   	MP_THREAD_GIL_EXIT();
    	    while (len--) {
    	        if (*str == '\n') {
    	            uart_tx_one_char('\r');
    	        }
    	        uart_tx_one_char(*str++);
    	    }
-   	   	//MP_THREAD_GIL_ENTER();
+   	   	MP_THREAD_GIL_ENTER();
    	}
 	#else
    	MP_THREAD_GIL_EXIT();
     while (len--) {
-        if (*str == '\n') {
-            uart_tx_one_char('\r');
-        }
-        uart_tx_one_char(*str++);
+		if (*str == '\n') {
+			uart_tx_one_char('\r');
+		}
+		uart_tx_one_char(*str++);
     }
    	MP_THREAD_GIL_ENTER();
 	#endif

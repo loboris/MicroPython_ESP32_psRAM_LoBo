@@ -58,8 +58,6 @@ extern uint16_t curl_timeout;  // curl operations timeout in seconds
 extern uint32_t curl_maxbytes; // limit download length
 extern uint8_t curl_initialized;
 extern uint8_t curl_nodecode;
-extern int hdr_maxlen;
-extern int body_maxlen;
 
 /*
  * ----------------------------------------------------------

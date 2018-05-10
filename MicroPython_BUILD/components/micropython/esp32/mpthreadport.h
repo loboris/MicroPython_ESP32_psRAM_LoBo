@@ -121,7 +121,6 @@ thread_msg_t thread_messages[MAX_THREAD_MESSAGES];
 uint8_t main_accept_msg;
 
 void mp_thread_preinit(void *stack, uint32_t stack_len);
-void mp_thread_init(void);
 int mp_thread_num_threads();
 void mp_thread_gc_others(void);
 

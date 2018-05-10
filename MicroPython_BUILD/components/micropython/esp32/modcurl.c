@@ -41,7 +41,7 @@
 
 #include "py/obj.h"
 #include "py/runtime.h"
-
+#include "modmachine.h"
 #include "libs/espcurl.h"
 #include "libs/curl_mail.h"
 #include "extmod/vfs_native.h"

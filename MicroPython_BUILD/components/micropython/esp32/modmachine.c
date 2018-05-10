@@ -69,12 +69,22 @@
 
 #if MICROPY_PY_MACHINE
 
-nvs_handle mpy_nvs_handle = 0;
 
+// === Global variables ===
+bool mpy_use_spiram = false;
+nvs_handle mpy_nvs_handle = 0;
 machine_rtc_config_t RTC_DATA_ATTR machine_rtc_config = {0};
 int mpy_repl_stack_size = CONFIG_MICROPY_STACK_SIZE * 1024;
 int mpy_heap_size = CONFIG_MICROPY_HEAP_SIZE * 1024;
-
+int MPY_DEFAULT_STACK_SIZE = 16*1024;
+int MPY_MAX_STACK_SIZE = 32*1024;
+int MPY_DEFAULT_HEAP_SIZE = 80*1024;
+int MPY_MIN_HEAP_SIZE = 48*1024;
+int MPY_MAX_HEAP_SIZE = 96*1024;
+int hdr_maxlen = 512;
+int body_maxlen = 1024;
+int ssh2_hdr_maxlen = 512;
+int ssh2_body_maxlen = 1024;
 
 // === Variables stored in RTC_SLOW_MEM ===
 static uint64_t RTC_DATA_ATTR s_t_wake;
@@ -396,17 +406,18 @@ STATIC mp_obj_t machine_heap_info(void) {
 	heap_caps_get_info(&info, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT | MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
 	print_heap_info(&info);
 
-	#if CONFIG_SPIRAM_SUPPORT
-		#if SPIRAM_USE_MEMMAP
+	if (mpy_use_spiram) {
+		#if CONFIG_SPIRAM_USE_MEMMAP
 			mp_printf(&mp_plat_print, "\nSPIRAM info (MEMMAP used):\n--------------------------\n");
-			mp_printf(&mp_plat_print, "Total: %u\n", CONFIG_SPIRAM_SIZE);
-			mp_printf(&mp_plat_print, " Free: %u\n", CONFIG_SPIRAM_SIZE - (CONFIG_MICROPY_HEAP_SIZE * 1024);
+			mp_printf(&mp_plat_print, "            Total: %u\n", CONFIG_SPIRAM_SIZE);
+			mp_printf(&mp_plat_print, "Used for MPy heap: %u\n", mpy_heap_size);
+			mp_printf(&mp_plat_print, "  Free (not used): %u\n", CONFIG_SPIRAM_SIZE - mpy_heap_size);
 		#else
 			mp_printf(&mp_plat_print, "\nSPIRAM info:\n------------\n");
 			heap_caps_get_info(&info, MALLOC_CAP_SPIRAM);
 			print_heap_info(&info);
 		#endif
-	#endif
+	}
 
 	return mp_const_none;
 }
@@ -964,7 +975,9 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_Neopixel),			MP_ROM_PTR(&machine_neopixel_type) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_DHT),					MP_ROM_PTR(&machine_dht_type) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_Onewire),				MP_ROM_PTR(&machine_onewire_type) },
-
+	#ifdef CONFIG_MICROPY_USE_GPS
+    { MP_OBJ_NEW_QSTR(MP_QSTR_GPS),					MP_ROM_PTR(&machine_gps_type) },
+	#endif
 	// Constants
 	{ MP_ROM_QSTR(MP_QSTR_LOG_NONE),				MP_ROM_INT(ESP_LOG_NONE) },
 	{ MP_ROM_QSTR(MP_QSTR_LOG_ERROR),				MP_ROM_INT(ESP_LOG_ERROR) },

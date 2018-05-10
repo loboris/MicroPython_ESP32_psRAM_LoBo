@@ -70,7 +70,7 @@ void mp_init(void) {
 #endif
 
     #if MICROPY_KBD_EXCEPTION
-    // initialise the exception object for raising KeyboardInterrupt
+    // initialize the exception object for raising KeyboardInterrupt
     MP_STATE_VM(mp_kbd_exception).base.type = &mp_type_KeyboardInterrupt;
     MP_STATE_VM(mp_kbd_exception).traceback_alloc = 0;
     MP_STATE_VM(mp_kbd_exception).traceback_len = 0;

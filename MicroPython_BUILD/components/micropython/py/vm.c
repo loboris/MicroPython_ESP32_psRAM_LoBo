@@ -37,7 +37,7 @@
 #include "py/bc0.h"
 #include "py/bc.h"
 
-#if 0
+#if 0 && MICROPY_DEBUG_PRINTERS
 #define TRACE(ip) printf("sp=%d ", (int)(sp - &code_state->state[0] + 1)); mp_bytecode_print2(ip, 1, code_state->fun_bc->const_table);
 #else
 #define TRACE(ip)
@@ -118,7 +118,9 @@
 //  MP_VM_RETURN_NORMAL, sp valid, return value in *sp
 //  MP_VM_RETURN_YIELD, ip, sp valid, yielded value in *sp
 //  MP_VM_RETURN_EXCEPTION, exception in fastn[0]
-mp_vm_return_kind_t mp_execute_bytecode(mp_code_state_t *code_state, volatile mp_obj_t inject_exc) {
+//================================================================================================
+mp_vm_return_kind_t IRAM_ATTR mp_execute_bytecode(mp_code_state_t *code_state, volatile mp_obj_t inject_exc)
+{
 	mp_hal_set_wdt_tmo(); // LoBo
 #define SELECTIVE_EXC_IP (0)
 #if SELECTIVE_EXC_IP
@@ -1485,4 +1487,5 @@ unwind_loop:
             }
         }
     }
+    return MP_VM_RETURN_NORMAL;
 }

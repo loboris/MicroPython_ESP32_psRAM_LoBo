@@ -763,8 +763,13 @@ STATIC mp_obj_t esp_status(size_t n_args, const mp_obj_t *args) {
             wifi_sta_info_t *stations = (wifi_sta_info_t*)station_list.sta;
             mp_obj_t list = mp_obj_new_list(0, NULL);
             for (int i = 0; i < station_list.num; ++i) {
-                mp_obj_tuple_t *t = mp_obj_new_tuple(1, NULL);
+            	ip4_addr_t addr;
+                mp_obj_tuple_t *t = mp_obj_new_tuple(2, NULL);
                 t->items[0] = mp_obj_new_bytes(stations[i].mac, sizeof(stations[i].mac));
+                if (dhcp_search_ip_on_mac(stations[i].mac , &addr)) {
+                	t->items[1] = netutils_format_ipv4_addr((uint8_t*)&addr.addr, NETUTILS_BIG);
+                }
+                else t->items[1] = mp_const_none;
                 mp_obj_list_append(list, t);
             }
             return list;

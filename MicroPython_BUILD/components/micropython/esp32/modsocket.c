@@ -63,10 +63,80 @@ typedef struct _socket_obj_t {
     uint8_t domain;
     uint8_t type;
     uint8_t proto;
+    bool peer_closed;
     unsigned int retries;
+    #if MICROPY_PY_USOCKET_EVENTS
+    mp_obj_t events_callback;
+    struct _socket_obj_t *events_next;
+    #endif
 } socket_obj_t;
 
 void _socket_settimeout(socket_obj_t *sock, uint64_t timeout_ms);
+
+#if MICROPY_PY_USOCKET_EVENTS
+// Support for callbacks on asynchronous socket events (when socket becomes readable)
+
+// This divisor is used to reduce the load on the system, so it doesn't poll sockets too often
+#define USOCKET_EVENTS_DIVISOR (8)
+
+STATIC uint8_t usocket_events_divisor;
+STATIC socket_obj_t *usocket_events_head;
+
+void usocket_events_deinit(void) {
+    usocket_events_head = NULL;
+}
+
+// Assumes the socket is not already in the linked list, and adds it
+STATIC void usocket_events_add(socket_obj_t *sock) {
+    sock->events_next = usocket_events_head;
+    usocket_events_head = sock;
+}
+
+// Assumes the socket is already in the linked list, and removes it
+STATIC void usocket_events_remove(socket_obj_t *sock) {
+    for (socket_obj_t **s = &usocket_events_head;; s = &(*s)->events_next) {
+        if (*s == sock) {
+            *s = (*s)->events_next;
+            return;
+        }
+    }
+}
+
+// Polls all registered sockets for readability and calls their callback if they are readable
+void usocket_events_handler(void) {
+    if (usocket_events_head == NULL) {
+        return;
+    }
+    if (--usocket_events_divisor) {
+        return;
+    }
+    usocket_events_divisor = USOCKET_EVENTS_DIVISOR;
+
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    int max_fd = 0;
+
+    for (socket_obj_t *s = usocket_events_head; s != NULL; s = s->events_next) {
+        FD_SET(s->fd, &rfds);
+        max_fd = MAX(max_fd, s->fd);
+    }
+
+    // Poll the sockets
+    struct timeval timeout = { .tv_sec = 0, .tv_usec = 0 };
+    int r = select(max_fd + 1, &rfds, NULL, NULL, &timeout);
+    if (r <= 0) {
+        return;
+    }
+
+    // Call the callbacks
+    for (socket_obj_t *s = usocket_events_head; s != NULL; s = s->events_next) {
+        if (FD_ISSET(s->fd, &rfds)) {
+            mp_call_function_1_protected(s->events_callback, s);
+        }
+    }
+}
+
+#endif // MICROPY_PY_USOCKET_EVENTS
 
 NORETURN static void exception_from_errno(int _errno) {
     // Here we need to convert from lwip errno values to MicroPython's standard ones
@@ -76,26 +146,9 @@ NORETURN static void exception_from_errno(int _errno) {
     mp_raise_OSError(_errno);
 }
 
-void check_for_exceptions() {
-    mp_obj_t exc = MP_STATE_VM(mp_pending_exception);
-    if (exc != MP_OBJ_NULL) {
-        MP_STATE_VM(mp_pending_exception) = MP_OBJ_NULL;
-        nlr_raise(exc);
-    }
+static inline void check_for_exceptions(void) {
+    mp_handle_pending();
 }
-
-STATIC mp_obj_t socket_close(const mp_obj_t arg0) {
-    socket_obj_t *self = MP_OBJ_TO_PTR(arg0);
-    if (self->fd >= 0) {
-        int ret = lwip_close_r(self->fd);
-        if (ret != 0) {
-            exception_from_errno(errno);
-        }
-        self->fd = -1;
-    }
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(socket_close_obj, socket_close);
 
 static int _socket_getaddrinfo2(const mp_obj_t host, const mp_obj_t portx, struct addrinfo **resp) {
     const struct addrinfo hints = {
@@ -159,7 +212,7 @@ STATIC mp_obj_t socket_accept(const mp_obj_t arg0) {
     struct sockaddr addr;
     socklen_t addr_len = sizeof(addr);
 
-	mp_hal_set_wdt_tmo();
+    mp_hal_set_wdt_tmo();
     int new_fd = -1;
     for (int i=0; i<=self->retries; i++) {
         MP_THREAD_GIL_EXIT();
@@ -168,7 +221,7 @@ STATIC mp_obj_t socket_accept(const mp_obj_t arg0) {
         if (new_fd >= 0) break;
         if (errno != EAGAIN) exception_from_errno(errno);
         check_for_exceptions();
-    	mp_hal_reset_wdt();
+        mp_hal_reset_wdt();
     }
     if (new_fd < 0) mp_raise_OSError(MP_ETIMEDOUT);
 
@@ -179,6 +232,7 @@ STATIC mp_obj_t socket_accept(const mp_obj_t arg0) {
     sock->domain = self->domain;
     sock->type = self->type;
     sock->proto = self->proto;
+    sock->peer_closed = false;
     _socket_settimeout(sock, UINT64_MAX);
 
     // make the return value
@@ -226,6 +280,7 @@ STATIC mp_obj_t socket_accepted(const mp_obj_t arg0) {
 		sock->domain = self->domain;
 		sock->type = self->type;
 		sock->proto = self->proto;
+        sock->peer_closed = false;
 		_socket_settimeout(sock, UINT64_MAX);
 
 		// make the return value
@@ -271,6 +326,25 @@ STATIC mp_obj_t socket_setsockopt(size_t n_args, const mp_obj_t *args) {
             }
             break;
         }
+
+        #if MICROPY_PY_USOCKET_EVENTS
+        // level: SOL_SOCKET
+        // special "register callback" option
+        case 20: {
+            if (args[3] == mp_const_none) {
+                if (self->events_callback != MP_OBJ_NULL) {
+                    usocket_events_remove(self);
+                    self->events_callback = MP_OBJ_NULL;
+                }
+            } else {
+                if (self->events_callback == MP_OBJ_NULL) {
+                    usocket_events_add(self);
+                }
+                self->events_callback = args[3];
+            }
+            break;
+        }
+        #endif
 
         // level: IPPROTO_IP
         case IP_ADD_MEMBERSHIP: {
@@ -328,25 +402,59 @@ STATIC mp_obj_t socket_setblocking(const mp_obj_t arg0, const mp_obj_t arg1) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(socket_setblocking_obj, socket_setblocking);
 
+// XXX this can end up waiting a very long time if the content is dribbled in one character
+// at a time, as the timeout resets each time a recvfrom succeeds ... this is probably not
+// good behaviour.
+STATIC mp_uint_t _socket_read_data(mp_obj_t self_in, void *buf, size_t size,
+    struct sockaddr *from, socklen_t *from_len, int *errcode) {
+    socket_obj_t *sock = MP_OBJ_TO_PTR(self_in);
+
+    // If the peer closed the connection then the lwIP socket API will only return "0" once
+    // from lwip_recvfrom_r and then block on subsequent calls.  To emulate POSIX behaviour,
+    // which continues to return "0" for each call on a closed socket, we set a flag when
+    // the peer closed the socket.
+    if (sock->peer_closed) {
+        return 0;
+    }
+
+    mp_hal_set_wdt_tmo();
+    // XXX Would be nicer to use RTC to handle timeouts
+    for (int i = 0; i <= sock->retries; ++i) {
+        MP_THREAD_GIL_EXIT();
+        int r = lwip_recvfrom_r(sock->fd, buf, size, 0, from, from_len);
+        MP_THREAD_GIL_ENTER();
+        if (r == 0) {
+            sock->peer_closed = true;
+        }
+        if (r >= 0) {
+            return r;
+        }
+        if (errno != EWOULDBLOCK) {
+            *errcode = errno;
+            return MP_STREAM_ERROR;
+        }
+        check_for_exceptions();
+        mp_hal_reset_wdt();
+    }
+
+    *errcode = sock->retries == 0 ? MP_EWOULDBLOCK : MP_ETIMEDOUT;
+    return MP_STREAM_ERROR;
+}
+
 mp_obj_t _socket_recvfrom(mp_obj_t self_in, mp_obj_t len_in,
         struct sockaddr *from, socklen_t *from_len) {
-    socket_obj_t *sock = MP_OBJ_TO_PTR(self_in);
     size_t len = mp_obj_get_int(len_in);
     vstr_t vstr;
     vstr_init_len(&vstr, len);
 
-    // XXX Would be nicer to use RTC to handle timeouts
-	mp_hal_set_wdt_tmo();
-    for (int i=0; i<=sock->retries; i++) {
-        MP_THREAD_GIL_EXIT();
-        int r = lwip_recvfrom_r(sock->fd, vstr.buf, len, 0, from, from_len);
-        MP_THREAD_GIL_ENTER();
-        if (r >= 0) { vstr.len = r; return mp_obj_new_str_from_vstr(&mp_type_bytes, &vstr); }
-        if (errno != EWOULDBLOCK) exception_from_errno(errno);
-        check_for_exceptions();
-    	mp_hal_reset_wdt();
+    int errcode;
+    mp_uint_t ret = _socket_read_data(self_in, vstr.buf, len, from, from_len, &errcode);
+    if (ret == MP_STREAM_ERROR) {
+        exception_from_errno(errcode);
     }
-    mp_raise_OSError(MP_ETIMEDOUT);
+
+    vstr.len = ret;
+    return mp_obj_new_str_from_vstr(&mp_type_bytes, &vstr);
 }
 
 STATIC mp_obj_t socket_recv(mp_obj_t self_in, mp_obj_t len_in) {
@@ -371,7 +479,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(socket_recvfrom_obj, socket_recvfrom);
 
 int _socket_send(socket_obj_t *sock, const char *data, size_t datalen) {
     int sentlen = 0;
-	mp_hal_set_wdt_tmo();
+    mp_hal_set_wdt_tmo();
     for (int i=0; i<=sock->retries && sentlen < datalen; i++) {
         MP_THREAD_GIL_EXIT();
         int r = lwip_write_r(sock->fd, data+sentlen, datalen-sentlen);
@@ -379,7 +487,7 @@ int _socket_send(socket_obj_t *sock, const char *data, size_t datalen) {
         if (r < 0 && errno != EWOULDBLOCK) exception_from_errno(errno);
         if (r > 0) sentlen += r;
         check_for_exceptions();
-    	mp_hal_reset_wdt();
+        mp_hal_reset_wdt();
     }
     if (sentlen == 0) mp_raise_OSError(MP_ETIMEDOUT); 
     return sentlen;
@@ -420,7 +528,7 @@ STATIC mp_obj_t socket_sendto(mp_obj_t self_in, mp_obj_t data_in, mp_obj_t addr_
     to.sin_port = lwip_htons(netutils_parse_inet_addr(addr_in, (uint8_t*)&to.sin_addr, NETUTILS_BIG));
 
     // send the data
-	mp_hal_set_wdt_tmo();
+    mp_hal_set_wdt_tmo();
     for (int i=0; i<=self->retries; i++) {
         MP_THREAD_GIL_EXIT();
         int ret = lwip_sendto_r(self->fd, bufinfo.buf, bufinfo.len, 0, (struct sockaddr*)&to, sizeof(to));
@@ -430,7 +538,7 @@ STATIC mp_obj_t socket_sendto(mp_obj_t self_in, mp_obj_t data_in, mp_obj_t addr_
             exception_from_errno(errno);
         }
         check_for_exceptions();
-    	mp_hal_reset_wdt();
+        mp_hal_reset_wdt();
     }
     mp_raise_OSError(MP_ETIMEDOUT); 
 }
@@ -449,31 +557,13 @@ STATIC mp_obj_t socket_makefile(size_t n_args, const mp_obj_t *args) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(socket_makefile_obj, 1, 3, socket_makefile);
 
 
-// XXX this can end up waiting a very long time if the content is dribbled in one character
-// at a time, as the timeout resets each time a recvfrom succeeds ... this is probably not
-// good behaviour.
-
 STATIC mp_uint_t socket_stream_read(mp_obj_t self_in, void *buf, mp_uint_t size, int *errcode) {
-    socket_obj_t *sock = self_in;
-
-    // XXX Would be nicer to use RTC to handle timeouts
-	mp_hal_set_wdt_tmo();
-    for (int i=0; i<=sock->retries; i++) {
-        MP_THREAD_GIL_EXIT();
-        int r = lwip_recvfrom_r(sock->fd, buf, size, 0, NULL, NULL);
-        MP_THREAD_GIL_ENTER();
-        if (r >= 0) return r;
-        if (r < 0 && errno != EWOULDBLOCK) { *errcode = errno; return MP_STREAM_ERROR; }
-        check_for_exceptions();
-    	mp_hal_reset_wdt();
-    }
-    *errcode = sock->retries == 0 ? MP_EWOULDBLOCK : MP_ETIMEDOUT;
-    return MP_STREAM_ERROR;
+    return _socket_read_data(self_in, buf, size, NULL, NULL, errcode);
 }
 
 STATIC mp_uint_t socket_stream_write(mp_obj_t self_in, const void *buf, mp_uint_t size, int *errcode) {
     socket_obj_t *sock = self_in;
-	mp_hal_set_wdt_tmo();
+    mp_hal_set_wdt_tmo();
     for (int i=0; i<=sock->retries; i++) {
         MP_THREAD_GIL_EXIT();
         int r = lwip_write_r(sock->fd, buf, size);
@@ -481,7 +571,7 @@ STATIC mp_uint_t socket_stream_write(mp_obj_t self_in, const void *buf, mp_uint_
         if (r > 0) return r;
         if (r < 0 && errno != EWOULDBLOCK) { *errcode = errno; return MP_STREAM_ERROR; }
         check_for_exceptions();
-    	mp_hal_reset_wdt();
+        mp_hal_reset_wdt();
     }
     *errcode = sock->retries == 0 ? MP_EWOULDBLOCK : MP_ETIMEDOUT;
     return MP_STREAM_ERROR;
@@ -512,6 +602,12 @@ STATIC mp_uint_t socket_stream_ioctl(mp_obj_t self_in, mp_uint_t request, uintpt
         return ret;
     } else if (request == MP_STREAM_CLOSE) {
         if (socket->fd >= 0) {
+            #if MICROPY_PY_USOCKET_EVENTS
+            if (socket->events_callback != MP_OBJ_NULL) {
+                usocket_events_remove(socket);
+                socket->events_callback = MP_OBJ_NULL;
+            }
+            #endif
             int ret = lwip_close_r(socket->fd);
             if (ret != 0) {
                 *errcode = errno;
@@ -571,6 +667,7 @@ STATIC mp_obj_t get_socket(size_t n_args, const mp_obj_t *args) {
     sock->domain = AF_INET;
     sock->type = SOCK_STREAM;
     sock->proto = 0;
+    sock->peer_closed = false;
     if (n_args > 0) {
         sock->domain = mp_obj_get_int(args[0]);
         if (n_args > 1) {

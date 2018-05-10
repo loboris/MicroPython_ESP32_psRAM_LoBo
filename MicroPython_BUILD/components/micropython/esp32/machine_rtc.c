@@ -45,10 +45,13 @@
 
 #include "mphalport.h"
 #include "machine_pin.h"
+#include "mpsleep.h"
 
 
 #define RTC_MEM_INT_SIZE 64
 #define RTC_MEM_STR_SIZE 2048
+
+extern int MainTaskCore;
 
 char mpy_time_zone[64] = {'\0'};
 
@@ -75,14 +78,6 @@ static RTC_DATA_ATTR uint64_t seconds_at_boot;
 static mach_rtc_obj_t mach_rtc_obj;
 const mp_obj_type_t mach_rtc_type;
 
-//------------------------------------------------------------
-static void mach_rtc_set_seconds_since_epoch(uint64_t nowus) {
-    struct timeval tv;
-
-    // store the packet timestamp
-    gettimeofday(&tv, NULL);
-    seconds_at_boot = tv.tv_sec;
-}
 
 //------------------------
 static void rtc_init_mem()
@@ -95,8 +90,12 @@ static void rtc_init_mem()
 
 //--------------------
 void rtc_init0(void) {
-    mach_rtc_set_seconds_since_epoch(0);
-    rtc_init_mem();
+	mpsleep_reset_cause_t rstc = mpsleep_get_reset_cause();
+	if ((rstc != MPSLEEP_DEEPSLEEP_RESET) && (rstc != MPSLEEP_SOFT_RESET) && (rstc != MPSLEEP_SOFT_CPU_RESET)) {
+		seconds_at_boot = 0;
+		setTicks_base(0);
+	    rtc_init_mem();
+	}
 }
 
 // Set system date time
@@ -148,7 +147,7 @@ STATIC mp_obj_t mach_rtc_datetime(const mp_obj_t *args) {
 	// Set new base for ticks counting
     setTicks_base((((uint64_t)now.tv_sec * 1000000) - ticks_us));
 
-    mach_rtc_set_seconds_since_epoch(seconds);
+	seconds_at_boot = seconds;
 
     return mp_const_none;
 }
@@ -330,12 +329,12 @@ STATIC mp_obj_t mach_rtc_ntp_sync(size_t n_args, const mp_obj_t *pos_args, mp_ma
     if (args[2].u_obj != mp_const_none) {
     	// get TZ argument
     	const char *tzs = mp_obj_str_get_str(args[2].u_obj);
-    	if ((strlen(tzs) < 2) && (strlen(tzs) < 64)) {
+    	if ((strlen(tzs) > 2) && (strlen(tzs) < 64)) {
     	    sprintf(mpy_time_zone, "%s", tzs);
     		tz_fromto_NVS(NULL, mpy_time_zone);
     	}
     	else {
-    		mp_raise_ValueError("tz string length must be 3 - 64");
+    		mp_raise_ValueError("tz string length must be 3 - 63");
     	}
     }
     setenv("TZ", mpy_time_zone, 1);
@@ -361,7 +360,12 @@ STATIC mp_obj_t mach_rtc_ntp_sync(size_t n_args, const mp_obj_t *pos_args, mp_ma
 
 	if (sntp_handle == NULL) {
 		// Create and start sntp task
-		if (xTaskCreate(&sntp_task, "SNTP_TASK", 2048, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+1, &sntp_handle) != pdPASS) {
+		#if CONFIG_MICROPY_USE_BOTH_CORES
+		int tres = xTaskCreate(&sntp_task, "SNTP_TASK", 2048, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &sntp_handle);
+		#else
+		int tres = xTaskCreatePinnedToCore(&sntp_task, "SNTP_TASK", 2048, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &sntp_handle, MainTaskCore);
+		#endif
+		if (tres != pdTRUE) {
 	    	mp_raise_msg(&mp_type_OSError, "Error creating SNTP task");
 		}
 	}

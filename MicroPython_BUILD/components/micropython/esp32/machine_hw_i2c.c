@@ -66,6 +66,8 @@ typedef struct _mp_machine_i2c_obj_t {
 } mp_machine_i2c_obj_t;
 
 
+extern int MainTaskCore;
+
 const mp_obj_type_t machine_hw_i2c_type;
 
 static int i2c_used[I2C_MODE_MAX] = { -1, -1 };
@@ -479,7 +481,11 @@ mp_obj_t mp_machine_i2c_make_new(const mp_obj_type_t *type, size_t n_args, size_
     	}
 
     	if (i2c_slave_task_handle[self->bus_id] == NULL) {
-    		xTaskCreate(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+4, &i2c_slave_task_handle[self->bus_id]);
+			#if CONFIG_MICROPY_USE_BOTH_CORES
+    		xTaskCreate(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &i2c_slave_task_handle[self->bus_id]);
+			#else
+    		xTaskCreatePinnedToCore(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &i2c_slave_task_handle[self->bus_id], MainTaskCore);
+			#endif
     	}
     }
 
@@ -577,7 +583,11 @@ STATIC mp_obj_t mp_machine_i2c_init(mp_uint_t n_args, const mp_obj_t *pos_args, 
 		        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error installing I2C driver"));
 	    	}
 	    	if (i2c_slave_task_handle[self->bus_id] == NULL) {
-	    		xTaskCreate(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+4, &i2c_slave_task_handle[self->bus_id]);
+				#if CONFIG_MICROPY_USE_BOTH_CORES
+				xTaskCreate(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &i2c_slave_task_handle[self->bus_id]);
+				#else
+				xTaskCreatePinnedToCore(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &i2c_slave_task_handle[self->bus_id], MainTaskCore);
+				#endif
 	    	}
 	    }
 		i2c_used[bus_id] = mode;

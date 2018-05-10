@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -55,6 +56,17 @@ typedef struct _mp_obj_float_t {
 const mp_obj_float_t mp_const_float_e_obj = {{&mp_type_float}, M_E};
 const mp_obj_float_t mp_const_float_pi_obj = {{&mp_type_float}, M_PI};
 
+#endif
+
+// LoBo: Enable runtime float precision change
+#if MICROPY_FLOAT_IMPL == MICROPY_FLOAT_IMPL_FLOAT
+    #if MICROPY_OBJ_REPR == MICROPY_OBJ_REPR_C
+    int float_precision = 6;
+    #else
+    int float_precision = 7;
+    #endif
+#else
+    int float_precision = 15;
 #endif
 
 #if MICROPY_FLOAT_HIGH_QUALITY_HASH
@@ -109,17 +121,10 @@ typedef uint32_t mp_float_uint_t;
 STATIC void float_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_t kind) {
     (void)kind;
     mp_float_t o_val = mp_obj_float_get(o_in);
-#if MICROPY_FLOAT_IMPL == MICROPY_FLOAT_IMPL_FLOAT
-    char buf[16];
-    #if MICROPY_OBJ_REPR == MICROPY_OBJ_REPR_C
-    const int precision = 6;
-    #else
-    const int precision = 7;
-    #endif
-#else
+    // LoBo: Runtime float precision change enabled
     char buf[32];
-    const int precision = 16;
-#endif
+    const int precision = float_precision;
+
     mp_format_float(o_val, buf, sizeof(buf), 'g', precision, '\0');
     mp_print_str(print, buf);
     if (strchr(buf, '.') == NULL && strchr(buf, 'e') == NULL && strchr(buf, 'n') == NULL) {

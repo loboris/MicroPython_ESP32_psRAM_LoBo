@@ -7,7 +7,7 @@
 COMPONENT_ADD_INCLUDEDIRS := .  genhdr py esp32 lib lib/utils lib/mp-readline extmod extmod/crypto-algorithms lib/netutils drivers/dht \
 							 lib/timeutils  lib/berkeley-db-1.xx/include lib/berkeley-db-1.xx/btree \
 							 lib/berkeley-db-1.xx/db lib/berkeley-db-1.xx/hash lib/berkeley-db-1.xx/man lib/berkeley-db-1.xx/mpool lib/berkeley-db-1.xx/recno \
-							 ../curl/include ../curl/lib ../zlib ../libssh2/include ../espmqtt/include ../littlefs
+							 ../curl/include ../curl/lib ../zlib ../libssh2/include ../espmqtt/include ../espmqtt/lib/include ../littlefs
 
 COMPONENT_PRIV_INCLUDEDIRS := .  genhdr py esp32 lib
 
@@ -49,6 +49,7 @@ MP_EXTRA_INC += -I$(PROJECT_PATH)/components/curl/include
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/libssh2/include
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/zlib
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/espmqtt/include
+MP_EXTRA_INC += -I$(PROJECT_PATH)/components/espmqtt/lib/include
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/littlefs
 MP_EXTRA_INC += -I$(COMPONENT_PATH)/py
 MP_EXTRA_INC += -I$(COMPONENT_PATH)/lib/mp-readline
@@ -104,6 +105,11 @@ MP_EXTRA_INC += -I$(ESPCOMP)/mdns/include
 ifdef CONFIG_MICROPY_USE_BLUETOOTH
 MP_EXTRA_INC += -I$(ESPCOMP)/bt/include
 MP_EXTRA_INC += -I$(ESPCOMP)/bt/bluedroid/api/include
+endif
+
+ifdef CONFIG_MICROPY_USE_GPS
+MP_EXTRA_INC += -I$(PROJECT_PATH)/components/libnmea/src/nmea
+MP_EXTRA_INC += -I$(PROJECT_PATH)/components/libnmea/src/parsers
 endif
 
 # CPP macro
@@ -177,6 +183,10 @@ ifdef CONFIG_MICROPY_USE_CURL
 SRC_C += esp32/modcurl.c
 endif
 
+ifdef CONFIG_MICROPY_USE_GPS
+SRC_C += esp32/machine_gps.c
+endif
+
 ifdef CONFIG_MICROPY_USE_SSH
 SRC_C += esp32/modssh.c
 endif
@@ -211,24 +221,6 @@ EXTMOD_SRC_C = $(addprefix extmod/,\
 	)
 
 LIB_SRC_C = $(addprefix lib/,\
-	libm/math.c \
-	libm/fmodf.c \
-	libm/roundf.c \
-	libm/ef_sqrt.c \
-	libm/kf_rem_pio2.c \
-	libm/kf_sin.c \
-	libm/kf_cos.c \
-	libm/kf_tan.c \
-	libm/ef_rem_pio2.c \
-	libm/sf_sin.c \
-	libm/sf_cos.c \
-	libm/sf_tan.c \
-	libm/sf_frexp.c \
-	libm/sf_modf.c \
-	libm/sf_ldexp.c \
-	libm/asinfacosf.c \
-	libm/atanf.c \
-	libm/atan2f.c \
 	mp-readline/readline.c \
 	netutils/netutils.c \
 	timeutils/timeutils.c \

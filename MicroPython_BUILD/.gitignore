@@ -22,6 +22,7 @@ build/
 
 patches/
 
+qstrdefs.generated.h
 partitions_mpy.csv
 /sdkconfig
 sdkconfig.old
@@ -35,3 +36,4 @@ sdkconfig.fw_psram_all
 
 make_firmwares.sh
 mncfg_exit.txt
+updates.txt

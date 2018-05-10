@@ -5,6 +5,7 @@
  *
  * Copyright (c) 2013, 2014 Damien P. George
  * Copyright (c) 2014 Paul Sokolovsky
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -90,7 +91,8 @@ STATIC void array_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_t 
 #endif
 
 #if MICROPY_PY_BUILTINS_BYTEARRAY || MICROPY_PY_ARRAY
-STATIC mp_obj_array_t *array_new(char typecode, size_t n) {
+//-------------------------------------------------------------------------
+STATIC mp_obj_array_t *array_new(char typecode, size_t n, uint64_t *init) {
     int typecode_size = mp_binary_get_size('@', typecode, NULL);
     mp_obj_array_t *o = m_new_obj(mp_obj_array_t);
     #if MICROPY_PY_BUILTINS_BYTEARRAY && MICROPY_PY_ARRAY
@@ -104,6 +106,38 @@ STATIC mp_obj_array_t *array_new(char typecode, size_t n) {
     o->free = 0;
     o->len = n;
     o->items = m_new(byte, typecode_size * o->len);
+
+    if (o->len > 0) {
+		memset(o->items, 0, typecode_size * o->len);
+		if (init) {
+			switch (typecode_size) {
+				case 2: {
+					uint16_t *ptr = (uint16_t *) o->items;
+					uint16_t *val = (uint16_t *)init;
+					for (int i=0; i<o->len; i++) {
+						ptr[i] = *val;
+					}
+					break;
+				}
+				case 4: {
+					uint32_t *ptr = (uint32_t *) o->items;
+					uint32_t *val = (uint32_t *)init;
+					for (int i=0; i<o->len; i++) {
+						ptr[i] = *val;
+					}
+					break;
+				}
+				case 8: {
+					uint64_t *ptr = (uint64_t *) o->items;
+					uint64_t *val = (uint64_t *)init;
+					for (int i=0; i<o->len; i++) {
+						ptr[i] = *val;
+					}
+					break;
+				}
+			}
+		}
+    }
     return o;
 }
 #endif
@@ -113,17 +147,15 @@ STATIC mp_obj_t array_construct(char typecode, mp_obj_t initializer) {
     // bytearrays can be raw-initialised from anything with the buffer protocol
     // other arrays can only be raw-initialised from bytes and bytearray objects
     mp_buffer_info_t bufinfo;
-    if (((MICROPY_PY_BUILTINS_BYTEARRAY
-            && typecode == BYTEARRAY_TYPECODE)
-        || (MICROPY_PY_ARRAY
-            && (MP_OBJ_IS_TYPE(initializer, &mp_type_bytes)
-                || (MICROPY_PY_BUILTINS_BYTEARRAY && MP_OBJ_IS_TYPE(initializer, &mp_type_bytearray)))))
-        && mp_get_buffer(initializer, &bufinfo, MP_BUFFER_READ)) {
+    if (((MICROPY_PY_BUILTINS_BYTEARRAY && typecode == BYTEARRAY_TYPECODE) ||
+         (MICROPY_PY_ARRAY && (MP_OBJ_IS_TYPE(initializer, &mp_type_bytes) ||
+         (MICROPY_PY_BUILTINS_BYTEARRAY && MP_OBJ_IS_TYPE(initializer, &mp_type_bytearray))))) &&
+        mp_get_buffer(initializer, &bufinfo, MP_BUFFER_READ)) {
         // construct array from raw bytes
         // we round-down the len to make it a multiple of sz (CPython raises error)
         size_t sz = mp_binary_get_size('@', typecode, NULL);
         size_t len = bufinfo.len / sz;
-        mp_obj_array_t *o = array_new(typecode, len);
+        mp_obj_array_t *o = array_new(typecode, len, NULL);
         memcpy(o->items, bufinfo.buf, len * sz);
         return MP_OBJ_FROM_PTR(o);
     }
@@ -137,7 +169,7 @@ STATIC mp_obj_t array_construct(char typecode, mp_obj_t initializer) {
         len = MP_OBJ_SMALL_INT_VALUE(len_in);
     }
 
-    mp_obj_array_t *array = array_new(typecode, len);
+    mp_obj_array_t *array = array_new(typecode, len, NULL);
 
     mp_obj_t iterable = mp_getiter(initializer, NULL);
     mp_obj_t item;
@@ -155,18 +187,30 @@ STATIC mp_obj_t array_construct(char typecode, mp_obj_t initializer) {
 #endif
 
 #if MICROPY_PY_ARRAY
+//--------------------------------------------------------------------------------------------------------------
 STATIC mp_obj_t array_make_new(const mp_obj_type_t *type_in, size_t n_args, size_t n_kw, const mp_obj_t *args) {
     (void)type_in;
-    mp_arg_check_num(n_args, n_kw, 1, 2, false);
-
+    mp_arg_check_num(n_args, n_kw, 1, 3, false);
     // get typecode
     const char *typecode = mp_obj_str_get_str(args[0]);
-
     if (n_args == 1) {
         // 1 arg: make an empty array
-        return MP_OBJ_FROM_PTR(array_new(*typecode, 0));
+        return MP_OBJ_FROM_PTR(array_new(*typecode, 0, NULL));
     } else {
-        // 2 args: construct the array from the given object
+        // 2 or 3 args:
+    	if (MP_OBJ_IS_INT(args[1])) {
+    		// make array of specified number of items
+            mp_uint_t len = mp_obj_get_int(args[1]);
+    	    if (n_args == 3) {
+    	    	// initialize array vith given value
+    	        uint64_t init_val = mp_obj_get_int64(args[2]);
+    	    	return MP_OBJ_FROM_PTR(array_new(*typecode, len, &init_val));
+    	    }
+    	    else {
+    	    	return MP_OBJ_FROM_PTR(array_new(*typecode, len, NULL));
+    	    }
+    	}
+    	//construct the array from the given object
         return array_construct(*typecode, args[1]);
     }
 }
@@ -179,11 +223,11 @@ STATIC mp_obj_t bytearray_make_new(const mp_obj_type_t *type_in, size_t n_args, 
 
     if (n_args == 0) {
         // no args: construct an empty bytearray
-        return MP_OBJ_FROM_PTR(array_new(BYTEARRAY_TYPECODE, 0));
+        return MP_OBJ_FROM_PTR(array_new(BYTEARRAY_TYPECODE, 0, NULL));
     } else if (MP_OBJ_IS_INT(args[0])) {
         // 1 arg, an integer: construct a blank bytearray of that length
         mp_uint_t len = mp_obj_get_int(args[0]);
-        mp_obj_array_t *o = array_new(BYTEARRAY_TYPECODE, len);
+        mp_obj_array_t *o = array_new(BYTEARRAY_TYPECODE, len, NULL);
         memset(o->items, 0, len);
         return MP_OBJ_FROM_PTR(o);
     } else {
@@ -254,7 +298,7 @@ STATIC mp_obj_t array_binary_op(mp_binary_op_t op, mp_obj_t lhs_in, mp_obj_t rhs
             size_t rhs_len = rhs_bufinfo.len / sz;
 
             // note: lhs->len is element count of lhs, lhs_bufinfo.len is byte count
-            mp_obj_array_t *res = array_new(lhs_bufinfo.typecode, lhs->len + rhs_len);
+            mp_obj_array_t *res = array_new(lhs_bufinfo.typecode, lhs->len + rhs_len, NULL);
             mp_seq_cat((byte*)res->items, lhs_bufinfo.buf, lhs_bufinfo.len, rhs_bufinfo.buf, rhs_len * sz, byte);
             return MP_OBJ_FROM_PTR(res);
         }
@@ -461,7 +505,7 @@ STATIC mp_obj_t array_subscr(mp_obj_t self_in, mp_obj_t index_in, mp_obj_t value
                 res->len = slice.stop - slice.start;
             #endif
             } else {
-                res = array_new(o->typecode, slice.stop - slice.start);
+                res = array_new(o->typecode, slice.stop - slice.start, NULL);
                 memcpy(res->items, (uint8_t*)o->items + slice.start * sz, (slice.stop - slice.start) * sz);
             }
             return MP_OBJ_FROM_PTR(res);
@@ -569,7 +613,7 @@ size_t mp_obj_array_len(mp_obj_t self_in) {
 
 #if MICROPY_PY_BUILTINS_BYTEARRAY
 mp_obj_t mp_obj_new_bytearray(size_t n, void *items) {
-    mp_obj_array_t *o = array_new(BYTEARRAY_TYPECODE, n);
+    mp_obj_array_t *o = array_new(BYTEARRAY_TYPECODE, n, NULL);
     memcpy(o->items, items, n);
     return MP_OBJ_FROM_PTR(o);
 }

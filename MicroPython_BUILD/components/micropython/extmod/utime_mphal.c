@@ -37,6 +37,7 @@
 #include "py/runtime.h"
 #include "extmod/utime_mphal.h"
 
+// Sleep for number of seconds (given as float)
 //------------------------------------------------------------------
 STATIC mp_obj_t time_sleep(mp_uint_t n_args, const mp_obj_t *args) {
     #if MICROPY_PY_BUILTINS_FLOAT
@@ -55,6 +56,8 @@ STATIC mp_obj_t time_sleep(mp_uint_t n_args, const mp_obj_t *args) {
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_utime_sleep_obj, 1, 2, time_sleep);
 
+// Sleep for number of milliseconds (given as integer)
+// If the 2nd (optional) argument is set to True, return actual number of sleep ms
 //---------------------------------------------------------------------
 STATIC mp_obj_t time_sleep_ms(mp_uint_t n_args, const mp_obj_t *args) {
     mp_int_t ms = mp_obj_get_int(args[0]);
@@ -66,6 +69,7 @@ STATIC mp_obj_t time_sleep_ms(mp_uint_t n_args, const mp_obj_t *args) {
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_utime_sleep_ms_obj, 1, 2, time_sleep_ms);
 
+// Sleep for number of microseconds (given as integer)
 //-------------------------------------------
 STATIC mp_obj_t time_sleep_us(mp_obj_t arg) {
     mp_int_t us = mp_obj_get_int(arg);
@@ -76,7 +80,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(mp_utime_sleep_us_obj, time_sleep_us);
 
 //-----------------------------------
 STATIC mp_obj_t time_ticks_ms(void) {
-    return mp_obj_new_int_from_ull(mp_hal_ticks_ms());
+	return mp_obj_new_int_from_ull(mp_hal_ticks_ms());
 }
 MP_DEFINE_CONST_FUN_OBJ_0(mp_utime_ticks_ms_obj, time_ticks_ms);
 
@@ -103,7 +107,7 @@ MP_DEFINE_CONST_FUN_OBJ_2(mp_utime_ticks_diff_obj, time_ticks_diff);
 
 //----------------------------------------------------------------------
 STATIC mp_obj_t time_tickscpu_diff(mp_obj_t end_in, mp_obj_t start_in) {
-    // we assume that the arguments come from ticks_xx so are small ints
+    // we assume that the arguments come from ticks_cpu so are small integers
     mp_uint_t start = MP_OBJ_SMALL_INT_VALUE(start_in);
     mp_uint_t end = MP_OBJ_SMALL_INT_VALUE(end_in);
     // Optimized formula avoiding if conditions. We adjust difference "forward",
@@ -116,7 +120,7 @@ MP_DEFINE_CONST_FUN_OBJ_2(mp_utime_tickscpu_diff_obj, time_tickscpu_diff);
 
 //--------------------------------------------------------------------
 STATIC mp_obj_t time_ticks_add(mp_obj_t ticks_in, mp_obj_t delta_in) {
-    // we assume that first argument come from ticks_xx so is 64-bit int
+    // both arguments can be 64-bit integers
     uint64_t tickin = mp_obj_get_int64(ticks_in);
     uint64_t delta = mp_obj_get_int64(delta_in);
     int64_t addtick = tickin + delta;

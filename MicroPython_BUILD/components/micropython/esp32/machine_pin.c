@@ -37,6 +37,8 @@
 #include "extmod/virtpin.h"
 #include "machine_pin.h"
 
+extern bool mpy_use_spiram;
+
 STATIC const machine_pin_obj_t machine_pin_obj[] = {
     {{&machine_pin_type}, GPIO_NUM_0},
     {{&machine_pin_type}, GPIO_NUM_1},
@@ -157,11 +159,11 @@ STATIC mp_obj_t machine_pin_obj_init_helper(const machine_pin_obj_t *self, size_
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-	#if CONFIG_SPIRAM_SUPPORT
-	if ((self->id == 16) || (self->id == 17)) {
-		mp_raise_ValueError("Pins 16&17 cannot be used if SPIRAM is used");
+	if (mpy_use_spiram) {
+		if ((self->id == 16) || (self->id == 17)) {
+			mp_raise_ValueError("Pins 16&17 cannot be used if SPIRAM is used");
+		}
 	}
-	#endif
 
 	// configure the pin for gpio
     if (rtc_gpio_is_valid_gpio(self->id)) rtc_gpio_deinit(self->id);

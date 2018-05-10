@@ -1,0 +1,4 @@
+
+# IDF_VER := $(shell cd ${IDF_PATH} && git describe --always --tags --dirty)
+IDF_VER := "v3.1-dev-156-g1837a034"
+

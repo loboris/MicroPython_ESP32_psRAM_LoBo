@@ -41,6 +41,7 @@
 #include "py/mphal.h"
 #include "mpthreadport.h"
 #include "modnetwork.h"
+#include "modmachine.h"
 
 #if defined(CONFIG_MICROPY_USE_TELNET) || defined(CONFIG_MICROPY_USE_FTPSERVER)
 #include "tcpip_adapter.h"
@@ -90,36 +91,43 @@ typedef struct _thread_t {
 // the mutex controls access to the linked list
 STATIC mp_thread_mutex_t thread_mutex;
 STATIC thread_t thread_entry0;
-STATIC thread_t *thread; // root pointer, handled by mp_thread_gc_others
+STATIC thread_t *thread = NULL; // root pointer, handled by mp_thread_gc_others
 
-//-------------------------------
-void vPortCleanUpTCB(void *tcb) {
-    thread_t *prev = NULL;
-    mp_thread_mutex_lock(&thread_mutex, 1);
-    for (thread_t *th = thread; th != NULL; prev = th, th = th->next) {
-        // unlink the node from the list
-        if (th->tcb == tcb) {
-            if (prev != NULL) {
-                prev->next = th->next;
-            } else {
-                // move the start pointer
-                thread = th->next;
-            }
-            // explicitly release all its memory
-            if (th->tcb) free(th->tcb);
-            if (th->stack) free(th->stack);
-            //m_del(thread_t, th, 1);
-            free(th);
-            break;
-        }
-    }
-    mp_thread_mutex_unlock(&thread_mutex);
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void vPortCleanUpTCB(void *tcb)
+{
+	if ((MainTaskHandle) && (thread)) {
+		thread_t *prev = NULL;
+		mp_thread_mutex_lock(&thread_mutex, 1);
+		for (thread_t *th = thread; th != NULL; prev = th, th = th->next) {
+			// unlink the node from the list
+			if (th->tcb == tcb) {
+				if (prev != NULL) {
+					prev->next = th->next;
+				} else {
+					// move the start pointer
+					thread = th->next;
+				}
+				// explicitly release all its memory
+				if (th->tcb) free(th->tcb);
+				if (th->stack) free(th->stack);
+				//m_del(thread_t, th, 1);
+				free(th);
+				break;
+			}
+		}
+		mp_thread_mutex_unlock(&thread_mutex);
+	}
 }
 
 
 // === Initialize the main MicroPython thread ===
-//-------------------------------------------------------
-void mp_thread_preinit(void *stack, uint32_t stack_len) {
+//-----------------------------------------------------
+void mp_thread_preinit(void *stack, uint32_t stack_len)
+{
+    // Initialize threads mutex
+    mp_thread_mutex_init(&thread_mutex);
+
     mp_thread_set_state(&mp_state_ctx.thread);
     // create first entry in linked list of all threads
     thread = &thread_entry0;
@@ -138,11 +146,7 @@ void mp_thread_preinit(void *stack, uint32_t stack_len) {
     thread->type = THREAD_TYPE_MAIN;
     thread->next = NULL;
     MainTaskHandle = thread->id;
-}
 
-//-------------------------
-void mp_thread_init(void) {
-    mp_thread_mutex_init(&thread_mutex);
 }
 
 //------------------------------
@@ -160,7 +164,6 @@ void mp_thread_gc_others(void) {
         if (!th->ready) {
             continue;
         }
-        //ToDo: Check if needed
         gc_collect_root(th->stack, th->stack_len); // probably not needed
     }
     mp_thread_mutex_unlock(&thread_mutex);
@@ -229,12 +232,28 @@ TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack
     // ======================================================================
     StaticTask_t *tcb = NULL;
     StackType_t *stack = NULL;
+    thread_t *th = NULL;
 
-    tcb = malloc(sizeof(StaticTask_t));
-    stack = malloc(*stack_size+256);
+	if (mpy_use_spiram) tcb = heap_caps_malloc(sizeof(StaticTask_t), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	else tcb = heap_caps_malloc(sizeof(StaticTask_t), MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    if (tcb == NULL) {
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
+    }
 
-    //thread_t *th = m_new_obj(thread_t);
-    thread_t *th = (thread_t *)malloc(sizeof(thread_t));
+	if (mpy_use_spiram) stack = heap_caps_malloc(*stack_size+256, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	else stack = heap_caps_malloc(*stack_size+256, MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    if (stack == NULL) {
+    	free(tcb);
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
+    }
+
+	if (mpy_use_spiram) th = heap_caps_malloc(sizeof(thread_t), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	else th = heap_caps_malloc(sizeof(thread_t), MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    if (th == NULL) {
+    	free(stack);
+    	free(tcb);
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
+    }
 
     mp_thread_mutex_lock(&thread_mutex, 1);
 
@@ -251,6 +270,8 @@ TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack
 	#endif
     if (id == NULL) {
         mp_thread_mutex_unlock(&thread_mutex);
+    	free(stack);
+    	free(tcb);
         nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
     }
 
