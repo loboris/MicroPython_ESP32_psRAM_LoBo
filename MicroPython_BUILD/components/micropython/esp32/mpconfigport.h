@@ -32,7 +32,25 @@
 #include "rom/ets_sys.h"
 #include "sdkconfig.h"
 
-#define MICROPY_DEBUG_PRINTERS				(0)
+// ------------------------------------------------------------
+// For testing only, don't change unless you want to experiment
+// ------------------------------------------------------------
+// Don't use alloca calls. As alloca() is not part of ANSI C, this
+// workaround option is provided for compilers lacking this de-facto
+// standard function. The way it works is allocating from heap, and
+// relying on garbage collection to free it eventually. This is of
+// course much less optimal than real alloca().
+#define MICROPY_NO_ALLOCA                   (0)
+// Avoid using C stack when making Python function calls.
+// C stack still may be used if there's no free heap.
+#define MICROPY_STACKLESS                   (0)
+// Never use C stack when making Python function calls.
+#define MICROPY_STACKLESS_STRICT            (0)
+// Whether to build functions that print debugging info:
+//   mp_bytecode_print
+//   mp_parse_node_print
+#define MICROPY_DEBUG_PRINTERS              (0)
+// ------------------------------------------------------------
 
 // object representation and NLR handling
 #define MICROPY_OBJ_REPR                    (MICROPY_OBJ_REPR_A)
@@ -54,9 +72,18 @@
 #define MICROPY_OPT_MPZ_BITWISE             (1)
 
 // Python internal features
+// Whether to return number of collected objects from gc.collect()
+#ifdef CONFIG_MICROPY_GC_COLLECT_RETVAL
+#define MICROPY_PY_GC_COLLECT_RETVAL        (1)
+#else
+#define MICROPY_PY_GC_COLLECT_RETVAL        (0)
+#endif
 #define MICROPY_READER_VFS                  (1)
 #define MICROPY_ENABLE_GC                   (1)
-//#define MICROPY_GC_CONSERVATIVE_CLEAR       (0)
+// Be conservative and always clear to zero newly (re)allocated memory in the GC.
+// This helps eliminate stray pointers that hold on to memory that's no longer used.
+// It decreases performance due to unnecessary memory clearing.
+#define MICROPY_GC_CONSERVATIVE_CLEAR       (1)
 #define MICROPY_ENABLE_FINALISER            (1)
 #define MICROPY_STACK_CHECK                 (1)
 #define MICROPY_ENABLE_EMERGENCY_EXCEPTION_BUF (1)
@@ -82,9 +109,9 @@
 #define MICROPY_CAN_OVERRIDE_BUILTINS       (1)
 #define MICROPY_USE_INTERNAL_ERRNO          (1)
 #define MICROPY_USE_INTERNAL_PRINTF         (0) // ESP32 SDK requires its own printf, do NOT change
-//#define MICROPY_PY_SYS_EXC_INFO             (0)
-#define MICROPY_ENABLE_SCHEDULER            (1)
-#define MICROPY_SCHEDULER_DEPTH             (8)
+#define MICROPY_ENABLE_SCHEDULER            (1) // Do NOT change
+// Maximum number of entries in the scheduler
+#define MICROPY_SCHEDULER_DEPTH             (CONFIG_MICROPY_SCHEDULER_DEPTH)
 
 #define MICROPY_VFS                         (1) // !! DO NOT CHANGE, MUST BE 1 !!
 #define MICROPY_VFS_FAT                     (0) // !! DO NOT CHANGE, NOT USED  !!
@@ -150,7 +177,8 @@
 #define MICROPY_PY_UTIME_MP_HAL             (1)
 #define MICROPY_PY_THREAD                   (1)
 #define MICROPY_PY_THREAD_GIL               (1)
-#define MICROPY_PY_THREAD_GIL_VM_DIVISOR    (32)
+// Number of VM jump-loops to do before releasing the GIL.
+#define MICROPY_PY_THREAD_GIL_VM_DIVISOR    (CONFIG_MICROPY_PY_THREAD_GIL_VM_DIVISOR)
 
 // extended modules
 #define MICROPY_PY_UCTYPES                  (1)

@@ -34,6 +34,7 @@
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
+#include "soc/cpu.h"
 
 #include "py/mpstate.h"
 #include "py/gc.h"
@@ -75,8 +76,12 @@ typedef struct _thread_t {
     int ready;							// whether the thread is ready and running
     void *arg;							// thread Python args, a GC root pointer
     void *stack;						// pointer to the stack
+    void *curr_sp;						// current stack pointer
+    void *stack_top;					// stack top
     StaticTask_t *tcb;     				// pointer to the Task Control Block
     size_t stack_len;      				// number of words in the stack
+    void **ptrs;						// root pointers
+    size_t ptrs_len;					// length of root pointers
     char name[THREAD_NAME_MAX_SIZE];	// thread name
     QueueHandle_t threadQueue;			// queue used for inter thread communication
     int8_t allow_suspend;
@@ -135,6 +140,8 @@ void mp_thread_preinit(void *stack, uint32_t stack_len)
     thread->ready = 1;
     thread->arg = NULL;
     thread->stack = stack;
+    thread->curr_sp = stack+stack_len;
+    thread->stack_top = stack+stack_len;
     thread->stack_len = stack_len;
     sprintf(thread->name, "MainThread");
     thread->threadQueue = xQueueCreate( THREAD_QUEUE_MAX_ITEMS, sizeof(thread_msg_t) );
@@ -149,22 +156,49 @@ void mp_thread_preinit(void *stack, uint32_t stack_len)
 
 }
 
-//------------------------------
-void mp_thread_gc_others(void) {
+//----------------------------------
+void mp_thread_gc_others(int flag) {
     mp_thread_mutex_lock(&thread_mutex, 1);
     for (thread_t *th = thread; th != NULL; th = th->next) {
-    	if (th->type == THREAD_TYPE_SERVICE) {
-    		continue;
-    	}
-        gc_collect_root((void**)&th, 1);
-        gc_collect_root(&th->arg, 1); // probably not needed
-        if (th->id == xTaskGetCurrentTaskHandle()) {
-            continue;
-        }
         if (!th->ready) {
             continue;
         }
-        gc_collect_root(th->stack, th->stack_len); // probably not needed
+    	if (th->type == THREAD_TYPE_SERVICE) continue;
+
+    	int n_marked;
+		if (th->arg) {
+			#if MICROPY_PY_GC_COLLECT_RETVAL
+			n_marked = MP_STATE_MEM(gc_marked);
+			#endif
+			// Mark the pointers on thread arguments
+			gc_collect_root(&th->arg, 1);
+			#if MICROPY_PY_GC_COLLECT_RETVAL
+			if (flag) printf("th_collect:    marked on arg: %d (%s)\n", MP_STATE_MEM(gc_marked) - n_marked, th->name);
+			#endif
+		}
+
+		if (th->id == xTaskGetCurrentTaskHandle()) continue;
+
+		#if MICROPY_PY_GC_COLLECT_RETVAL
+		n_marked = MP_STATE_MEM(gc_marked);
+		#endif
+		// Mark the thread root pointers
+	    gc_collect_root(th->ptrs, th->ptrs_len);
+        //gc_collect_root((void**)&th, 1);
+		#if MICROPY_PY_GC_COLLECT_RETVAL
+		if (flag) printf("th_collect:   marked on thrd: %d (%s)\n", MP_STATE_MEM(gc_marked) - n_marked, th->name);
+		#endif
+
+		#if MICROPY_PY_GC_COLLECT_RETVAL
+		n_marked = MP_STATE_MEM(gc_marked);
+		#endif
+		// Mark the pointers on thread stack
+		gc_collect_root(th->curr_sp, (th->stack_top - th->curr_sp) / sizeof(uint32_t));
+
+		#if MICROPY_PY_GC_COLLECT_RETVAL
+		if (flag) printf("th_collect:  marked on stack: %d (%s) [%p - %p]\n",
+				MP_STATE_MEM(gc_marked) - n_marked, th->name, th->curr_sp, th->stack_top);
+		#endif
     }
     mp_thread_mutex_unlock(&thread_mutex);
 }
@@ -201,9 +235,10 @@ STATIC void freertos_entry(void *arg) {
     vTaskDelete(NULL);
 }
 
-//------------------------------------------------------------------------------------------------------------------------------
-TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack_size, int priority, char *name, bool same_core)
+//---------------------------------------------------------------------------------------------------------------------------------
+TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *in_stack_size, int priority, char *name, bool same_core)
 {
+	size_t stack_size = *in_stack_size;
 	bool is_repl = (strcmp(name, "REPLthread") == 0);
 	if (is_repl) {
 		if (ReplTaskHandle) {
@@ -214,78 +249,55 @@ TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack
     ext_thread_entry = entry;
 
     // Check thread stack size
-    if (*stack_size == 0) {
-    	*stack_size = MP_THREAD_DEFAULT_STACK_SIZE; //use default stack size
+    if (stack_size == 0) {
+    	stack_size = MP_THREAD_DEFAULT_STACK_SIZE; //use default stack size
     }
     else {
-        if (*stack_size < MP_THREAD_MIN_STACK_SIZE) *stack_size = MP_THREAD_MIN_STACK_SIZE;
-        else if (*stack_size > MP_THREAD_MAX_STACK_SIZE) *stack_size = MP_THREAD_MAX_STACK_SIZE;
+        if (stack_size < MP_THREAD_MIN_STACK_SIZE) stack_size = MP_THREAD_MIN_STACK_SIZE;
+        else if (stack_size > MP_THREAD_MAX_STACK_SIZE) stack_size = MP_THREAD_MAX_STACK_SIZE;
     }
+    stack_size &= 0x7FFFFFF8;
 
-    // allocate TCB, stack and linked-list node (must be outside thread_mutex lock)
-    //StaticTask_t *tcb = m_new(StaticTask_t, 1);
-    //StackType_t *stack = m_new(StackType_t, *stack_size / sizeof(StackType_t));
-
-    // ======================================================================
-    // We are NOT going to allocate thread tcb & stack on Micropython heap
-    // In case we are using SPI RAM, it can produce some problems and crashes
-    // ======================================================================
+    // === Allocate TCB, stack and linked-list node ===
     StaticTask_t *tcb = NULL;
     StackType_t *stack = NULL;
     thread_t *th = NULL;
 
 	if (mpy_use_spiram) tcb = heap_caps_malloc(sizeof(StaticTask_t), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-	else tcb = heap_caps_malloc(sizeof(StaticTask_t), MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	else tcb = malloc(sizeof(StaticTask_t));
     if (tcb == NULL) {
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread (tcb)"));
     }
 
-	if (mpy_use_spiram) stack = heap_caps_malloc(*stack_size+256, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-	else stack = heap_caps_malloc(*stack_size+256, MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	if (mpy_use_spiram) stack = heap_caps_malloc((stack_size * sizeof(StackType_t))+8, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	else stack = malloc((stack_size * sizeof(StackType_t))+8);;
     if (stack == NULL) {
     	free(tcb);
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread (stack)"));
     }
 
 	if (mpy_use_spiram) th = heap_caps_malloc(sizeof(thread_t), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-	else th = heap_caps_malloc(sizeof(thread_t), MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	else th = malloc(sizeof(thread_t));
     if (th == NULL) {
     	free(stack);
     	free(tcb);
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread (th)"));
     }
+    memset(th, 0, sizeof(thread_t));
 
     mp_thread_mutex_lock(&thread_mutex, 1);
 
-    // === Create the thread task ===
-	#if CONFIG_MICROPY_USE_BOTH_CORES
-    TaskHandle_t id = xTaskCreateStatic(freertos_entry, name, *stack_size, arg, priority, stack, tcb);
-	#else
-    int run_on_core = MainTaskCore;
-	#if !CONFIG_FREERTOS_UNICORE
-    if (!same_core) run_on_core = MainTaskCore ^ 1;
-	#endif
-
-    TaskHandle_t id = xTaskCreateStaticPinnedToCore(freertos_entry, name, *stack_size, arg, priority, stack, tcb, run_on_core);
-	#endif
-    if (id == NULL) {
-        mp_thread_mutex_unlock(&thread_mutex);
-    	free(stack);
-    	free(tcb);
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
-    }
-
-	if (is_repl) ReplTaskHandle = id;
     // adjust the stack_size to provide room to recover from hitting the limit
-    //*stack_size -= 1024;
+    //stack_size -= 1024;
 
     // add thread to linked list of all threads
-    th->id = id;
     th->ready = 0;
     th->arg = arg;
     th->stack = stack;
+    th->curr_sp = stack+stack_size;
+    th->stack_top = stack+stack_size;
     th->tcb = tcb;
-    th->stack_len = *stack_size;
+    th->stack_len = stack_size;
     th->next = thread;
     snprintf(th->name, THREAD_NAME_MAX_SIZE, name);
     th->threadQueue = xQueueCreate( THREAD_QUEUE_MAX_ITEMS, sizeof(thread_msg_t) );
@@ -298,7 +310,32 @@ TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack
     else th->type = THREAD_TYPE_PYTHON;
     thread = th;
 
-    mp_thread_mutex_unlock(&thread_mutex);
+    // === Create and start the thread task ===
+	#if CONFIG_MICROPY_USE_BOTH_CORES
+    	TaskHandle_t id = xTaskCreateStatic(freertos_entry, name, stack_size, arg, priority, stack, tcb);
+	#else
+		int run_on_core = MainTaskCore;
+		#if !CONFIG_FREERTOS_UNICORE
+		if (!same_core) run_on_core = MainTaskCore ^ 1;
+		#endif
+		TaskHandle_t id = xTaskCreateStaticPinnedToCore(freertos_entry, name, stack_size, arg, priority, stack, tcb, run_on_core);
+	#endif
+    if (id == NULL) {
+    	// Task not started, restore previous thread and clean-up
+    	thread = th->next;
+		if (th->threadQueue) vQueueDelete(th->threadQueue);
+    	free(th);
+    	free(stack);
+    	free(tcb);
+        mp_thread_mutex_unlock(&thread_mutex);
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
+    }
+
+    th->id = id;
+	if (is_repl) ReplTaskHandle = id;
+
+	mp_thread_mutex_unlock(&thread_mutex);
+    *in_stack_size = stack_size;
     return id;
 }
 
@@ -418,6 +455,52 @@ int mp_thread_setblocked() {
     for (thread_t *th = thread; th != NULL; th = th->next) {
         if (th->id == xTaskGetCurrentTaskHandle()) {
 			th->waiting = 1;
+			res = 1;
+            break;
+        }
+    }
+    mp_thread_mutex_unlock(&thread_mutex);
+    return res;
+}
+
+//-----------------------------------------
+int mp_thread_set_sp(void *sp, void *top) {
+	int res = 0;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+        if (th->id == xTaskGetCurrentTaskHandle()) {
+			th->curr_sp = sp;
+			th->stack_top = top;
+			res = 1;
+            break;
+        }
+    }
+    mp_thread_mutex_unlock(&thread_mutex);
+    return res;
+}
+
+//--------------------------
+int mp_thread_get_sp(void) {
+	int res = 0;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+        if (th->id == xTaskGetCurrentTaskHandle()) {
+			res = th->curr_sp;
+            break;
+        }
+    }
+    mp_thread_mutex_unlock(&thread_mutex);
+    return res;
+}
+
+//------------------------------------------------
+int mp_thread_set_ptrs(void **ptrs, size_t size) {
+	int res = 0;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+        if (th->id == xTaskGetCurrentTaskHandle()) {
+			th->ptrs = ptrs;
+			th->ptrs_len = size;
 			res = 1;
             break;
         }

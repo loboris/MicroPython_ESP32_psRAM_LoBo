@@ -87,6 +87,7 @@ typedef struct _mp_state_mem_t {
     // GC won't automatically run when gc_alloc can't find enough blocks.  But
     // you can still allocate/free memory and also explicitly call gc_collect.
     uint16_t gc_auto_collect_enabled;
+    uint16_t gc_auto_collect_debug;
 
     #if MICROPY_GC_ALLOC_THRESHOLD
     size_t gc_alloc_amount;
@@ -97,6 +98,7 @@ typedef struct _mp_state_mem_t {
 
     #if MICROPY_PY_GC_COLLECT_RETVAL
     size_t gc_collected;
+    size_t gc_marked;
     #endif
 
     #if MICROPY_PY_THREAD

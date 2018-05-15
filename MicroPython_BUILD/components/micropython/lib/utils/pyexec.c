@@ -43,6 +43,7 @@
 #include "lib/mp-readline/readline.h"
 #include "lib/utils/pyexec.h"
 #include "mpversion.h"
+#include "modmachine.h"
 
 pyexec_mode_kind_t pyexec_mode_kind = PYEXEC_MODE_FRIENDLY_REPL;
 int pyexec_system_exit = 0;
@@ -139,7 +140,7 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
 
         #if MICROPY_ENABLE_GC
         // run collection and print GC info
-        gc_collect();
+        gc_collect(1);
         gc_dump_info();
         #endif
     }
@@ -449,7 +450,10 @@ friendly_repl_reset:
         } else if (ret == CHAR_CTRL_D) {
             // exit for a soft reset
             mp_hal_stdout_tx_str("\r\n");
-            vstr_clear(&line);
+            // No need to return, we can reset here
+            prepareSleepReset(0, "ESP32: soft reboot\r\n");
+            esp_restart(); // no return !!
+            //vstr_clear(&line);
             return PYEXEC_FORCED_EXIT;
         } else if (ret == CHAR_CTRL_E) {
             // paste mode

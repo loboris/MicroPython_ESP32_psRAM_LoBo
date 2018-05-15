@@ -30,6 +30,7 @@
 #include <string.h>
 #include <assert.h>
 #include "mphalport.h"
+#include "soc/cpu.h"
 
 #include "py/emitglue.h"
 #include "py/objtype.h"
@@ -921,7 +922,7 @@ unwind_jump:;
                             // Couldn't allocate codestate on heap: in the strict case raise
                             // an exception, otherwise just fall through to stack allocation.
                             #if MICROPY_STACKLESS_STRICT
-                        deep_recursion_error:
+                            deep_recursion_error:
                             mp_raise_recursion_depth();
                             #endif
                         } else
@@ -1337,7 +1338,13 @@ pending_exception_check:
                     if (MP_STATE_VM(sched_state) == MP_SCHED_IDLE)
                     #endif
                     {
-                    mp_hal_reset_wdt();// LoBo
+                    // LoBo
+                    volatile uint32_t sp = (uint32_t)get_sp();
+                    mp_thread_set_sp((void *)sp, MP_STATE_THREAD(stack_top));
+                    void **ptrs = (void**)(void*)&mp_state_ctx;
+                    mp_thread_set_ptrs(ptrs, offsetof(mp_state_ctx_t, vm.qstr_last_chunk) / sizeof(void*));
+                    mp_hal_reset_wdt();
+                    // Switch threads
                     MP_THREAD_GIL_EXIT();
                     MP_THREAD_GIL_ENTER();
                     }

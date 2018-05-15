@@ -54,7 +54,7 @@ static uart_ringbuf_t *uart_buf[2] = {NULL};
 //-----------------------------------------------------------
 static void uart_ringbuf_alloc(uint8_t uart_num, uint16_t sz)
 {
-	uart_buffer[uart_num].buf = m_new(uint8_t, sz);
+	uart_buffer[uart_num].buf = malloc(sz);
 	uart_buffer[uart_num].size = sz;
 	uart_buffer[uart_num].iget = 0;
 	uart_buffer[uart_num].iput = 0;
@@ -397,6 +397,11 @@ enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_tx, ARG_rx, ARG_rts, AR
 STATIC void machine_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
+    if (task_id[self->uart_num] == NULL) {
+        mp_printf(print, "UART(%u: Deinitialized )", self->uart_num+1);
+        return;
+    }
+
     uint32_t baudrate;
     uart_get_baudrate(self->uart_num+1, &baudrate);
     char lnend[16] = {'\0'};
@@ -713,6 +718,14 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t *type, size_t n_args, 
     return MP_OBJ_FROM_PTR(self);
 }
 
+//-----------------------------------------------
+static void _check_uart(machine_uart_obj_t *self)
+{
+    if (task_id[self->uart_num] == NULL) {
+		mp_raise_ValueError("UART not initialized");
+    }
+}
+
 //-----------------------------------------------------------------------------------------
 STATIC mp_obj_t machine_uart_init(size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
     machine_uart_init_helper(args[0], n_args - 1, args + 1, kw_args);
@@ -720,12 +733,44 @@ STATIC mp_obj_t machine_uart_init(size_t n_args, const mp_obj_t *args, mp_map_t 
 }
 MP_DEFINE_CONST_FUN_OBJ_KW(machine_uart_init_obj, 1, machine_uart_init);
 
+//-----------------------------------------------------
+STATIC mp_obj_t machine_uart_deinit(mp_obj_t self_in) {
+    machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+
+    if (task_id[self->uart_num] != NULL) {
+		// stop the uart task
+		if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
+		self->end_task = 1;
+		if (uart_mutex) xSemaphoreGive(uart_mutex);
+		// wait until ended
+		int tmo = 50;
+		while ((tmo) && (task_id[self->uart_num] != NULL)) {
+    		vTaskDelay(100 / portTICK_PERIOD_MS);
+    		tmo--;
+		}
+		if (tmo) {
+			mp_raise_ValueError("Cannot stop UART task!");
+		}
+		// delete uart driver
+		uart_driver_delete(self->uart_num);
+		// free the uart buffer
+		if (uart_buf[self->uart_num] == NULL) {
+			if (uart_buf[self->uart_num]->buf) free(uart_buf[self->uart_num]->buf);
+		}
+    }
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_uart_deinit_obj, machine_uart_deinit);
+
 //--------------------------------------------------
 STATIC mp_obj_t machine_uart_any(mp_obj_t self_in) {
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
-    if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
-    int res = uart_buf[self->uart_num]->iput;
+    _check_uart(self);
+
+	if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
+	int res = uart_buf[self->uart_num]->iput;
 	if (uart_mutex) xSemaphoreGive(uart_mutex);
 
     return MP_OBJ_NEW_SMALL_INT(res);
@@ -736,10 +781,12 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_uart_any_obj, machine_uart_any);
 STATIC mp_obj_t machine_uart_flush(mp_obj_t self_in) {
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
-    if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
-    uart_flush_input(self->uart_num+1);
-    uart_buf[self->uart_num]->iput = 0;
-    uart_buf[self->uart_num]->iget = 0;
+    _check_uart(self);
+
+	if (uart_mutex) xSemaphoreTake(uart_mutex, 200 / portTICK_PERIOD_MS);
+	uart_flush_input(self->uart_num+1);
+	uart_buf[self->uart_num]->iput = 0;
+	uart_buf[self->uart_num]->iget = 0;
 	if (uart_mutex) xSemaphoreGive(uart_mutex);
 
 	return mp_const_none;
@@ -750,7 +797,9 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_uart_flush_obj, machine_uart_flush);
 mp_obj_t machine_uart_readln(size_t n_args, const mp_obj_t *args) {
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
-	int timeout = self->timeout;
+    _check_uart(self);
+
+    int timeout = self->timeout;
 	if (n_args > 1) timeout = mp_obj_get_int(args[1]);
 
 	const char *startstr = NULL;
@@ -782,6 +831,8 @@ STATIC mp_obj_t machine_uart_callback(size_t n_args, const mp_obj_t *pos_args, m
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
 	mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    _check_uart(self);
 
     int datalen = -1;
     mp_buffer_info_t pattern_buff;
@@ -866,23 +917,25 @@ STATIC mp_obj_t machine_uart_write_break(size_t n_args, const mp_obj_t *args)
 {
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
-    mp_buffer_info_t bufinfo;
-    mp_get_buffer_raise(args[1], &bufinfo, MP_BUFFER_READ);
+    _check_uart(self);
 
-    // break signal length
-    // unit: one BIT time at current_baudrate
-    int nbreak = nbreak = mp_obj_get_int_truncated(args[2]);
-    if ((nbreak < 1) || (nbreak > 255)) {
+	mp_buffer_info_t bufinfo;
+	mp_get_buffer_raise(args[1], &bufinfo, MP_BUFFER_READ);
+
+	// break signal length
+	// unit: one BIT time at current_baudrate
+	int nbreak = nbreak = mp_obj_get_int_truncated(args[2]);
+	if ((nbreak < 1) || (nbreak > 255)) {
 		mp_raise_ValueError("values 1 - 255 are allowed");
-    }
+	}
 
-    int len = bufinfo.len;
-    if (n_args == 4) {
-    	len = mp_obj_get_int_truncated(args[3]);
-    	if ((len < 0) || (len > bufinfo.len)) len = bufinfo.len;;
-    }
+	int len = bufinfo.len;
+	if (n_args == 4) {
+		len = mp_obj_get_int_truncated(args[3]);
+		if ((len < 0) || (len > bufinfo.len)) len = bufinfo.len;;
+	}
 
-    int bytes_written = uart_write_bytes_with_break(self->uart_num+1, (const char*)bufinfo.buf, len, nbreak);
+	int bytes_written = uart_write_bytes_with_break(self->uart_num+1, (const char*)bufinfo.buf, len, nbreak);
 
     return MP_OBJ_NEW_SMALL_INT(bytes_written);
 }
@@ -892,6 +945,7 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_uart_write_break_obj, 3, 4, machine_
 //=================================================================
 STATIC const mp_rom_map_elem_t machine_uart_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_init),			MP_ROM_PTR(&machine_uart_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_deinit),			MP_ROM_PTR(&machine_uart_deinit_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_any),				MP_ROM_PTR(&machine_uart_any_obj) },
     { MP_ROM_QSTR(MP_QSTR_read),			MP_ROM_PTR(&mp_stream_read_obj) },
@@ -923,10 +977,13 @@ STATIC MP_DEFINE_CONST_DICT(machine_uart_locals_dict, machine_uart_locals_dict_t
 STATIC mp_uint_t machine_uart_read(mp_obj_t self_in, void *buf_in, mp_uint_t size, int *errcode) {
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
-    // make sure we want at least 1 char
-    if (size == 0) {
-        return 0;
+    if (task_id[self->uart_num] == NULL) {
+        *errcode = MP_EINVAL;
+        return MP_STREAM_ERROR;
     }
+
+    // make sure we want at least 1 char
+    if (size == 0) return 0;
 
     int bytes_read = 0;
     if (self->timeout == 0) {
@@ -980,6 +1037,11 @@ STATIC mp_uint_t machine_uart_read(mp_obj_t self_in, void *buf_in, mp_uint_t siz
 STATIC mp_uint_t machine_uart_write(mp_obj_t self_in, const void *buf_in, mp_uint_t size, int *errcode) {
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
+    if (task_id[self->uart_num] == NULL) {
+        *errcode = MP_EINVAL;
+        return MP_STREAM_ERROR;
+    }
+
     int bytes_written = uart_write_bytes(self->uart_num+1, buf_in, size);
 
     if (bytes_written < 0) {
@@ -994,6 +1056,12 @@ STATIC mp_uint_t machine_uart_write(mp_obj_t self_in, const void *buf_in, mp_uin
 //-----------------------------------------------------------------------------------------------------
 STATIC mp_uint_t machine_uart_ioctl(mp_obj_t self_in, mp_uint_t request, mp_uint_t arg, int *errcode) {
     machine_uart_obj_t *self = self_in;
+
+    if (task_id[self->uart_num] == NULL) {
+        *errcode = MP_EINVAL;
+        return MP_STREAM_ERROR;
+    }
+
     mp_uint_t ret;
     if (request == MP_STREAM_POLL) {
         mp_uint_t flags = arg;

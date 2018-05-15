@@ -6,8 +6,8 @@ HEIGHT = const (64)
 pdc = machine.Pin(27, machine.Pin.OUT)
 pcs = machine.Pin(26, machine.Pin.OUT)
 sck_pin = machine.Pin(19, machine.Pin.OUT)
-mosi_pin = machine.Pin(23, machine.Pin.IN)
-miso_pin = machine.Pin(25, machine.Pin.OUT)
+mosi_pin = machine.Pin(23, machine.Pin.OUT)
+miso_pin = machine.Pin(25, machine.Pin.IN)
 
 prst = machine.Pin(18, machine.Pin.OUT)
 

@@ -122,7 +122,7 @@ uint8_t main_accept_msg;
 
 void mp_thread_preinit(void *stack, uint32_t stack_len);
 int mp_thread_num_threads();
-void mp_thread_gc_others(void);
+void mp_thread_gc_others(int flag);
 
 void mp_thread_allowsuspend(int allow);
 int mp_thread_suspend(TaskHandle_t id);
@@ -135,6 +135,9 @@ int mp_thread_semdmsg(TaskHandle_t id, int type, uint32_t msg_int, uint8_t *buf,
 int mp_thread_getmsg(uint32_t *msg_int, uint8_t **buf, uint32_t *buflen, uint32_t *sender);
 int mp_thread_status(TaskHandle_t id);
 
+int mp_thread_set_sp(void *sp, void *top);
+int mp_thread_get_sp(void);
+int mp_thread_set_ptrs(void **ptrs, size_t size);
 int mp_thread_setblocked();
 int mp_thread_setnotblocked();
 

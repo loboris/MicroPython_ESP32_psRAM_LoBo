@@ -29,8 +29,17 @@
 #include <string.h>
 
 #include "py/runtime.h"
+#include "py/objstr.h"
 
 #if MICROPY_ENABLE_SCHEDULER
+
+#define FREE_CBOBJECT_AFTER	0
+#define MAX_CB_OBJECTS		64
+
+#if FREE_CBOBJECT_AFTER
+static mp_obj_t cb_objects[MAX_CB_OBJECTS];
+#endif
+
 
 // A variant of this is inlined in the VM at the pending exception check
 void mp_handle_pending(void) {
@@ -129,41 +138,56 @@ mp_sched_carg_t *make_cargs(int type)
 	return carg;
 }
 
-//------------------------------------------------------------------
-static mp_obj_t make_arg_from_carg(mp_sched_carg_t *carg, int level)
+//----------------------------------------------------------------------------------
+static mp_obj_t make_arg_from_carg(mp_sched_carg_t *carg, int level, int *n_cbitems)
 {
     mp_obj_t arg = mp_const_none;
-	if (carg->type == MP_SCHED_CTYPE_DICT) {
+
+    if (carg->type == MP_SCHED_CTYPE_DICT) {
 		//dictionary
 		mp_obj_dict_t *dct = mp_obj_new_dict(0);
 		for (int i = 0; i < carg->n; i++) {
+			mp_obj_t val;
 			mp_sched_carg_entry_t *entry = (mp_sched_carg_entry_t *)carg->entry[i];
 			if (entry->type == MP_SCHED_ENTRY_TYPE_INT) {
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)),
-						mp_obj_new_int(entry->ival));
+				mp_obj_dict_store(dct, mp_obj_new_str_copy(&mp_type_str, (const byte*)entry->key, strlen(entry->key)), mp_obj_new_int(entry->ival));
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_BOOL) {
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)),
-						mp_obj_new_bool(entry->ival));
+				mp_obj_dict_store(dct, mp_obj_new_str_copy(&mp_type_str, (const byte*)entry->key, strlen(entry->key)), mp_obj_new_bool(entry->ival));
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_FLOAT) {
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)),
-						mp_obj_new_float(entry->fval));
+				val = mp_obj_new_float(entry->fval);
+				mp_obj_dict_store(dct, mp_obj_new_str_copy(&mp_type_str, (const byte*)entry->key, strlen(entry->key)), val);
+				#if FREE_CBOBJECT_AFTER
+				if (*n_cbitems < (MAX_CB_OBJECTS-1)) cb_objects[(*n_cbitems)++] = val;
+				#endif
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_STR) {
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)),
-						mp_obj_new_str((const char*)entry->sval, entry->ival));
+				val = mp_obj_new_str_copy(&mp_type_str, (const byte*)entry->sval, entry->ival);
+				mp_obj_dict_store(dct, mp_obj_new_str_copy(&mp_type_str, (const byte*)entry->key, strlen(entry->key)), val);
+				#if FREE_CBOBJECT_AFTER
+				if (*n_cbitems < (MAX_CB_OBJECTS-1)) cb_objects[(*n_cbitems)++] = val;
+				#endif
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_BYTES) {
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)),
-						mp_obj_new_bytes((const byte*)entry->sval, entry->ival));
+				val = mp_obj_new_bytes((const byte*)entry->sval, entry->ival);
+				mp_obj_dict_store(dct, mp_obj_new_str_copy(&mp_type_str, (const byte*)entry->key, strlen(entry->key)), val);
+				#if FREE_CBOBJECT_AFTER
+				if (*n_cbitems < (MAX_CB_OBJECTS-1)) cb_objects[(*n_cbitems)++] = val;
+				#endif
 			}
 			else if ((level == 0) && (entry->type == MP_SCHED_ENTRY_TYPE_CARG) && (strlen(entry->key) > 0) && (entry->carg)) {
-				mp_obj_t darg = make_arg_from_carg(entry->carg, 1);
-				mp_obj_dict_store(dct, mp_obj_new_str(entry->key, strlen(entry->key)), darg);
+				mp_obj_t darg = make_arg_from_carg(entry->carg, 1, n_cbitems);
+				mp_obj_dict_store(dct, mp_obj_new_str_copy(&mp_type_str, (const byte*)entry->key, strlen(entry->key)), darg);
+				#if FREE_CBOBJECT_AFTER
+				if (*n_cbitems < (MAX_CB_OBJECTS-1)) cb_objects[(*n_cbitems)++] = darg;
+				#endif
 			}
 		}
 		arg = dct;
+		#if FREE_CBOBJECT_AFTER
+		cb_objects[(*n_cbitems)++] = arg;
+		#endif
 	}
 	else if (carg->type == MP_SCHED_CTYPE_TUPLE) {
 		//tuple
@@ -178,19 +202,35 @@ static mp_obj_t make_arg_from_carg(mp_sched_carg_t *carg, int level)
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_FLOAT) {
 				tuple[i] = mp_obj_new_float(entry->fval);
+				#if FREE_CBOBJECT_AFTER
+				if (*n_cbitems < (MAX_CB_OBJECTS-1)) cb_objects[(*n_cbitems)++] = tuple[i];
+				#endif
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_STR) {
-				tuple[i] = mp_obj_new_str((const char*)entry->sval, entry->ival);
+				tuple[i] = mp_obj_new_str_copy(&mp_type_str, (const byte*)entry->sval, entry->ival);
+				#if FREE_CBOBJECT_AFTER
+				if (*n_cbitems < (MAX_CB_OBJECTS-1)) cb_objects[(*n_cbitems)++] = tuple[i];
+				#endif
 			}
 			else if (entry->type == MP_SCHED_ENTRY_TYPE_BYTES) {
 				tuple[i] = mp_obj_new_bytes((const byte*)entry->sval, entry->ival);
+				#if FREE_CBOBJECT_AFTER
+				if (*n_cbitems < (MAX_CB_OBJECTS-1)) cb_objects[(*n_cbitems)++] = tuple[i];
+				#endif
 			}
 			else if ((level == 0) && (entry->type == MP_SCHED_ENTRY_TYPE_CARG) && (entry->carg)) {
-				tuple[i] = make_arg_from_carg(entry->carg, 1);
+				mp_obj_t darg = make_arg_from_carg(entry->carg, 1, n_cbitems);
+				tuple[i] = darg;
+				#if FREE_CBOBJECT_AFTER
+				if (*n_cbitems < (MAX_CB_OBJECTS-1)) cb_objects[(*n_cbitems)++] = tuple[i];
+				#endif
 			}
 			else tuple[i] = mp_const_none;
 		}
 		arg = mp_obj_new_tuple(carg->n, tuple);
+		#if FREE_CBOBJECT_AFTER
+		cb_objects[(*n_cbitems)++] = arg;
+		#endif
 	}
 	else {
 		// Simple type, single entry
@@ -203,30 +243,39 @@ static mp_obj_t make_arg_from_carg(mp_sched_carg_t *carg, int level)
 		}
 		else if (entry->type == MP_SCHED_ENTRY_TYPE_FLOAT) {
 			arg = mp_obj_new_float(entry->fval);
+			#if FREE_CBOBJECT_AFTER
+			cb_objects[(*n_cbitems)++] = arg;
+			#endif
 		}
 		else if (entry->type == MP_SCHED_ENTRY_TYPE_STR) {
-			arg = mp_obj_new_str((const char*)entry->sval, entry->ival);
+			arg = mp_obj_new_str_copy(&mp_type_str, (const byte*)entry->sval, entry->ival);
+			#if FREE_CBOBJECT_AFTER
+			cb_objects[(*n_cbitems)++] = arg;
+			#endif
 		}
 		else if (entry->type == MP_SCHED_ENTRY_TYPE_BYTES) {
 			arg = mp_obj_new_bytes((const byte*)entry->sval, entry->ival);
+			#if FREE_CBOBJECT_AFTER
+			cb_objects[(*n_cbitems)++] = arg;
+			#endif
 		}
 	}
+    // Free C-argument structure
 	free_carg(carg);
+
 	return arg;
 }
 
-// This function should only be called be mp_sched_handle_pending,
+// This function should only be called by mp_sched_handle_pending,
 // or by the VM's inlined version of that function.
 //---------------------------------------------------
 void mp_handle_pending_tail(mp_uint_t atomic_state) {
     MP_STATE_VM(sched_state) = MP_SCHED_LOCKED;
     if (MP_STATE_VM(sched_sp) > 0) {
-    	// Get scheduled item, decrease stack counter
-        //mp_sched_item_t item = MP_STATE_VM(sched_stack)[--MP_STATE_VM(sched_sp)];
-
+    	int n_cbitems = 0;
         // get the first scheduled item from stack
         mp_sched_item_t item = MP_STATE_VM(sched_stack)[0];
-        // Move other items
+        // Move other items down on stack
         MP_STATE_VM(sched_sp)--;
         int i = 0;
         while (i < MP_STATE_VM(sched_sp)) {
@@ -237,11 +286,22 @@ void mp_handle_pending_tail(mp_uint_t atomic_state) {
         mp_obj_t arg = mp_const_none;
         if (item.carg != NULL) {
         	// === C argument is present, create the MicroPython object argument from it ===
-        	arg = make_arg_from_carg((mp_sched_carg_t *)item.carg, 0);
+        	arg = make_arg_from_carg((mp_sched_carg_t *)item.carg, 0, &n_cbitems);
         }
         else arg = item.arg;
+
         MICROPY_END_ATOMIC_SECTION(atomic_state);
+        // Execute callback function
         mp_call_function_1_protected(item.func, arg);
+
+		#if FREE_CBOBJECT_AFTER
+        if (n_cbitems) {
+        	// Free all allocated objects
+        	for (int i=0; i < n_cbitems; i++) {
+				m_free(cb_objects[i]);
+        	}
+        }
+		#endif
     } else {
         MICROPY_END_ATOMIC_SECTION(atomic_state);
     }

@@ -87,8 +87,11 @@ static uint8_t *mp_task_heap = NULL;
 
 int MainTaskCore = 0;
 
-//===============================
-void mp_task(void *pvParameter) {
+//=============================
+void mp_task(void *pvParameter)
+{
+    volatile uint32_t sp = (uint32_t)get_sp();
+    //mp_task_stack_len -= ((uint32_t)mp_task_stack_end - sp);
 
 	#ifdef CONFIG_MICROPY_USE_TASK_WDT
 	// Enable watchdog for MicroPython main task
@@ -109,9 +112,6 @@ void mp_task(void *pvParameter) {
     mpsleep_init0();
 
     rtc_init0();
-
-    volatile uint32_t sp = (uint32_t)get_sp();
-    mp_task_stack_len -= ((uint32_t)mp_task_stack_end - sp);
 
     // === Main MicroPython thread init ===
     mp_thread_preinit(mp_task_stack, mp_task_stack_len);
@@ -163,10 +163,8 @@ void mp_task(void *pvParameter) {
     char sbuff[24] = { 0 };
     gc_info_t info;
     gc_info(&info);
-    // --------------------------------------
     // set gc.threshold to 60% of usable heap
-    // --------------------------------------
-	MP_STATE_MEM(gc_alloc_threshold) = ((info.total / 10) * 6) / MICROPY_BYTES_PER_GC_BLOCK;
+	//MP_STATE_MEM(gc_alloc_threshold) = ((info.total / 10) * 6) / MICROPY_BYTES_PER_GC_BLOCK;
 
 	#if CONFIG_FREERTOS_UNICORE
     	printf("\nFreeRTOS and MicroPython running only on FIRST CORE.\n");
@@ -381,9 +379,8 @@ void micropython_entry(void)
 	mp_task_stack_len = mpy_repl_stack_size / sizeof(StackType_t);
 	#endif
 
-	//if (mpy_use_spiram) mp_task_stack = heap_caps_malloc((mp_task_stack_len * sizeof(StackType_t))+8, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-	//else mp_task_stack = heap_caps_malloc((mp_task_stack_len * sizeof(StackType_t))+8, MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-	mp_task_stack = malloc((mp_task_stack_len * sizeof(StackType_t))+8);
+	if (mpy_use_spiram) mp_task_stack = heap_caps_malloc((mp_task_stack_len * sizeof(StackType_t))+8, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	else mp_task_stack = malloc((mp_task_stack_len * sizeof(StackType_t))+8);
 	if (mp_task_stack == NULL) {
 		ESP_LOGE("MicroPython", "Error allocating stack, HALTED.");
         return;

@@ -33,6 +33,7 @@
 
 #if MICROPY_PY_THREAD
 
+#include "soc/cpu.h"
 #include "py/mpthread.h"
 #include "mphalport.h"
 
@@ -79,7 +80,7 @@ typedef struct _thread_entry_args_t {
 //-------------------------------
 void *thread_entry(void *args_in)
 {
-    // Execution begins here for a new thread.  We do not have the GIL.
+    // === Execution begins here for a new thread.  We do not have the GIL. ===
 
     thread_entry_args_t *args = (thread_entry_args_t*)args_in;
 
@@ -101,7 +102,13 @@ void *thread_entry(void *args_in)
 	mp_pystack_init(mini_pystack, &mini_pystack[128]);
 	#endif
 
-	// signal that we are set up and running
+    volatile uint32_t sp = (uint32_t)get_sp();
+    mp_thread_set_sp((void *)sp, MP_STATE_THREAD(stack_top));
+
+    void **ptrs = (void**)(void*)&mp_state_ctx;
+    mp_thread_set_ptrs(ptrs, offsetof(mp_state_ctx_t, vm.qstr_last_chunk) / sizeof(void*));
+
+    // signal that we are set up and running
     mp_thread_start();
 
     // TODO set more thread-specific state here:
@@ -110,6 +117,7 @@ void *thread_entry(void *args_in)
 
     nlr_buf_t nlr;
     if (nlr_push(&nlr) == 0) {
+    	// === Start executing the byte code ===
         mp_call_function_n_kw(args->fun, args->n_args, args->n_kw, args->args);
         nlr_pop();
     } else {

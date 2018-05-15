@@ -108,6 +108,29 @@ menu "MicroPython"
 	        Running without UNICODE support may solve some issues,
 	        also the string operations may be faster
 	
+	    config MICROPY_GC_COLLECT_RETVAL
+	        bool "gc.collect returns value"
+	        default n
+	        help
+	        Whether to return number of collected objects from gc.collect()
+	        If enabled, gc.collect will return the tuple of marked (used) and collected heap blocks
+	
+	    config MICROPY_SCHEDULER_DEPTH
+	        int "Scheduler depth"
+	        range 6 32
+	        default 8
+	        help
+	        Maximum number of entries in the scheduler
+	
+	    config MICROPY_PY_THREAD_GIL_VM_DIVISOR
+	        int "Thread GIL VM divisor"
+	        range 0 64
+	        default 32
+	        help
+			Number of VM jump-loops to do before releasing the GIL.
+			This affects the thread switching frequency.
+			If set to 0, disables the divisor.
+	
 	    config MICROPY_USE_THREADED_REPL
 	        bool "Start REPL in separate thread"
 	        default n

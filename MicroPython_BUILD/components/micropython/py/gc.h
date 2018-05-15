@@ -40,7 +40,7 @@ void gc_unlock(void);
 bool gc_is_locked(void);
 
 // A given port must implement gc_collect by using the other collect functions.
-void gc_collect(void);
+void gc_collect(int flag);
 void gc_collect_start(void);
 void gc_collect_root(void **ptrs, size_t len);
 void gc_collect_end(void);
