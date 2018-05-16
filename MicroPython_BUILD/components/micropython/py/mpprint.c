@@ -4,7 +4,6 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2013-2015 Damien P. George
- * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -52,7 +51,6 @@ STATIC void plat_print_strn(void *env, const char *str, size_t len) {
 const mp_print_t mp_plat_print = {NULL, plat_print_strn};
 
 int mp_print_str(const mp_print_t *print, const char *str) {
-	if (str == NULL) return 0;
     size_t len = strlen(str);
     if (len) {
         print->print_strn(print->data, str, len);
@@ -101,7 +99,7 @@ int mp_print_strn(const mp_print_t *print, const char *str, size_t len, int flag
             left_pad -= p;
         }
     }
-    if ((len) && (str)) {
+    if (len) {
         print->print_strn(print->data, str, len);
         total_chars_printed += len;
     }
@@ -121,7 +119,7 @@ int mp_print_strn(const mp_print_t *print, const char *str, size_t len, int flag
 
 // 32-bits is 10 digits, add 3 for commas, 1 for sign, 1 for terminating null
 // We can use 16 characters for 32-bit and 32 characters for 64-bit
-#define INT_BUF_SIZE (sizeof(mp_int_t) * 8)
+#define INT_BUF_SIZE (sizeof(mp_int_t) * 4)
 
 // Our mp_vprintf function below does not support the '#' format modifier to
 // print the prefix of a non-base-10 number, so we don't need code for this.
@@ -206,7 +204,7 @@ STATIC int mp_print_int(const mp_print_t *print, mp_uint_t x, int sgn, int base,
 int mp_print_mp_int(const mp_print_t *print, mp_obj_t x, int base, int base_char, int flags, char fill, int width, int prec) {
     // These are the only values for "base" that are required to be supported by this
     // function, since Python only allows the user to format integers in these bases.
-    // If needed this function could be generalized to handle other values.
+    // If needed this function could be generalised to handle other values.
     assert(base == 2 || base == 8 || base == 10 || base == 16);
 
     if (!MP_OBJ_IS_INT(x)) {
@@ -257,7 +255,7 @@ int mp_print_mp_int(const mp_print_t *print, mp_obj_t x, int base, int base_char
 
     // The size of this buffer is rather arbitrary. If it's not large
     // enough, a dynamic one will be allocated.
-    char stack_buf[sizeof(mp_int_t) * 8];
+    char stack_buf[sizeof(mp_int_t) * 4];
     char *buf = stack_buf;
     size_t buf_size = sizeof(stack_buf);
     size_t fmt_size = 0;
@@ -500,8 +498,7 @@ int mp_vprintf(const mp_print_t *print, const char *fmt, va_list args) {
                 }
                 #endif
                 if (prec < 0) {
-                    if (str) prec = strlen(str);
-                    else prec = 0;
+                    prec = strlen(str);
                 }
                 chrs += mp_print_strn(print, str, prec, flags, fill, width);
                 break;

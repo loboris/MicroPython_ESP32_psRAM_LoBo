@@ -84,7 +84,12 @@
 // This helps eliminate stray pointers that hold on to memory that's no longer used.
 // It decreases performance due to unnecessary memory clearing.
 #define MICROPY_GC_CONSERVATIVE_CLEAR       (1)
+// Whether to enable finalisers in the garbage collector (ie call __del__)
+#ifdef CONFIG_MICROPY_ENABLE_FINALISER
 #define MICROPY_ENABLE_FINALISER            (1)
+#else
+#define MICROPY_ENABLE_FINALISER            (0)
+#endif
 #define MICROPY_STACK_CHECK                 (1)
 #define MICROPY_ENABLE_EMERGENCY_EXCEPTION_BUF (1)
 #define MICROPY_KBD_EXCEPTION               (1)
@@ -201,7 +206,7 @@
 #define MICROPY_PY_MACHINE_SPI_MAKE_NEW     machine_hw_spi_make_new
 #define MICROPY_PY_USSL                     (1)
 #define MICROPY_SSL_MBEDTLS                 (1)
-#define MICROPY_PY_USSL_FINALISER           (1)
+#define MICROPY_PY_USSL_FINALISER           (0) // Crashes on gc if enabled!
 #define MICROPY_PY_UHASHLIB                 (0) // We use the ESP32 version
 #define MICROPY_PY_UHASHLIB_SHA1            (MICROPY_PY_USSL && MICROPY_SSL_MBEDTLS)
 

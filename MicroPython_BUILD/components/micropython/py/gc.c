@@ -230,9 +230,7 @@ STATIC void gc_mark_subtree(size_t block) {
                     // an unmarked head, mark it, and push it on gc stack
                     TRACE_MARK(childblock, ptr);
                     ATB_HEAD_TO_MARK(childblock);
-					#if MICROPY_PY_GC_COLLECT_RETVAL
 					MP_STATE_MEM(gc_marked)++;
-					#endif
                     if (sp < MICROPY_ALLOC_GC_STACK_SIZE) {
                         MP_STATE_MEM(gc_stack)[sp++] = childblock;
                     } else {
@@ -267,9 +265,7 @@ STATIC void gc_deal_with_stack_overflow(void) {
 }
 
 STATIC void gc_sweep(void) {
-    #if MICROPY_PY_GC_COLLECT_RETVAL
     MP_STATE_MEM(gc_collected) = 0;
-    #endif
     // free unmarked heads and their tails
     int free_tail = 0;
     for (size_t block = 0; block < MP_STATE_MEM(gc_alloc_table_byte_len) * BLOCKS_PER_ATB; block++) {
@@ -299,9 +295,7 @@ STATIC void gc_sweep(void) {
 #endif
                 free_tail = 1;
                 DEBUG_printf("gc_sweep(%p)\n", (void*)PTR_FROM_BLOCK(block));
-                #if MICROPY_PY_GC_COLLECT_RETVAL
                 MP_STATE_MEM(gc_collected)++;
-                #endif
                 // no break, fall through to free the head
 
             case AT_TAIL:
@@ -323,9 +317,7 @@ STATIC void gc_sweep(void) {
 
 void gc_collect_start(void) {
     GC_ENTER();
-	#if MICROPY_PY_GC_COLLECT_RETVAL
 	MP_STATE_MEM(gc_marked) = 0;
-	#endif
     MP_STATE_MEM(gc_lock_depth)++;
     #if MICROPY_GC_ALLOC_THRESHOLD
     MP_STATE_MEM(gc_alloc_amount) = 0;
@@ -354,9 +346,7 @@ void gc_collect_root(void **ptrs, size_t len) {
                 // An unmarked head: mark it, and mark all its children
                 TRACE_MARK(block, ptr);
                 ATB_HEAD_TO_MARK(block);
-				#if MICROPY_PY_GC_COLLECT_RETVAL
 				MP_STATE_MEM(gc_marked)++;
-				#endif
                 gc_mark_subtree(block);
             }
         }

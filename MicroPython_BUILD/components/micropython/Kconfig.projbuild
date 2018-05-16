@@ -108,6 +108,13 @@ menu "MicroPython"
 	        Running without UNICODE support may solve some issues,
 	        also the string operations may be faster
 	
+	    config MICROPY_ENABLE_FINALISER
+	        bool "Enable finalizer"
+	        default y
+	        help
+	        Whether to enable finalisers in the garbage collector
+	        If enabled, the __del__ methods of the objects will be called during garbage collect
+	
 	    config MICROPY_GC_COLLECT_RETVAL
 	        bool "gc.collect returns value"
 	        default n
@@ -309,6 +316,20 @@ menu "MicroPython"
 	        help
 	        Include GSM module and PPPoS support into build
 	
+	    config MICROPY_USE_GPS
+	        bool "Use GPS module"
+	        default y
+	        help
+	        Include GPS module into build
+	
+	    config MICROPY_GPS_SERVICE_STACK
+	        int "GPS service stack size"
+	        depends on MICROPY_USE_GPS
+	        default 3072
+            range 3072 6144
+	        help
+	        Set the stack size of GPS service task
+	
 	    config MICROPY_USE_ETHERNET
 	        bool "Use Ethernet module"
 	        default n
@@ -336,20 +357,6 @@ menu "MicroPython"
 	        help
 	        Include CURL module into build
 	        Using CURL module will add ~230 KB to your flash code size
-	
-	    config MICROPY_USE_GPS
-	        bool "Use GPS module"
-	        default y
-	        help
-	        Include GPS module into build
-	
-	    config MICROPY_GPS_SERVICE_STACK
-	        int "GPS service stack size"
-	        depends on MICROPY_USE_GPS
-	        default 3072
-            range 3072 6144
-	        help
-	        Set the stack size of GPS service task
 	
 	    config MICROPY_USE_CURL_TLS
 	        bool "Enable TLS in Curl module"

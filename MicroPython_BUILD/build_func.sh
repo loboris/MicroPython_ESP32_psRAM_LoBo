@@ -319,9 +319,9 @@ check_OS() {
 # =================================================
 #--------------------
 check_Environment() {
-    # ----------------------------------------
-    # Remove directories from previous version
-    # ----------------------------------------
+    # --------------------------------------------------
+    # Remove directories from early MicroPython versions
+    # --------------------------------------------------
     if [ -d "esp-idf" ]; then
         rm -rf esp-idf/ > /dev/null 2>&1
         rmdir esp-idf > /dev/null 2>&1
@@ -371,6 +371,9 @@ check_Environment() {
         rm -f *.id > /dev/null 2>&1
         touch ${TOOLS_VER}
         echo "toolchains & esp-idf version" > ${TOOLS_VER}
+        rm -f ${BUILD_BASE_DIR}/*.id > /dev/null 2>&1
+        touch ${BUILD_BASE_DIR}/${BUILD_VER}
+        echo "Build ID, do not delete this file" > ${BUILD_BASE_DIR}/${BUILD_VER}
         # remove executables
         rm -f ${BUILD_BASE_DIR}/components/mpy_cross_build/mpy-cross/mpy-cross > /dev/null 2>&1
         rm -f ${BUILD_BASE_DIR}/components/mpy_cross_build/mpy-cross/mpy-cross.exe > /dev/null 2>&1
@@ -388,6 +391,22 @@ check_Environment() {
         rm -f ${BUILD_BASE_DIR}/sdkconfig.old > /dev/null 2>&1
         rm -rf ${BUILD_BASE_DIR}/build/ > /dev/null 2>&1
         rmdir ${BUILD_BASE_DIR}/build > /dev/null 2>&1
+    else
+        # -----------------------
+        # Check the build version
+        # -----------------------
+        if [ ! -f "${BUILD_BASE_DIR}/${BUILD_VER}" ]; then
+            echo "Build updated, running menuconfig is needed..."
+            rm -f ${BUILD_BASE_DIR}/*.id > /dev/null 2>&1
+            touch ${BUILD_BASE_DIR}/${BUILD_VER}
+            echo "Build ID, do not delete this file" > ${BUILD_BASE_DIR}/${BUILD_VER}
+            # remove build directory and configs
+            cp -f ${BUILD_BASE_DIR}/sdkconfig ${BUILD_BASE_DIR}/_sdkconfig.saved > /dev/null 2>&1
+            rm -f ${BUILD_BASE_DIR}/sdkconfig > /dev/null 2>&1
+            rm -f ${BUILD_BASE_DIR}/sdkconfig.old > /dev/null 2>&1
+            rm -rf ${BUILD_BASE_DIR}/build/ > /dev/null 2>&1
+            rmdir ${BUILD_BASE_DIR}/build > /dev/null 2>&1
+        fi
     fi
 
     if [ ! -d "esp-idf" ]; then
