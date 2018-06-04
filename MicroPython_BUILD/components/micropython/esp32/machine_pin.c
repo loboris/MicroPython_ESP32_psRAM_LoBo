@@ -189,8 +189,8 @@ static void debounce_task(void *pvParameters)
 	vTaskDelete(NULL);
 }
 
-//------------------------------------------------------
-STATIC void IRAM_ATTR machine_pin_isr_handler(void *arg)
+//--------------------------------------------
+STATIC void machine_pin_isr_handler(void *arg)
 {
 	// Disable gpio interrupt
 	gpio_set_intr_type(((machine_pin_obj_t *)arg)->id, GPIO_PIN_INTR_DISABLE);

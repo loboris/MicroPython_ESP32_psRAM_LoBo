@@ -85,23 +85,23 @@ uint8_t spibus_is_init = 0;
 
 // ==== Functions =====================
 
-//-------------------------------
-esp_err_t IRAM_ATTR disp_select()
+//---------------------
+esp_err_t disp_select()
 {
 	//wait_trans_finish(1);
 	return spi_device_select(disp_spi, 0);
 }
 
-//---------------------------------
-esp_err_t IRAM_ATTR disp_deselect()
+//-----------------------
+esp_err_t disp_deselect()
 {
 	//wait_trans_finish(1);
 	return spi_device_deselect(disp_spi);
 }
 
 // Send command with data to display, display must be selected
-//--------------------------------------------------------------------------------
-void IRAM_ATTR disp_spi_transfer_cmd_data(int8_t cmd, uint8_t *data, uint32_t len)
+//----------------------------------------------------------------------
+void disp_spi_transfer_cmd_data(int8_t cmd, uint8_t *data, uint32_t len)
 {
 	while (disp_spi->handle->host->hw->cmd.usr); // Wait for SPI bus ready
 
@@ -150,8 +150,8 @@ void IRAM_ATTR disp_spi_transfer_cmd_data(int8_t cmd, uint8_t *data, uint32_t le
 }
 
 // Send 1 byte display command, display must be selected
-//----------------------------------------------
-void IRAM_ATTR disp_spi_transfer_cmd(int8_t cmd)
+//------------------------------------
+void disp_spi_transfer_cmd(int8_t cmd)
 {
 	while (disp_spi->handle->host->hw->cmd.usr); // Wait for SPI bus ready
 
@@ -163,8 +163,8 @@ void IRAM_ATTR disp_spi_transfer_cmd(int8_t cmd)
 }
 
 // Set the address window for display write & read commands, display must be selected
-//---------------------------------------------------------------------------------------------------
-static void IRAM_ATTR disp_spi_transfer_addrwin(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2) {
+//-----------------------------------------------------------------------------------------
+static void disp_spi_transfer_addrwin(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2) {
 	uint32_t wd;
 
 	disp_spi_transfer_cmd(TFT_CASET);
@@ -193,8 +193,8 @@ static void IRAM_ATTR disp_spi_transfer_addrwin(uint16_t x1, uint16_t x2, uint16
 }
 
 // Convert color to gray scale
-//----------------------------------------------
-static color_t IRAM_ATTR color2gs(color_t color)
+//------------------------------------
+static color_t color2gs(color_t color)
 {
 	color_t _color;
     float gs_clr = GS_FACT_R * color.r + GS_FACT_G * color.g + GS_FACT_B * color.b;
@@ -208,8 +208,8 @@ static color_t IRAM_ATTR color2gs(color_t color)
 }
 
 // Convert color to 16-bit 565 RGB value
-//----------------------------------------------
-static uint16_t IRAM_ATTR color16(color_t color)
+//------------------------------------
+static uint16_t color16(color_t color)
 {
 	uint16_t _color;
 	_color = (uint16_t)(color.r & 0xF8) << 8;
@@ -218,8 +218,8 @@ static uint16_t IRAM_ATTR color16(color_t color)
     return _color;
 }
 
-//======================================================
-esp_err_t IRAM_ATTR wait_trans_finish(uint8_t free_line)
+//============================================
+esp_err_t wait_trans_finish(uint8_t free_line)
 {
 	_wait_trans_finish(disp_spi);
 
@@ -231,8 +231,8 @@ esp_err_t IRAM_ATTR wait_trans_finish(uint8_t free_line)
 }
 
 // Set display pixel at given coordinates to given color
-//========================================================================
-void IRAM_ATTR drawPixel(int16_t x, int16_t y, color_t color, uint8_t sel)
+//==============================================================
+void drawPixel(int16_t x, int16_t y, color_t color, uint8_t sel)
 {
 	if ((sel) && (disp_select() != ESP_OK)) return;
 
@@ -266,8 +266,8 @@ void IRAM_ATTR drawPixel(int16_t x, int16_t y, color_t color, uint8_t sel)
 }
 
 // Send colors from color buffer directly, maximum of 512 bits
-//---------------------------------------------------------------------------
-static void IRAM_ATTR _direct_send(color_t *color, uint32_t len, uint8_t rep)
+//-----------------------------------------------------------------
+static void _direct_send(color_t *color, uint32_t len, uint8_t rep)
 {
 	uint32_t cidx = 0;	// color buffer index
 	uint32_t wd = 0;
@@ -339,8 +339,8 @@ static void IRAM_ATTR _direct_send(color_t *color, uint32_t len, uint8_t rep)
 // If rep==false:  send 'len' color data from color buffer to display
 // ** Device must already be selected and address window set **
 // ==================================================================
-//----------------------------------------------------------------------------------------------
-static void IRAM_ATTR _TFT_pushColorRep(color_t *color, uint32_t len, uint8_t rep, uint8_t wait)
+//------------------------------------------------------------------------------------
+static void _TFT_pushColorRep(color_t *color, uint32_t len, uint8_t rep, uint8_t wait)
 {
 	if (len == 0) return;
 
@@ -428,8 +428,8 @@ static void IRAM_ATTR _TFT_pushColorRep(color_t *color, uint32_t len, uint8_t re
 }
 
 // Write 'len' color data to TFT 'window' (x1,y2),(x2,y2)
-//==========================================================================================
-void IRAM_ATTR TFT_pushColorRep(int x1, int y1, int x2, int y2, color_t color, uint32_t len)
+//================================================================================
+void TFT_pushColorRep(int x1, int y1, int x2, int y2, color_t color, uint32_t len)
 {
 	wait_trans_finish(1);
 	if (disp_select() != ESP_OK) return;
@@ -445,8 +445,8 @@ void IRAM_ATTR TFT_pushColorRep(int x1, int y1, int x2, int y2, color_t color, u
 
 // Write 'len' color data to TFT 'window' (x1,y2),(x2,y2) from given buffer
 // === Device must already be selected ===
-//================================================================================================
-void IRAM_ATTR send_data(int x1, int y1, int x2, int y2, uint32_t len, color_t *buf, uint8_t wait)
+//======================================================================================
+void send_data(int x1, int y1, int x2, int y2, uint32_t len, color_t *buf, uint8_t wait)
 {
 	wait_trans_finish(1);
 	// ** Send address window **
@@ -456,8 +456,8 @@ void IRAM_ATTR send_data(int x1, int y1, int x2, int y2, uint32_t len, color_t *
 	_TFT_pushColorRep(buf, len, 0, wait);
 }
 
-//===================================================
-uint32_t IRAM_ATTR read_cmd(uint8_t cmd, uint8_t len)
+//=========================================
+uint32_t read_cmd(uint8_t cmd, uint8_t len)
 {
 	if (disp_select() != ESP_OK) return -2;
 
@@ -482,8 +482,8 @@ uint32_t IRAM_ATTR read_cmd(uint8_t cmd, uint8_t len)
 // Reads 'len' pixels/colors from the TFT's GRAM 'window'
 // 'buf' is an array of bytes with 1st byte reserved for reading 1 dummy byte
 // and the rest is actually an array of color_t values
-//============================================================================================
-int IRAM_ATTR read_data(int x1, int y1, int x2, int y2, int len, uint8_t *buf, uint8_t set_sp)
+//==================================================================================
+int read_data(int x1, int y1, int x2, int y2, int len, uint8_t *buf, uint8_t set_sp)
 {
 	spi_transaction_t t;
 	uint32_t current_clock = 0;
@@ -524,8 +524,8 @@ int IRAM_ATTR read_data(int x1, int y1, int x2, int y2, int len, uint8_t *buf, u
 }
 
 // Reads one pixel/color from the TFT's GRAM at position (x,y)
-//===============================================
-color_t IRAM_ATTR readPixel(int16_t x, int16_t y)
+//=====================================
+color_t readPixel(int16_t x, int16_t y)
 {
     uint8_t color_buf[sizeof(color_t)+1] = {0};
 
@@ -540,8 +540,8 @@ color_t IRAM_ATTR readPixel(int16_t x, int16_t y)
 
 // get 16-bit data from touch controller for specified type
 // ** Touch device must already be selected **
-//========================================
-int IRAM_ATTR touch_get_data(uint8_t type)
+//==============================
+int touch_get_data(uint8_t type)
 {
 	/*
 	while (ts_spi->handle->host->hw->cmd.usr); // Wait for SPI bus ready
@@ -572,8 +572,8 @@ int IRAM_ATTR touch_get_data(uint8_t type)
 
 // ----- STMPE610 --------------------------------------------------------------------------
 
-//----------------------------------------------------------------
-static void IRAM_ATTR stmpe610_write_reg(uint8_t reg, uint8_t val)
+//------------------------------------------------------
+static void stmpe610_write_reg(uint8_t reg, uint8_t val)
 {
 	spi_device_select(ts_spi, 0);
     ts_spi->handle->host->hw->data_buf[0] = (val << 8) | reg;
@@ -582,8 +582,8 @@ static void IRAM_ATTR stmpe610_write_reg(uint8_t reg, uint8_t val)
     spi_device_deselect(ts_spi);
 }
 
-//------------------------------------------------------
-static uint8_t IRAM_ATTR stmpe610_read_byte(uint8_t reg)
+//--------------------------------------------
+static uint8_t stmpe610_read_byte(uint8_t reg)
 {
 	spi_device_select(ts_spi, 0);
     ts_spi->handle->host->hw->data_buf[0] = (reg << 8) | (reg | 0x80);
@@ -594,8 +594,8 @@ static uint8_t IRAM_ATTR stmpe610_read_byte(uint8_t reg)
     return res;
 }
 
-//-------------------------------------------------------
-static uint16_t IRAM_ATTR stmpe610_read_word(uint8_t reg)
+//---------------------------------------------
+static uint16_t stmpe610_read_word(uint8_t reg)
 {
 	spi_device_select(ts_spi, 0);
     ts_spi->handle->host->hw->data_buf[0] = ((((reg+1) << 8) | ((reg+1) | 0x80)) << 16) | (reg << 8) | (reg | 0x80);

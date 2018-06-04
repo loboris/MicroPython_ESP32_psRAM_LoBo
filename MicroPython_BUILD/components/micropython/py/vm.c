@@ -120,7 +120,7 @@
 //  MP_VM_RETURN_YIELD, ip, sp valid, yielded value in *sp
 //  MP_VM_RETURN_EXCEPTION, exception in fastn[0]
 //================================================================================================
-mp_vm_return_kind_t IRAM_ATTR mp_execute_bytecode(mp_code_state_t *code_state, volatile mp_obj_t inject_exc)
+mp_vm_return_kind_t mp_execute_bytecode(mp_code_state_t *code_state, volatile mp_obj_t inject_exc)
 {
 	mp_hal_set_wdt_tmo(); // LoBo
 #define SELECTIVE_EXC_IP (0)

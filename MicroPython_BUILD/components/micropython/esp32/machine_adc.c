@@ -234,10 +234,10 @@ exit:
     vTaskDelete(NULL);
 }
 
-//================================================
+//======================================
 // ADC Timer interrupt function
-//================================================
-STATIC void IRAM_ATTR adc_timer_isr(void *self_in)
+//======================================
+STATIC void adc_timer_isr(void *self_in)
 {
     madc_obj_t *self = (madc_obj_t *)self_in;
 

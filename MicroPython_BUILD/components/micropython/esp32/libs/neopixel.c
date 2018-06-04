@@ -116,8 +116,8 @@ uint32_t np_get_pixel_color(pixel_settings_t *px, uint16_t idx, uint8_t *white)
 }
 
 // Set two levels of RMT output to the Neopixel value for bit value "1".
-//------------------------------------------------------------------------------
-static void IRAM_ATTR neopixel_mark(rmt_item32_t *pItem, pixel_settings_t *px) {
+//--------------------------------------------------------------------
+static void neopixel_mark(rmt_item32_t *pItem, pixel_settings_t *px) {
 	pItem->level0    = px->timings.mark.level0;
 	pItem->duration0 = px->timings.mark.duration0;
 	pItem->level1    = px->timings.mark.level1;
@@ -125,8 +125,8 @@ static void IRAM_ATTR neopixel_mark(rmt_item32_t *pItem, pixel_settings_t *px) {
 }
 
 // Set two levels of RMT output to the Neopixel value for bit value "0".
-//-------------------------------------------------------------------------------
-static void IRAM_ATTR neopixel_space(rmt_item32_t *pItem, pixel_settings_t *px) {
+//---------------------------------------------------------------------
+static void neopixel_space(rmt_item32_t *pItem, pixel_settings_t *px) {
 	pItem->level0    = px->timings.space.level0;
 	pItem->duration0 = px->timings.space.duration0;
 	pItem->level1    = px->timings.space.level1;
@@ -134,8 +134,8 @@ static void IRAM_ATTR neopixel_space(rmt_item32_t *pItem, pixel_settings_t *px) 
 }
 
 // Set levels and duration of RMT output to the Neopixel value for Reset.
-//------------------------------------------------------------------------------
-static void IRAM_ATTR rmt_terminate(rmt_item32_t *pItem, pixel_settings_t *px) {
+//--------------------------------------------------------------------
+static void rmt_terminate(rmt_item32_t *pItem, pixel_settings_t *px) {
 	pItem->level0    = px->timings.reset.level0;
 	pItem->duration0 = px->timings.reset.duration0;
 	pItem->level1    = px->timings.reset.level1;
@@ -143,8 +143,8 @@ static void IRAM_ATTR rmt_terminate(rmt_item32_t *pItem, pixel_settings_t *px) {
 }
 
 // Transfer pixels from buffer to Neopixel strip
-//-----------------------------------------
-static void IRAM_ATTR copyToRmtBlock_half()
+//-------------------------------
+static void copyToRmtBlock_half()
 {
 	// This fills half an RMT block
 	// When wrap around is happening, we want to keep the inactive half of the RMT block filled
@@ -207,8 +207,8 @@ static void IRAM_ATTR copyToRmtBlock_half()
 }
 
 // RMT interrupt handler
-//-------------------------------------------------------
-static void IRAM_ATTR neopixel_handleInterrupt(void *arg)
+//---------------------------------------------
+static void neopixel_handleInterrupt(void *arg)
 {
   portBASE_TYPE taskAwoken = 0;
 

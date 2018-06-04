@@ -281,8 +281,8 @@ static void dac_task(void *pvParameters)
     vTaskDelete(NULL);
 }
 
-//------------------------------------------------
-STATIC void IRAM_ATTR dac_timer_isr(void *self_in)
+//--------------------------------------
+STATIC void dac_timer_isr(void *self_in)
 {
     mdac_obj_t *self = (mdac_obj_t *)self_in;
 

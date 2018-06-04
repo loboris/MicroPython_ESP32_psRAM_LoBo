@@ -51,8 +51,8 @@ static uint8_t cmd_burst = 0;		// flag to indicate cmd-burst is active
 
 spi_lobo_device_handle_t eve_spi = NULL;
 
-//---------------------------------------------------------------------------------------------------
-static void IRAM_ATTR _spi_transfer_start(spi_lobo_device_handle_t spi_dev, int wrbits, int rdbits) {
+//-----------------------------------------------------------------------------------------
+static void _spi_transfer_start(spi_lobo_device_handle_t spi_dev, int wrbits, int rdbits) {
 	// Load send buffer
 	spi_dev->host->hw->user.usr_mosi_highpart = 0;
 	spi_dev->host->hw->mosi_dlen.usr_mosi_dbitlen = wrbits-1;
