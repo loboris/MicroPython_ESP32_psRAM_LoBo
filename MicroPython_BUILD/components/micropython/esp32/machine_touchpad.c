@@ -36,7 +36,7 @@
 #include "py/runtime.h"
 #include "py/mphal.h"
 #include "modmachine.h"
-#include "machine_pin.h"
+#include "modmachine.h"
 
 
 typedef struct _mtp_obj_t {

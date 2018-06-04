@@ -60,7 +60,7 @@ typedef struct pixel_settings {
 void np_set_pixel_color(pixel_settings_t *px, uint16_t idx, uint32_t color);
 void np_set_pixel_color_hsb(pixel_settings_t *px, uint16_t idx, float hue, float saturation, float brightness);
 uint32_t np_get_pixel_color(pixel_settings_t *px, uint16_t idx, uint8_t *white);
-void np_show(pixel_settings_t *px, rmt_channel_t channel, uint8_t wait);
+void np_show(pixel_settings_t *px, rmt_channel_t channel);
 void np_clear(pixel_settings_t *px);
 
 int neopixel_init(int gpioNum, rmt_channel_t channel);

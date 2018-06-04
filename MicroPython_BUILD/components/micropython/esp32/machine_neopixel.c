@@ -98,9 +98,7 @@ STATIC mp_obj_t machine_neopixel_make_new(const mp_obj_type_t *type, size_t n_ar
     	mp_raise_ValueError("Cannot acquire RMT channel");
     }
 
-    int8_t pin;
-    if (MP_OBJ_IS_INT(args[ARG_pin].u_obj)) pin = mp_obj_get_int(args[ARG_pin].u_obj);
-    else pin = machine_pin_get_id(args[ARG_pin].u_obj);
+    int8_t pin = machine_pin_get_gpio(args[ARG_pin].u_obj);
 
     int pixels = args[ARG_pixels].u_int;
     int wstype = args[ARG_type].u_int;
@@ -163,7 +161,7 @@ STATIC mp_obj_t machine_neopixel_make_new(const mp_obj_type_t *type, size_t n_ar
     self->base.type = &machine_neopixel_type;
 
 	np_clear(&self->px);
-	np_show(&self->px, self->channel, 1);
+	np_show(&self->px, self->channel);
 
     return MP_OBJ_FROM_PTR(self);
 
@@ -183,7 +181,7 @@ STATIC mp_obj_t machine_neopixel_deinit(mp_obj_t self_in)
     np_check(self);
 
 	np_clear(&self->px);
-	np_show(&self->px, self->channel, 1);
+	np_show(&self->px, self->channel);
 
     neopixel_deinit(self->channel);
 
@@ -204,7 +202,7 @@ STATIC mp_obj_t machine_neopixel_clear(mp_obj_t self_in)
 
 	np_clear(&self->px);
    	MP_THREAD_GIL_EXIT();
-	np_show(&self->px, self->channel, 0);
+	np_show(&self->px, self->channel);
    	MP_THREAD_GIL_ENTER();
     return mp_const_none;
 }
@@ -217,7 +215,7 @@ STATIC mp_obj_t machine_neopixel_show(mp_obj_t self_in)
     np_check(self);
 
    	MP_THREAD_GIL_EXIT();
-	np_show(&self->px, self->channel, 0);
+	np_show(&self->px, self->channel);
    	MP_THREAD_GIL_ENTER();
     return mp_const_none;
 }
@@ -257,7 +255,7 @@ STATIC mp_obj_t machine_neopixel_set(size_t n_args, const mp_obj_t *pos_args, mp
 
 	if (args[4].u_bool) {
 	   	MP_THREAD_GIL_EXIT();
-		np_show(&self->px, self->channel, 0);
+		np_show(&self->px, self->channel);
 	   	MP_THREAD_GIL_ENTER();
 	}
 
@@ -298,7 +296,7 @@ STATIC mp_obj_t machine_neopixel_set_white(size_t n_args, const mp_obj_t *pos_ar
 
 		if (args[3].u_bool) {
 			MP_THREAD_GIL_EXIT();
-			np_show(&self->px, self->channel, 0);
+			np_show(&self->px, self->channel);
 			MP_THREAD_GIL_ENTER();
 		}
     }
@@ -344,7 +342,7 @@ STATIC mp_obj_t machine_neopixel_setHSB(size_t n_args, const mp_obj_t *pos_args,
 
 	if (args[5].u_bool) {
 	   	MP_THREAD_GIL_EXIT();
-		np_show(&self->px, self->channel, 0);
+		np_show(&self->px, self->channel);
 	   	MP_THREAD_GIL_ENTER();
 	}
 
@@ -395,7 +393,7 @@ STATIC mp_obj_t machine_neopixel_setHSB_int(size_t n_args, const mp_obj_t *pos_a
 
 	if (args[5].u_bool) {
 	   	MP_THREAD_GIL_EXIT();
-		np_show(&self->px, self->channel, 0);
+		np_show(&self->px, self->channel);
 	   	MP_THREAD_GIL_ENTER();
 	}
 
@@ -471,7 +469,7 @@ STATIC mp_obj_t machine_neopixel_brightness(size_t n_args, const mp_obj_t *pos_a
     	self->px.brightness = bright & 0xFF;
     	if (args[1].u_bool) {
     	   	MP_THREAD_GIL_EXIT();
-    		np_show(&self->px, self->channel, 0);
+    		np_show(&self->px, self->channel);
     	   	MP_THREAD_GIL_ENTER();
     	}
     }
@@ -688,7 +686,7 @@ STATIC mp_obj_t machine_neopixel_rainbow(mp_obj_t self_in, mp_obj_t pos_in, mp_o
 		np_set_pixel_color(&self->px, i, color);
     }
    	MP_THREAD_GIL_EXIT();
-	np_show(&self->px, self->channel, 0);
+	np_show(&self->px, self->channel);
    	MP_THREAD_GIL_ENTER();
     return mp_const_none;
 }

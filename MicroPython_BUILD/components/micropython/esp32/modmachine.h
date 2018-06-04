@@ -40,6 +40,7 @@
 #define MPY_MIN_STACK_SIZE	(6*1024)
 #define EXT1_WAKEUP_ALL_HIGH	2    //!< Wake the chip when all selected GPIOs go high
 #define EXT1_WAKEUP_MAX_PINS	4
+#define ADC_TIMER_NUM			3	// Timer used in ADC module
 
 typedef struct {
     int8_t		ext1_pins[EXT1_WAKEUP_MAX_PINS];
@@ -61,6 +62,36 @@ typedef struct {
     uint8_t		stub_outpin_level;
 } machine_rtc_config_t;
 
+typedef struct _machine_pin_obj_t {
+    mp_obj_base_t base;
+    gpio_num_t id;
+    uint8_t mode;
+    uint8_t pull;
+    uint8_t irq_type;
+    int8_t irq_retvalue;
+    uint8_t irq_any_level;
+    int32_t irq_debounce;
+    int32_t irq_active_time;
+    mp_obj_t irq_handler;
+} machine_pin_obj_t;
+
+typedef struct _machine_timer_obj_t {
+    mp_obj_base_t base;
+    uint8_t id;
+    uint8_t state;
+    uint8_t type;
+    int8_t debug_pin;
+    int8_t debug_pin_mode;
+    mp_uint_t repeat;
+    mp_uint_t period;
+    uint64_t event_num;
+    uint64_t cb_num;
+    mp_obj_t callback;
+    intr_handle_t handle;
+    uint64_t counter;
+    uint64_t alarm;
+} machine_timer_obj_t;
+
 extern bool mpy_use_spiram;
 extern int MPY_DEFAULT_STACK_SIZE;
 extern int MPY_MAX_STACK_SIZE;
@@ -73,6 +104,9 @@ extern int ssh2_hdr_maxlen;
 extern int ssh2_body_maxlen;
 
 extern machine_rtc_config_t machine_rtc_config;
+extern machine_timer_obj_t * mpy_timers_used[4];
+extern bool adc_timer_active;
+extern bool i2s_driver_installed;
 
 extern const mp_obj_type_t machine_timer_type;
 extern const mp_obj_type_t machine_pin_type;
@@ -97,5 +131,7 @@ extern int mpy_heap_size;
 void machine_pins_init(void);
 void machine_pins_deinit(void);
 void prepareSleepReset(uint8_t hrst, char *msg);
+int machine_pin_get_gpio(mp_obj_t pin_in);
+uint64_t random_at_most(uint32_t max);
 
 #endif // MICROPY_INCLUDED_ESP32_MODMACHINE_H

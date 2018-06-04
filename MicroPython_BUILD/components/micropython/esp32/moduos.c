@@ -43,7 +43,7 @@
 #include "extmod/vfs.h"
 #include "mpversion.h"
 #include "extmod/vfs_native.h"
-#include "machine_pin.h"
+#include "modmachine.h"
 #if CONFIG_MICROPY_FILESYSTEM_TYPE == 2
 #include "libs/littleflash.h"
 #endif

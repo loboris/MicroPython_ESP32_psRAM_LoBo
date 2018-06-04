@@ -144,7 +144,9 @@ def _closedCallback(webSocket) :
 
 # ----------------------------------------------------------------------------
 
-srv = MicroWebSrv(webPath='www/')
+# You can set the path to the www directory, default is '/flash/www'
+#srv = MicroWebSrv(webPath='www_path')
+srv = MicroWebSrv()
 
 # ------------------------------------------------------
 # WebSocket configuration

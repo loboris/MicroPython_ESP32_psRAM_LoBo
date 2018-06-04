@@ -7,7 +7,7 @@ All the source code in this repository is released under MIT or Apache v2.0 lice
 
 All the sources related to **MicroPython** are under **MIT** license.
 
-**esp-idf** on which this port is based, is released under **Apache v2.0** license.
+**esp-idf** on which this port is based, is released under **Apache v2.0** license ([details](http://esp-idf.readthedocs.io/en/latest/COPYRIGHT.html)).
 
 > All the sources created/modified by the repository owner are released under **MIT** license and contains the following copyright notice:<br>
 > *Copyright (c) 2018 LoBo (https://github.com/loboris)*

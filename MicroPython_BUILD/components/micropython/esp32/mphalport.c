@@ -388,7 +388,7 @@ void mp_hal_delay_us(uint32_t us) {
 	if (us > 10000) {
 		// Delay greater then 10 ms, use ms delay function
 		uint32_t dus = us % 10000;	// remaining micro seconds
-		mp_hal_delay_ms(us/1000);
+		mp_hal_delay_ms(us/10000);
 	    if (dus) ets_delay_us(dus);
 		return;
 	}

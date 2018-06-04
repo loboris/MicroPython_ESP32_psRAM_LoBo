@@ -205,6 +205,7 @@ void TFT_drawPixel(int16_t x, int16_t y, color_t color, uint8_t sel);
 //------------------------------------------
 color_t TFT_readPixel(int16_t x, int16_t y);
 
+
 /*
  * Draw vertical line at given x,y coordinates
  * 
@@ -628,6 +629,7 @@ int TFT_getStringWidth(char* str);
 /*
  * Fills the rectangle occupied by string with current background color
  */
+//------------------------------------------------
 void TFT_clearStringRect(int x, int y, char *str);
 
 /*

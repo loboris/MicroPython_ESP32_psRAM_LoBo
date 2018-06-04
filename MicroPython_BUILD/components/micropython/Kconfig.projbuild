@@ -122,6 +122,20 @@ menu "MicroPython"
 	        Whether to return number of collected objects from gc.collect()
 	        If enabled, gc.collect will return the tuple of marked (used) and collected heap blocks
 	
+	    config MICROPY_GC_SET_THRESHOLD
+	        bool "Set GC threshold on boot"
+	        default y
+	        help
+	        Set the automatic garbage collector threshold on boot
+	
+	    config MICROPY_GC_THRESHOLD_VALUE
+	        int "GC threshold percentage"
+	        range 50 95
+	        default 90
+	        help
+	        Default automatic garbage collector threshold value as percentage of the available heap
+	        Threshold value can be changed at runtime using gc.threshold() function
+	
 	    config MICROPY_SCHEDULER_DEPTH
 	        int "Scheduler depth"
 	        range 6 32
@@ -167,7 +181,7 @@ menu "MicroPython"
 	        help
 	        Run MicroPython tasks on both cores, if not selected MicroPython tasks are created pinned to one core
 	        WARNING: When enabled, it may introduce some issues with uasyncio and threads
-	                 not recommended for now!
+	                 There is no benefits from using it at the moment, so it is not recommended for now!
 	
 	    config MICROPY_TASK_PRIORITY
 	        int "Main task priority"
@@ -182,7 +196,7 @@ menu "MicroPython"
 	        range 6 64 if SPIRAM_SUPPORT
 	        default 16
 	        help
-	        Set the size of the MicroPython stack in Kbytes.
+	        Set the default size of the MicroPython stack in Kbytes.
 	
 	    config MICROPY_HEAP_SIZE
 	        int "MicroPython heap size (KB)"
@@ -193,7 +207,7 @@ menu "MicroPython"
 	        default 72 if !SPIRAM_SUPPORT && MICROPY_USE_CURL && MICROPY_USE_CURL_TLS
 	        default 3072 if SPIRAM_SUPPORT
 	        help
-	        Set the size of the MicroPython heap in Kbytes
+	        Set the default size of the MicroPython heap in Kbytes
 	        If SPIRAM is not used, heap is allocated from DRAM and setting the heap size too large
 	        may result in insuficient heap for C services like mqtt, gsm, curl... 
 	

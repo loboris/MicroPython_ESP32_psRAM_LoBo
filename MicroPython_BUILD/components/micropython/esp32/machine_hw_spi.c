@@ -37,7 +37,6 @@
 #include "py/stream.h"
 #include "py/mphal.h"
 #include "modmachine.h"
-#include "machine_pin.h"
 
 #include "machine_hw_spi.h"
 

@@ -91,8 +91,8 @@ STATIC void array_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_t 
 #endif
 
 #if MICROPY_PY_BUILTINS_BYTEARRAY || MICROPY_PY_ARRAY
-//-------------------------------------------------------------------------
-STATIC mp_obj_array_t *array_new(char typecode, size_t n, uint64_t *init) {
+//------------------------------------------------------------------
+mp_obj_array_t *array_new(char typecode, size_t n, uint64_t *init) {
     int typecode_size = mp_binary_get_size('@', typecode, NULL);
     mp_obj_array_t *o = m_new_obj(mp_obj_array_t);
     #if MICROPY_PY_BUILTINS_BYTEARRAY && MICROPY_PY_ARRAY

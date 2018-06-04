@@ -140,6 +140,7 @@ static const char* const wifi_events[] = {
 	"Soft-AP stop",
 	"Station connected to soft-AP",
 	"Station disconnected from ESP32 soft-AP",
+	"Soft-AP assigned an IP to a connected station",
 	"Receive probe request packet in soft-AP interface",
 	"Station or ap or ethernet interface v6IP addr is preferred",
 	"Ethernet start",
@@ -321,9 +322,7 @@ static void processEvent_callback(system_event_t *event)
 				break;
 			}
 		case SYSTEM_EVENT_STA_LOST_IP: {
-				system_event_sta_got_ip_t *info = (system_event_sta_got_ip_t *)&event->event_info;
 				wifi_sta_has_ipaddress = false;
-				wifi_sta_changed_ipaddress = info->ip_changed;
 				wifi_sta_changed_ipaddress = true;
 				break;
 			}

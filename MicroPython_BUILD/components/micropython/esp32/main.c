@@ -159,12 +159,14 @@ void mp_task(void *pvParameter)
     }
     else ESP_LOGE("MicroPython", "Error mounting Flash file system");
 
-    // === Print some info ===
-    char sbuff[24] = { 0 };
     gc_info_t info;
     gc_info(&info);
-    // set gc.threshold to 60% of usable heap
-	//MP_STATE_MEM(gc_alloc_threshold) = ((info.total / 10) * 6) / MICROPY_BYTES_PER_GC_BLOCK;
+	#ifdef CONFIG_MICROPY_GC_SET_THRESHOLD
+	MP_STATE_MEM(gc_alloc_threshold) = ((info.total * 100) / CONFIG_MICROPY_GC_THRESHOLD_VALUE) / MICROPY_BYTES_PER_GC_BLOCK;
+	#endif
+
+    // === Print some info ===
+    char sbuff[24] = { 0 };
 
 	#if CONFIG_FREERTOS_UNICORE
     	printf("\nFreeRTOS and MicroPython running only on FIRST CORE.\n");

@@ -134,9 +134,7 @@ STATIC mp_obj_t machine_onewire_make_new(const mp_obj_type_t *type, size_t n_arg
     	mp_raise_ValueError("Cannot acquire rx RMT channel");
     }
 
-    int8_t pin;
-    if (MP_OBJ_IS_INT(args[0].u_obj)) pin = mp_obj_get_int(args[0].u_obj);
-    else pin = machine_pin_get_id(args[0].u_obj);
+    int8_t pin = machine_pin_get_gpio(args[0].u_obj);
     // ToDo: Check valid pin (not input only)
 
     // Check pin

@@ -33,7 +33,7 @@ endif
 
 define compile_c
 $(ECHO) "_CC_ $<"
-$(Q)$(CC) -I$(MP_EXTRA_INC) $(CFLAGS) -c -MD -o $@ $<
+$(Q)$(CC) -I$(MP_EXTRA_INC) $(CFLAGS) $(CPPFLAGS) -c -MD -o $@ $<
 #@ The following fixes the dependency file.
 #@ See http://make.paulandlesley.org/autodep.html for details.
 #@ Regex adjusted from the above to play better with Windows paths, etc.

@@ -32,7 +32,7 @@
 #include "py/nlr.h"
 #include "py/runtime.h"
 #include "modmachine.h"
-#include "machine_pin.h"
+#include "modmachine.h"
 #include "mphalport.h"
 
 // High speed mode

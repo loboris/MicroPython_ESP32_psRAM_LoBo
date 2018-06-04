@@ -54,26 +54,9 @@
 #define TIMER_FLAGS			0
 
 
-typedef struct _machine_timer_obj_t {
-    mp_obj_base_t base;
-    uint8_t id;
-    uint8_t state;
-    uint8_t type;
-    int8_t debug_pin;
-    int8_t debug_pin_mode;
-    mp_uint_t repeat;
-    mp_uint_t period;
-    uint64_t event_num;
-    uint64_t cb_num;
-    mp_obj_t callback;
-    intr_handle_t handle;
-    uint64_t counter;
-    uint64_t alarm;
-} machine_timer_obj_t;
-
 const mp_obj_type_t machine_timer_type;
 
-static machine_timer_obj_t * timers_used[4] = {NULL};
+machine_timer_obj_t * mpy_timers_used[4] = {NULL};
 static machine_timer_obj_t * ext_timers[TIMER_EXT_NUM] = {NULL};
 
 
@@ -162,14 +145,17 @@ STATIC mp_obj_t machine_timer_make_new(const mp_obj_type_t *type, size_t n_args,
     }
     if (tmr < 4) {
     	// Base hardware timer
-        if (timers_used[tmr] != NULL) {
+    	if ((tmr == ADC_TIMER_NUM) && (adc_timer_active)) {
+        	mp_raise_ValueError("Timer used by ADC module.");
+    	}
+        if (mpy_timers_used[tmr] != NULL) {
         	mp_raise_ValueError("Timer already in use.");
         }
-        timers_used[tmr] = self;
+        mpy_timers_used[tmr] = self;
     }
     else {
     	// Extended timer
-    	if ((timers_used[0] == NULL) || (timers_used[0]->type != TIMER_TYPE_EXTBASE)) {
+    	if ((mpy_timers_used[0] == NULL) || (mpy_timers_used[0]->type != TIMER_TYPE_EXTBASE)) {
 			mp_raise_ValueError("Timer 0 not configured as extended timer.");
     	}
     	if (ext_timers[(tmr-4)] != NULL) {
@@ -188,7 +174,7 @@ STATIC void machine_timer_disable(machine_timer_obj_t *self)
     if ((self->id < 4) && (self->handle)) {
         timer_pause((self->id >> 1) & 1, self->id & 1);
         if (self->type != TIMER_TYPE_CHRONO) esp_intr_free(self->handle);
-        timers_used[self->id] = NULL;
+        mpy_timers_used[self->id] = NULL;
     }
     else ext_timers[(self->id-4)] = NULL;
     self->callback = NULL;
@@ -306,7 +292,7 @@ STATIC void machine_timer_enable(machine_timer_obj_t *self)
 		}
     	check_esp_err(timer_start((self->id >> 1) & 1, self->id & 1));
     }
-    timers_used[self->id] = self;
+    mpy_timers_used[self->id] = self;
 }
 
 //---------------------------------------------------------------------------------------------------------------------------------
@@ -482,7 +468,7 @@ STATIC mp_obj_t machine_timer_resume(mp_obj_t self_in)
 		}
     }
     else {
-		if ((timers_used[0] != NULL) && (timers_used[0]->state == TIMER_RUNNING)) self->state = TIMER_RUNNING;
+		if ((mpy_timers_used[0] != NULL) && (mpy_timers_used[0]->state == TIMER_RUNNING)) self->state = TIMER_RUNNING;
 		else self->state = TIMER_PAUSED;
     }
     return mp_const_none;

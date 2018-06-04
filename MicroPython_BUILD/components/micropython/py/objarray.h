@@ -5,6 +5,7 @@
  *
  * Copyright (c) 2013, 2014 Damien P. George
  * Copyright (c) 2014 Paul Sokolovsky
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -38,5 +39,7 @@ typedef struct _mp_obj_array_t {
     size_t len; // in elements
     void *items;
 } mp_obj_array_t;
+
+mp_obj_array_t *array_new(char typecode, size_t n, uint64_t *init);
 
 #endif // MICROPY_INCLUDED_PY_OBJARRAY_H

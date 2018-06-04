@@ -44,7 +44,6 @@
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/wear_levelling/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/soc/esp32/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/heap/include&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/mbedtls/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/mbedtls/port/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/app_update/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/mdns/include&quot;"/>
@@ -59,6 +58,7 @@
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/bt/bluedroid/api/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${PWD}/../Tools/xtensa-esp32-elf/bin&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${PWD}/../Tools/xtensa-esp32-elf/xtensa-esp32-elf/include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/mbedtls/mbedtls/include&quot;"/>
 								</option>
 								<option id="gnu.c.compiler.option.preprocessor.def.symbols.507238637" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="BUILD_TIME=100000"/>
@@ -66,6 +66,7 @@
 									<listOptionValue builtIn="false" value="LWIP_DNS=1"/>
 									<listOptionValue builtIn="false" value="LWIP_SOCKET=1"/>
 									<listOptionValue builtIn="false" value="IDF_USEHEAP=1"/>
+									<listOptionValue builtIn="false" value="HAVE_CONFIG_H"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.827066523" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>

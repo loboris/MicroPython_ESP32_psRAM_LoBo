@@ -1,5 +1,5 @@
 /*
- * This file is part of the MicroPython project, http://micropython.org/
+ * This file is part of the MicroPython ESP32 project, https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo
  *
  * The MIT License (MIT)
  *
@@ -34,12 +34,8 @@
 
 #if MICROPY_PY_UTIMEQ
 
-#define DEBUG 0
-
-// the algorithm here is modelled on CPython's heapq.py
-
 struct qentry {
-    uint64_t time;
+    int64_t time;
     mp_uint_t id;
     mp_obj_t callback;
     mp_obj_t args;
@@ -49,78 +45,59 @@ typedef struct _mp_obj_utimeq_t {
     mp_obj_base_t base;
     mp_uint_t alloc;
     mp_uint_t len;
+    bool ascending;
     struct qentry items[];
 } mp_obj_utimeq_t;
 
-STATIC mp_uint_t utimeq_id;
+STATIC mp_uint_t utimeq_id = 0;
+STATIC bool sort_asc = true;
 
 //--------------------------------------------------
 STATIC mp_obj_utimeq_t *get_heap(mp_obj_t heap_in) {
     return MP_OBJ_TO_PTR(heap_in);
 }
 
-//----------------------------------------------------------------------
-STATIC bool time_less_than(struct qentry *item, struct qentry *parent) {
-    uint64_t item_tm = item->time;
-    uint64_t parent_tm = parent->time;
-    int64_t res = parent_tm - item_tm;
+//----------------------------------------------------------------
+STATIC int compare_times(const void * item, const void * parent) {
+    int ret = 0;
+    int64_t res = ((struct qentry *)parent)->time - ((struct qentry *)item)->time;
+	ret = (res < 0) ? -1 : 1;
     if (res == 0) {
-        // TODO: This actually should use the same "ring" logic
-        // as for time, to avoid artifacts when id's overflow.
-        return (item->id < parent->id);
+    	ret = (((struct qentry *)parent)->id - ((struct qentry *)item)->id);
     }
-    return (res < 0);
+	if (sort_asc) ret *= -1;
+
+	return ret;
 }
 
-//------------------------------------------------------------------------------------------------------------
-STATIC mp_obj_t utimeq_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
-    mp_arg_check_num(n_args, n_kw, 1, 1, false);
+//---------------------------------------------
+STATIC void sort_items(mp_obj_utimeq_t *heap) {
+	sort_asc = heap->ascending;
+    qsort(&heap->items, heap->len, sizeof(struct qentry), compare_times);
+}
 
-    mp_uint_t alloc = mp_obj_get_int(args[0]);
+//----------------------------------------------------------------------------------------------------------------
+STATIC mp_obj_t utimeq_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
+    enum { ARG_size, ARG_sort };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_size,	MP_ARG_REQUIRED | MP_ARG_OBJ,  {.u_obj = mp_const_none}},
+        { MP_QSTR_asc,	MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = true}},
+    };
+    // parse arguments
+	mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+	mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    mp_arg_check_num(n_args, n_kw, 1, 1, true);
+
+    mp_uint_t alloc = mp_obj_get_int(args[ARG_size].u_obj);
     mp_obj_utimeq_t *o = m_new_obj_var(mp_obj_utimeq_t, struct qentry, alloc);
     o->base.type = type;
     memset(o->items, 0, sizeof(*o->items) * alloc);
     o->alloc = alloc;
     o->len = 0;
+    o->ascending = args[ARG_sort].u_bool;
+
     return MP_OBJ_FROM_PTR(o);
-}
-
-//------------------------------------------------------------------------------------
-STATIC void heap_siftdown(mp_obj_utimeq_t *heap, mp_uint_t start_pos, mp_uint_t pos) {
-    struct qentry item = heap->items[pos];
-    while (pos > start_pos) {
-        mp_uint_t parent_pos = (pos - 1) >> 1;
-        struct qentry *parent = &heap->items[parent_pos];
-        bool lessthan = time_less_than(&item, parent);
-        if (lessthan) {
-            heap->items[pos] = *parent;
-            pos = parent_pos;
-        } else {
-            break;
-        }
-    }
-    heap->items[pos] = item;
-}
-
-//-------------------------------------------------------------
-STATIC void heap_siftup(mp_obj_utimeq_t *heap, mp_uint_t pos) {
-    mp_uint_t start_pos = pos;
-    mp_uint_t end_pos = heap->len;
-    struct qentry item = heap->items[pos];
-    for (mp_uint_t child_pos = 2 * pos + 1; child_pos < end_pos; child_pos = 2 * pos + 1) {
-        // choose right child if it's <= left child
-        if (child_pos + 1 < end_pos) {
-            bool lessthan = time_less_than(&heap->items[child_pos], &heap->items[child_pos + 1]);
-            if (!lessthan) {
-                child_pos += 1;
-            }
-        }
-        // bubble up the smaller child
-        heap->items[pos] = heap->items[child_pos];
-        pos = child_pos;
-    }
-    heap->items[pos] = item;
-    heap_siftdown(heap, start_pos, pos);
 }
 
 //------------------------------------------------------------------------
@@ -134,10 +111,10 @@ STATIC mp_obj_t mod_utimeq_heappush(size_t n_args, const mp_obj_t *args) {
     mp_uint_t l = heap->len;
     // time argument can be float or integer
     // if float, convert it to 64-bit integer
-    uint64_t itime;
+    int64_t itime;
     if (mp_obj_is_float(args[1])) {
     	mp_float_t time = mp_obj_float_get(args[1]);
-        itime = (uint64_t)(round(time));
+        itime = (int64_t)(round(time));
     }
     else itime = mp_obj_get_int64(args[1]);
 
@@ -145,8 +122,10 @@ STATIC mp_obj_t mod_utimeq_heappush(size_t n_args, const mp_obj_t *args) {
     heap->items[l].id = utimeq_id++;
     heap->items[l].callback = args[2];
     heap->items[l].args = args[3];
-    heap_siftdown(heap, 0, heap->len);
     heap->len++;
+
+    sort_items(heap);
+
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_utimeq_heappush_obj, 4, 4, mod_utimeq_heappush);
@@ -163,44 +142,98 @@ STATIC mp_obj_t mod_utimeq_heappop(mp_obj_t heap_in, mp_obj_t list_ref) {
     }
 
     struct qentry *item = &heap->items[0];
-    ret->items[0] = mp_obj_new_int_from_ull(item->time);
+    ret->items[0] = mp_obj_new_int_from_ll(item->time);
     ret->items[1] = item->callback;
     ret->items[2] = item->args;
+
     heap->len -= 1;
-    heap->items[0] = heap->items[heap->len];
-    heap->items[heap->len].callback = MP_OBJ_NULL; // so we don't retain a pointer
-    heap->items[heap->len].args = MP_OBJ_NULL;
+
     if (heap->len) {
-        heap_siftup(heap, 0);
+    	memmove(&heap->items[0], &heap->items[1], sizeof(struct qentry) * heap->len);
+        //sort_items(heap);
+        // we don't want to retain a pointers !
+        memset(&heap->items[heap->len], 0, sizeof(struct qentry));
     }
+
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(mod_utimeq_heappop_obj, mod_utimeq_heappop);
 
-//-----------------------------------------------------
-STATIC mp_obj_t mod_utimeq_peektime(mp_obj_t heap_in) {
+//-----------------------------------------------------------------------------------------
+STATIC mp_obj_t mod_utimeq_heappeek(mp_obj_t heap_in, mp_obj_t idx_in, mp_obj_t list_ref) {
     mp_obj_utimeq_t *heap = get_heap(heap_in);
     if (heap->len == 0) {
         nlr_raise(mp_obj_new_exception_msg(&mp_type_IndexError, "empty heap"));
     }
-
-    struct qentry *item = &heap->items[0];
-    return mp_obj_new_int_from_ull(item->time);
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_utimeq_peektime_obj, mod_utimeq_peektime);
-
-#if DEBUG
-//-------------------------------------------------
-STATIC mp_obj_t mod_utimeq_dump(mp_obj_t heap_in) {
-    mp_obj_utimeq_t *heap = get_heap(heap_in);
-    for (int i = 0; i < heap->len; i++) {
-        printf(UINT_FMT "\t%p\t%p\n", heap->items[i].time,
-            MP_OBJ_TO_PTR(heap->items[i].callback), MP_OBJ_TO_PTR(heap->items[i].args));
+	int pos = mp_obj_get_int(idx_in);
+	if ((pos < 0) || (pos >= heap->len)) {
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_IndexError, "wrong heap index"));
+	}
+    mp_obj_list_t *ret = MP_OBJ_TO_PTR(list_ref);
+    if (!MP_OBJ_IS_TYPE(list_ref, &mp_type_list) || ret->len < 3) {
+        mp_raise_TypeError(NULL);
     }
+
+    struct qentry *item = &heap->items[pos];
+    ret->items[0] = mp_obj_new_int_from_ll(item->time);
+    ret->items[1] = item->callback;
+    ret->items[2] = item->args;
+
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_utimeq_dump_obj, mod_utimeq_dump);
-#endif
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(mod_utimeq_heappeek_obj, mod_utimeq_heappeek);
+
+//------------------------------------------------------------------------
+STATIC mp_obj_t mod_utimeq_peektime(size_t n_args, const mp_obj_t *args) {
+    mp_obj_utimeq_t *heap = get_heap(args[0]);
+    if (heap->len == 0) {
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_IndexError, "empty heap"));
+    }
+
+    int pos = 0;
+    if (n_args == 2) {
+    	pos = mp_obj_get_int(args[1]);
+    	if ((pos < 0) || (pos >= heap->len)) {
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_IndexError, "wrong heap index"));
+    	}
+    }
+    struct qentry *item = &heap->items[pos];
+    return mp_obj_new_int_from_ll(item->time);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_utimeq_peektime_obj, 1, 2, mod_utimeq_peektime);
+
+//------------------------------------------------
+STATIC mp_obj_t mod_utimeq_len(mp_obj_t heap_in) {
+    mp_obj_utimeq_t *heap = get_heap(heap_in);
+    mp_obj_tuple_t *t = mp_obj_new_tuple(2, NULL);
+
+    t->items[0] = mp_obj_new_int(heap->len);
+	t->items[1] = mp_obj_new_int(heap->alloc);
+
+    return t;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_utimeq_len_obj, mod_utimeq_len);
+
+//--------------------------------------------------------------------
+STATIC mp_obj_t mod_utimeq_dump(size_t n_args, const mp_obj_t *args) {
+    mp_obj_utimeq_t *heap = get_heap(args[0]);
+
+    int maxlen = heap->len;
+    if (n_args == 2) {
+    	if ( mp_obj_is_true(args[1])) maxlen = heap->alloc;
+    }
+    printf("%4s%21s%10s%12s%12s\n", "Idx", "Time", "ID", "Callback", "Arg");
+    printf("-----------------------------------------------------------\n");
+    for (int i = 0; i < maxlen; i++) {
+        printf("%4d%21lld%10u%12p%12p", i, heap->items[i].time, heap->items[i].id,
+            MP_OBJ_TO_PTR(heap->items[i].callback), MP_OBJ_TO_PTR(heap->items[i].args));
+        if (i >= heap->len) printf("  (empty)\n");
+        else printf("\n");
+    }
+    printf("-----------------------------------------------------------\n");
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_utimeq_dump_obj, 1, 2, mod_utimeq_dump);
 
 //-------------------------------------------------------------------
 STATIC mp_obj_t utimeq_unary_op(mp_unary_op_t op, mp_obj_t self_in) {
@@ -214,12 +247,12 @@ STATIC mp_obj_t utimeq_unary_op(mp_unary_op_t op, mp_obj_t self_in) {
 
 //===========================================================
 STATIC const mp_rom_map_elem_t utimeq_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR_push), MP_ROM_PTR(&mod_utimeq_heappush_obj) },
-    { MP_ROM_QSTR(MP_QSTR_pop), MP_ROM_PTR(&mod_utimeq_heappop_obj) },
+    { MP_ROM_QSTR(MP_QSTR_push),     MP_ROM_PTR(&mod_utimeq_heappush_obj) },
+    { MP_ROM_QSTR(MP_QSTR_pop),      MP_ROM_PTR(&mod_utimeq_heappop_obj) },
+    { MP_ROM_QSTR(MP_QSTR_peek),     MP_ROM_PTR(&mod_utimeq_heappeek_obj) },
     { MP_ROM_QSTR(MP_QSTR_peektime), MP_ROM_PTR(&mod_utimeq_peektime_obj) },
-    #if DEBUG
-    { MP_ROM_QSTR(MP_QSTR_dump), MP_ROM_PTR(&mod_utimeq_dump_obj) },
-    #endif
+    { MP_ROM_QSTR(MP_QSTR_len),      MP_ROM_PTR(&mod_utimeq_len_obj) },
+    { MP_ROM_QSTR(MP_QSTR_dump),     MP_ROM_PTR(&mod_utimeq_dump_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(utimeq_locals_dict, utimeq_locals_dict_table);
 
@@ -235,7 +268,7 @@ STATIC const mp_obj_type_t utimeq_type = {
 //=================================================================
 STATIC const mp_rom_map_elem_t mp_module_utimeq_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_utimeq) },
-    { MP_ROM_QSTR(MP_QSTR_utimeq), MP_ROM_PTR(&utimeq_type) },
+    { MP_ROM_QSTR(MP_QSTR_utimeq),   MP_ROM_PTR(&utimeq_type) },
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_utimeq_globals, mp_module_utimeq_globals_table);
 

@@ -30,14 +30,15 @@
 #include "freertos/FreeRTOS.h"
 #include "sdkconfig.h"
 
+#include "driver/i2c.h"
+#include "driver/gpio.h"
+#include "driver/periph_ctrl.h"
+
 #include "py/mpstate.h"
 #include "py/runtime.h"
 #include "py/obj.h"
 
-#include "machine_pin.h"
-#include "driver/i2c.h"
-#include "driver/gpio.h"
-#include "driver/periph_ctrl.h"
+#include "modmachine.h"
 
 #define I2C_ACK_CHECK_EN            (1)
 #define I2C_RX_MAX_BUFF_LEN			2048	// maximum low level commands receive buffer length

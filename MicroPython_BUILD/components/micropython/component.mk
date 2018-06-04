@@ -83,7 +83,7 @@ MP_EXTRA_INC += -I$(ESPCOMP)/tcpip_adapter/include
 MP_EXTRA_INC += -I$(ESPCOMP)/lwip/include/lwip
 MP_EXTRA_INC += -I$(ESPCOMP)/lwip/include/lwip/port
 MP_EXTRA_INC += -I$(ESPCOMP)/lwip/include/lwip/posix
-MP_EXTRA_INC += -I$(ESPCOMP)/mbedtls/include
+MP_EXTRA_INC += -I$(ESPCOMP)/mbedtls/mbedtls/include
 MP_EXTRA_INC += -I$(ESPCOMP)/mbedtls/port/include
 MP_EXTRA_INC += -I$(ESPCOMP)/spi_flash/include
 MP_EXTRA_INC += -I$(ESPCOMP)/wear_levelling/include
@@ -137,7 +137,7 @@ MP_CLEAN_EXTRA += $(COMPONENT_PATH)/genhdr/qstrdefs.generated.h
 # --------------------------------
 include $(COMPONENT_PATH)/py/py.mk
 
-#CFLAGS += -std=gnu99
+#CFLAGS += -DESP_PLATFORM
 CFLAGS += $(CFLAGS_MOD)
 
 

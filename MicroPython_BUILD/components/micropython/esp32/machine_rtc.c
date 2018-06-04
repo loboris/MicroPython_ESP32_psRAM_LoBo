@@ -44,7 +44,7 @@
 #include "machine_rtc.h"
 
 #include "mphalport.h"
-#include "machine_pin.h"
+#include "modmachine.h"
 #include "mpsleep.h"
 
 
