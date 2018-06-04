@@ -41,11 +41,11 @@
 #include "py/runtime0.h"
 
 // IDF
-#include "bt.h"
-#include "esp_bt_main.h"
-#include "esp_gap_ble_api.h"
-#include "esp_gatts_api.h"
-#include "esp_gattc_api.h"
+#include "esp_bt.h"
+#include "api/esp_bt_main.h"
+#include "api/esp_gap_ble_api.h"
+#include "api/esp_gatts_api.h"
+#include "api/esp_gattc_api.h"
 
 //extern bool bluetooth_enabled;
 
