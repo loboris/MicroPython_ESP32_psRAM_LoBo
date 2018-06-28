@@ -879,7 +879,7 @@ STATIC mp_obj_t native_vfs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t m
 	    const esp_vfs_fat_mount_config_t mount_config = {
 			.format_if_mount_failed = true,
 			.max_files              = CONFIG_MICROPY_FATFS_MAX_OPEN_FILES,
-			.allocation_unit_size   = 0;
+			.allocation_unit_size   = 0,
 		};
 		// Mount spi Flash filesystem using configuration from sdkconfig.h
 		esp_err_t err = esp_vfs_fat_spiflash_mount(VFS_NATIVE_MOUNT_POINT, VFS_NATIVE_INTERNAL_PART_LABEL, &mount_config, &s_wl_handle);
