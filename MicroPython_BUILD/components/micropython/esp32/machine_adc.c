@@ -228,6 +228,7 @@ exit:
     i2s_driver_installed = false;
     if (i2s_read_buff) free(i2s_read_buff);
 
+    esp_log_level_set("I2S", CONFIG_LOG_DEFAULT_LEVEL);
     task_stop = false;
     task_running = false;
 
@@ -799,12 +800,12 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(madc_collect_obj, 0, madc_collect);
 
 //----------------------------------------------------------------------------------------------
 STATIC mp_obj_t madc_read_timed(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
-    enum { ARG_data, ARG_freq, ARG_len, ARG_8bit, ARG_wait, ARG_callback };
+    enum { ARG_data, ARG_freq, ARG_len, ARG_byte, ARG_wait, ARG_callback };
     const mp_arg_t allowed_args[] = {
             { MP_QSTR_data,     MP_ARG_REQUIRED | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
             { MP_QSTR_freq,     MP_ARG_REQUIRED | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
             { MP_QSTR_nsamples, MP_ARG_KW_ONLY  | MP_ARG_INT,  {.u_int = -1} },
-            { MP_QSTR_8bit,     MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = true} },
+            { MP_QSTR_byte,     MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = true} },
             { MP_QSTR_wait,     MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = false}},
             { MP_QSTR_callback, MP_ARG_KW_ONLY  | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
     };
@@ -866,7 +867,7 @@ STATIC mp_obj_t madc_read_timed(mp_uint_t n_args, const mp_obj_t *pos_args, mp_m
             mp_raise_ValueError("Error opening file");
         }
         // Allocate temporary data buffer
-        if (args[ARG_8bit].u_bool) {
+        if (args[ARG_byte].u_bool) {
             self->val_shift = self->width + 1;
         }
         self->buf_len = length;

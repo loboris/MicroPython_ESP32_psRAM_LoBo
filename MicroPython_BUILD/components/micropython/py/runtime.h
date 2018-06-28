@@ -61,7 +61,7 @@ typedef struct _mp_arg_t {
 #if MICROPY_ENABLE_SCHEDULER
 //--------------------------
 
-#define MP_SCHED_CTYPE_MAX_ITEMS	4
+#define MP_SCHED_CTYPE_MAX_ITEMS	6
 
 #define MP_SCHED_CTYPE_NONE			0
 #define MP_SCHED_CTYPE_SINGLE		1

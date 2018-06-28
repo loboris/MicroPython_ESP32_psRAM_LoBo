@@ -121,11 +121,13 @@ extern const mp_obj_type_t machine_neopixel_type;
 extern const mp_obj_type_t machine_dht_type;
 extern const mp_obj_type_t machine_onewire_type;
 extern const mp_obj_type_t machine_ds18x20_type;
+#ifdef CONFIG_MICROPY_USE_RFCOMM
+extern const mp_obj_type_t machine_rfcomm_type;
+#endif
 #ifdef CONFIG_MICROPY_USE_GPS
 extern const mp_obj_type_t machine_gps_type;
 #endif
 extern nvs_handle mpy_nvs_handle;
-extern int mpy_repl_stack_size;
 extern int mpy_heap_size;
 
 void machine_pins_init(void);

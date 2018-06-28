@@ -194,16 +194,26 @@ STATIC mp_obj_t mdns_add_service(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
     }
 
     if (MP_OBJ_IS_TYPE(args[ARG_txdata].u_obj, &mp_type_dict)) {
-        mp_obj_dict_t *params = MP_OBJ_TO_PTR(args[ARG_txdata].u_obj);
-        mp_map_t *map = &params->map;
-        mp_map_elem_t *table = map->table;
-        if (map->used > 0) {
-			for (int i=0; i<map->used; i++) {
-				if (i > 7) break;
-				svctxdata[i].key = (char *)mp_obj_str_get_str(table[i].key);
-				svctxdata[i].value = (char *)mp_obj_str_get_str(table[i].value);
-            	ntxdata++;
-			}
+        mp_obj_dict_t *dict = MP_OBJ_TO_PTR(args[ARG_txdata].u_obj);
+        size_t max = dict->map.alloc;
+        mp_map_t *map = &dict->map;
+        mp_map_elem_t *next;
+        size_t cur = 0;
+        while (1) {
+            next = NULL;
+            for (size_t i = cur; i < max; i++) {
+                if (MP_MAP_SLOT_IS_FILLED(map, i)) {
+                    cur = i + 1;
+                    next = &(map->table[i]);
+                    break;
+                }
+            }
+            if (next == NULL) break;
+
+            svctxdata[ntxdata].key = (char *)mp_obj_str_get_str(next->key);
+            svctxdata[ntxdata].value = (char *)mp_obj_str_get_str(next->value);
+            ntxdata++;
+            if (ntxdata > 7) break;
         }
     }
 

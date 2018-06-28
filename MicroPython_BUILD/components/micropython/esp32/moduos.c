@@ -140,11 +140,12 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(os_umount_sdcard_obj, os_umount_sdcard);
 STATIC mp_obj_t os_sdcard_config(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
     const mp_arg_t allowed_args[] = {
-        { MP_QSTR_mode, MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
-        { MP_QSTR_clk,                    MP_ARG_OBJ, { .u_obj = mp_const_none } },
-        { MP_QSTR_mosi,                   MP_ARG_OBJ, { .u_obj = mp_const_none } },
-        { MP_QSTR_miso,                   MP_ARG_OBJ, { .u_obj = mp_const_none } },
-        { MP_QSTR_cs,                     MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_mode, MP_ARG_REQUIRED | MP_ARG_INT,  { .u_int = 0 } },
+        { MP_QSTR_clk,                    MP_ARG_OBJ,  { .u_obj = mp_const_none } },
+        { MP_QSTR_mosi,                   MP_ARG_OBJ,  { .u_obj = mp_const_none } },
+        { MP_QSTR_miso,                   MP_ARG_OBJ,  { .u_obj = mp_const_none } },
+        { MP_QSTR_cs,                     MP_ARG_OBJ,  { .u_obj = mp_const_none } },
+        { MP_QSTR_hispeed,                MP_ARG_BOOL, { .u_bool = true } },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -171,6 +172,7 @@ STATIC mp_obj_t os_sdcard_config(size_t n_args, const mp_obj_t *pos_args, mp_map
         if (native_vfs_mounted[VFS_NATIVE_TYPE_SDCARD]) os_umount_sdcard();
     	sdcard_config.mode = mode;
     }
+    sdcard_config.hispeed = args[5].u_bool;
 
 	return mp_const_none;
 }

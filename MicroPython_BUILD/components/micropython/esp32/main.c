@@ -95,7 +95,11 @@ void mp_task(void *pvParameter)
 
 	#ifdef CONFIG_MICROPY_USE_TASK_WDT
 	// Enable watchdog for MicroPython main task
-	esp_task_wdt_init(CONFIG_TASK_WDT_TIMEOUT_S, false);
+    #ifdef CONFIG_MICROPY_TASK_WDT_PANIC
+	esp_task_wdt_init(CONFIG_TASK_WDT_TIMEOUT_S, true);
+    #else
+    esp_task_wdt_init(CONFIG_TASK_WDT_TIMEOUT_S, false);
+    #endif
 	esp_task_wdt_add(MainTaskHandle);
 	esp_task_wdt_reset();
 	#endif
@@ -103,9 +107,11 @@ void mp_task(void *pvParameter)
     uart_init();
 
 	#if CONFIG_BOOT_SET_LED >= 0
+    #if CONFIG_BOOT_RESET_LED
 	// Deactivate boot led
 	gpio_pad_select_gpio(CONFIG_BOOT_SET_LED);
 	GPIO_OUTPUT_SET(CONFIG_BOOT_SET_LED, CONFIG_BOOT_LED_ON ^ 1);
+    #endif
 	#endif
 
 	// Get and print reset & wakeup reasons
@@ -118,11 +124,7 @@ void mp_task(void *pvParameter)
 
     // Initialize the stack pointer for the main thread
     mp_stack_set_top((void *)sp);
-	#ifdef CONFIG_MICROPY_USE_THREADED_REPL
-    mp_stack_set_limit(mp_task_stack_len - 256);
-	#else
     mp_stack_set_limit(mp_task_stack_len - 1024);
-	#endif
 
     // Initialize the MicroPython heap
     gc_init(mp_task_heap, mp_task_heap + mpy_heap_size);
@@ -166,78 +168,60 @@ void mp_task(void *pvParameter)
 	#endif
 
     // === Print some info ===
-    char sbuff[24] = { 0 };
+    if ((CONFIG_LOG_DEFAULT_LEVEL >= ESP_LOG_INFO) && (CONFIG_MICRO_PY_LOG_LEVEL > ESP_LOG_INFO)) {
+        char sbuff[24] = { 0 };
 
-	#if CONFIG_FREERTOS_UNICORE
-    	printf("\nFreeRTOS and MicroPython running only on FIRST CORE.\n");
-	#else
-		#if CONFIG_MICROPY_USE_BOTH_CORES
-    		printf("\nFreeRTOS running on BOTH CORES, MicroPython task running on both cores.\n");
-		#else
-    		printf("\nFreeRTOS running on BOTH CORES, MicroPython task started on App Core (1).\n");
-		#endif
-	#endif
+        #if CONFIG_FREERTOS_UNICORE
+            printf("\nFreeRTOS and MicroPython running only on FIRST CORE.\n");
+        #else
+            #if CONFIG_MICROPY_USE_BOTH_CORES
+                printf("\nFreeRTOS running on BOTH CORES, MicroPython task running on both cores.\n");
+            #else
+                printf("\nFreeRTOS running on BOTH CORES, MicroPython task started on App Core (1).\n");
+            #endif
+        #endif
 
-	#ifdef CONFIG_MICROPY_USE_OTA
-    // Print partition info
-	const esp_partition_t *running_partition = esp_ota_get_running_partition();
-	if (running_partition != NULL) {
-		if (running_partition->subtype == ESP_PARTITION_SUBTYPE_APP_FACTORY) sprintf(sbuff, "Factory ");
-		else if (running_partition->subtype == ESP_PARTITION_SUBTYPE_APP_OTA_0) sprintf(sbuff, "OTA_0 ");
-		else if (running_partition->subtype == ESP_PARTITION_SUBTYPE_APP_OTA_1) sprintf(sbuff, "OTA_1 ");
-		else sbuff[0] = '\0';
-		printf("Running from %s%spartition starting at 0x%X, [%s].\n",
-				((running_partition->encrypted) ? "encrypted " : ""), sbuff, running_partition->address, running_partition->label);
-	}
-	#endif
+        #ifdef CONFIG_MICROPY_USE_OTA
+        // Print partition info
+        const esp_partition_t *running_partition = esp_ota_get_running_partition();
+        if (running_partition != NULL) {
+            if (running_partition->subtype == ESP_PARTITION_SUBTYPE_APP_FACTORY) sprintf(sbuff, "Factory ");
+            else if (running_partition->subtype == ESP_PARTITION_SUBTYPE_APP_OTA_0) sprintf(sbuff, "OTA_0 ");
+            else if (running_partition->subtype == ESP_PARTITION_SUBTYPE_APP_OTA_1) sprintf(sbuff, "OTA_1 ");
+            else sbuff[0] = '\0';
+            printf("Running from %s%spartition starting at 0x%X, [%s].\n",
+                    ((running_partition->encrypted) ? "encrypted " : ""), sbuff, running_partition->address, running_partition->label);
+        }
+        #endif
 
-	mpsleep_get_reset_desc(sbuff);
-	if (mpsleep_get_wake_reason() != MPSLEEP_NONE_WAKE) printf(" ");
-	printf("\n Reset reason: %s\n", sbuff);
-	if (mpsleep_get_wake_reason() != MPSLEEP_NONE_WAKE) {
-		mpsleep_get_wake_desc(sbuff);
-		printf("Wakeup source: %s\n", sbuff);
-	}
+        mpsleep_get_reset_desc(sbuff);
+        if (mpsleep_get_wake_reason() != MPSLEEP_NONE_WAKE) printf(" ");
+        printf("\n Reset reason: %s\n", sbuff);
+        if (mpsleep_get_wake_reason() != MPSLEEP_NONE_WAKE) {
+            mpsleep_get_wake_desc(sbuff);
+            printf("Wakeup source: %s\n", sbuff);
+        }
 
-	#ifdef CONFIG_MICROPY_USE_THREADED_REPL
-	printf("   REPL stack: %d bytes\n", mpy_repl_stack_size);
-	#else
-	printf("    uPY stack: %d bytes\n", mp_task_stack_len - 1024);
-	#endif
+        printf("    uPY stack: %d bytes\n", mp_task_stack_len - 1024);
 
-	if (mpy_use_spiram) {
-		// ## USING SPI RAM FOR HEAP ##
-		#if CONFIG_SPIRAM_USE_CAPS_ALLOC
-		printf("     uPY heap: %u/%u/%u bytes (in SPIRAM using heap_caps_malloc)\n\n", info.total, info.used, info.free);
-		#elif CONFIG_SPIRAM_USE_MEMMAP
-		printf("     uPY heap: %u/%u/%u bytes (in SPIRAM using MEMMAP)\n\n", info.total, info.used, info.free);
-		#else
-		printf("     uPY heap: %u/%u/%u bytes (in SPIRAM using malloc)\n\n", info.total, info.used, info.free);
-		#endif
-	}
-	else {
-		// ## USING DRAM FOR HEAP ##
-		printf("     uPY heap: %u/%u/%u bytes\n\n", info.total, info.used, info.free);
-	}
+        if (mpy_use_spiram) {
+            // ## USING SPI RAM FOR HEAP ##
+            #if CONFIG_SPIRAM_USE_CAPS_ALLOC
+            printf("     uPY heap: %u/%u/%u bytes (in SPIRAM using heap_caps_malloc)\n\n", info.total, info.used, info.free);
+            #elif CONFIG_SPIRAM_USE_MEMMAP
+            printf("     uPY heap: %u/%u/%u bytes (in SPIRAM using MEMMAP)\n\n", info.total, info.used, info.free);
+            #else
+            printf("     uPY heap: %u/%u/%u bytes (in SPIRAM using malloc)\n\n", info.total, info.used, info.free);
+            #endif
+        }
+        else {
+            // ## USING DRAM FOR HEAP ##
+            printf("     uPY heap: %u/%u/%u bytes\n\n", info.total, info.used, info.free);
+        }
+    }
 
 	// === Main loop ==================================
 	MP_THREAD_GIL_EXIT();
-
-	#ifdef CONFIG_MICROPY_USE_THREADED_REPL
-   	// === Start REPL in separate thread ==============
-	pyexec_frozen_module("modREPL.py");
-	if (!ReplTaskHandle) {
-        printf("!! Error starting threaded REPL, Halted. !!\n");
-	}
-
-	while (1) {
-		// Main task just waits doing nothing
-		vTaskDelay(CONFIG_TASK_WDT_TIMEOUT_S * 500 / portTICK_RATE_MS);
-		#ifdef CONFIG_MICROPY_USE_TASK_WDT
-		esp_task_wdt_reset();
-		#endif
-	}
-	#else // CONFIG_MICROPY_USE_THREADED_REPL
 
 	// === Start REPL in main task ====================
 	ReplTaskHandle = MainTaskHandle;
@@ -253,7 +237,6 @@ void mp_task(void *pvParameter)
 			}
 		}
 	}
-	#endif
 	// ================================================
 
     //ToDo: Remember the REPL mode (is it needed ?) !!
@@ -348,7 +331,7 @@ void micropython_entry(void)
     // ================================
     // === Check and allocate stack ===
 	ESP_LOGD("MicroPython","Configure stack");
-	mpy_repl_stack_size = MPY_DEFAULT_STACK_SIZE;
+	mp_task_stack_len = MPY_DEFAULT_STACK_SIZE;
 
 	// Open NVS name space
     if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &mpy_nvs_handle) != ESP_OK) {
@@ -357,13 +340,13 @@ void micropython_entry(void)
     }
     if (mpy_nvs_handle != 0) {
     	// Get stack size from NVS
-        if (ESP_ERR_NVS_NOT_FOUND != nvs_get_i32(mpy_nvs_handle, "MPY_StackSize", &mpy_repl_stack_size)) {
-            if ((mpy_repl_stack_size < MPY_MIN_STACK_SIZE) || (mpy_repl_stack_size > MPY_MAX_STACK_SIZE)) {
-            	mpy_repl_stack_size = MPY_DEFAULT_STACK_SIZE;
-            	ESP_LOGW("MicroPython","Wrong Stack size set in NVS: %d (set to configured: %d)", mpy_repl_stack_size, MPY_DEFAULT_STACK_SIZE);
+        if (ESP_ERR_NVS_NOT_FOUND != nvs_get_i32(mpy_nvs_handle, "MPY_StackSize", &mp_task_stack_len)) {
+            if ((mp_task_stack_len < MPY_MIN_STACK_SIZE) || (mp_task_stack_len > MPY_MAX_STACK_SIZE)) {
+                mp_task_stack_len = MPY_DEFAULT_STACK_SIZE;
+            	ESP_LOGW("MicroPython","Wrong Stack size set in NVS: %d (set to configured: %d)", mp_task_stack_len, MPY_DEFAULT_STACK_SIZE);
             }
             else {
-            	ESP_LOGI("MicroPython","Stack size set from NVS: %d (configured: %d)", mpy_repl_stack_size, MPY_DEFAULT_STACK_SIZE);
+            	ESP_LOGI("MicroPython","Stack size set from NVS: %d (configured: %d)", mp_task_stack_len, MPY_DEFAULT_STACK_SIZE);
             }
         }
         // restore time zone
@@ -373,13 +356,8 @@ void micropython_entry(void)
 			tzset();
 		}
     }
-    mpy_repl_stack_size &= 0x7FFFFFF8;
-
-    #ifdef CONFIG_MICROPY_USE_THREADED_REPL
-	mp_task_stack_len = MP_TASK_STACK_LEN;
-	#else
-	mp_task_stack_len = mpy_repl_stack_size / sizeof(StackType_t);
-	#endif
+    mp_task_stack_len &= 0x7FFFFFF8;
+	mp_task_stack_len = mp_task_stack_len / sizeof(StackType_t);
 
 	if (mpy_use_spiram) mp_task_stack = heap_caps_malloc((mp_task_stack_len * sizeof(StackType_t))+8, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
 	else mp_task_stack = malloc((mp_task_stack_len * sizeof(StackType_t))+8);
@@ -450,6 +428,9 @@ void micropython_entry(void)
 		esp_log_level_set("phy_init", ESP_LOG_WARN);
 		esp_log_level_set("wl_flash", ESP_LOG_WARN);
 		esp_log_level_set("RTC_MODULE", ESP_LOG_WARN);
+        #ifdef CONFIG_MICROPY_USE_RFCOMM
+		esp_log_level_set("BTDM_INIT", ESP_LOG_WARN);
+        #endif
 	}
 	#ifdef CONFIG_MICROPY_USE_OTA
 	if (CONFIG_LOG_DEFAULT_LEVEL >= ESP_LOG_DEBUG) esp_log_level_set("OTA_UPDATE", ESP_LOG_DEBUG);
@@ -481,10 +462,9 @@ void micropython_entry(void)
 
 	if (!MainTaskHandle) {
     	ESP_LOGE("MicroPython", "Error creating MicroPython task, HALTED.");
-        return;
 	}
 
-	ESP_LOGD("MicroPython", "Main task min stack: %d", uxTaskGetStackHighWaterMark(NULL));
+	ESP_LOGD("MicroPython", "Main task exit, stack used: %d", CONFIG_MAIN_TASK_STACK_SIZE - uxTaskGetStackHighWaterMark(NULL));
     /*
 	while (1) {
 		vTaskDelay(60000 / portTICK_PERIOD_MS);

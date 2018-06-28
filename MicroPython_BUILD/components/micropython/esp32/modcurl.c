@@ -223,9 +223,63 @@ STATIC mp_obj_t curl_POST(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_
 	if (formpost) curl_formfree(formpost);
 	formpost=NULL;
 	lastptr=NULL;
+    int nparam = 0;
 
 	// get POST parameters
     if (MP_OBJ_IS_TYPE(args[ARG_params].u_obj, &mp_type_dict)) {
+        const char *key;
+        const char *value;
+        mp_obj_dict_t *dict = MP_OBJ_TO_PTR(args[ARG_params].u_obj);
+        size_t max = dict->map.alloc;
+        mp_map_t *map = &dict->map;
+        mp_map_elem_t *next;
+        size_t cur = 0;
+        while (1) {
+            next = NULL;
+            for (size_t i = cur; i < max; i++) {
+                if (MP_MAP_SLOT_IS_FILLED(map, i)) {
+                    cur = i + 1;
+                    next = &(map->table[i]);
+                    break;
+                }
+            }
+            if (next == NULL) break;
+
+            key = mp_obj_str_get_str(next->key);
+            if (MP_OBJ_IS_STR(next->value)) {
+                value = mp_obj_str_get_str(next->value);
+                uint8_t  fadded = 0;
+                if (strlen(value) < 128) {
+                    res = physicalPath(value, fullname);
+                    if ((res == 0) && (strlen(fullname) > 0)) {
+                        if (check_file(fullname)) {
+                            curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, key, CURLFORM_FILE, fullname, CURLFORM_END);
+                            nparam++;
+                            fadded = 1;
+                        }
+                    }
+                }
+                if (fadded == 0) {
+                    curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, value, CURLFORM_END);
+                    nparam++;
+                }
+            }
+            else if (MP_OBJ_IS_INT(next->value)) {
+                int ival = mp_obj_get_int(next->value);
+                char sval[64];
+                sprintf(sval,"%d", ival);
+                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, sval, CURLFORM_END);
+                nparam++;
+            }
+            else if (MP_OBJ_IS_TYPE(next->value, &mp_type_float)) {
+                double fval = mp_obj_get_float(next->value);
+                char sval[64];
+                sprintf(sval,"%f", fval);
+                curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, key, CURLFORM_COPYCONTENTS, sval, CURLFORM_END);
+                nparam++;
+            }
+        }
+        /*
         mp_obj_dict_t *params = MP_OBJ_TO_PTR(args[ARG_params].u_obj);
         mp_map_t *map = &params->map;
         mp_map_elem_t *table = map->table;
@@ -268,6 +322,7 @@ STATIC mp_obj_t curl_POST(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_
 			    }
 			}
         }
+        */
 		if (nparam == 0) {
 			nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Expected at least one POST parameter"));
 		}

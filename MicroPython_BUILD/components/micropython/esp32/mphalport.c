@@ -38,6 +38,7 @@
 #include "rom/uart.h"
 #include "driver/uart.h"
 #include "esp_task_wdt.h"
+#include "esp_log.h"
 
 #include "py/obj.h"
 #include "py/mpstate.h"
@@ -68,6 +69,15 @@ void disableStdin(const char *pat)
 {
 	snprintf(stdin_enable_pattern, 15, "%s", pat);
 	stdin_disable = true;
+	char wpat[64] = {'\0'};
+	char hpat[5] = {'\0'};
+	for (int i=0; i<16; i++) {
+	    if (stdin_enable_pattern[i] == 0) break;
+	    if ((stdin_enable_pattern[i] < 0x20) || (stdin_enable_pattern[i] < 0x20)) sprintf(hpat, "\\x%02X", stdin_enable_pattern[i]);
+	    else sprintf(hpat, "%c", stdin_enable_pattern[i]);
+	    strcat(wpat, hpat);
+	}
+	ESP_LOGI("[stdin]", "Disabled, waiting for pattern [%s]", wpat);
 }
 
 //---------------------
@@ -157,9 +167,12 @@ int mp_hal_stdin_rx_chr(uint32_t timeout)
 						if (strlen(stdin_enable_pattern) == strlen(pattern)) {
 							// pattern received, enable stdin
 							stdin_disable = false;
+						    ESP_LOGI("[stdin]", "Pattern matched, enabled");
 						}
 					}
+					else if (stdin_disable) pattern_idx = 0;
     			}
+    			if (stdin_disable) continue;
     			return -1;
     		}
     		return c;

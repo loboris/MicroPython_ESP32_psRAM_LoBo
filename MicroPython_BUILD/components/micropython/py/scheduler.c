@@ -74,6 +74,7 @@ void free_carg(mp_sched_carg_t *carg)
 				}
 			}
 			free(carg->entry[i]);
+			carg->entry[i] = NULL;
 		}
 	}
 	free(carg);
@@ -83,7 +84,17 @@ void free_carg(mp_sched_carg_t *carg)
 //---------------------------------------------------------------------------------------------------------------------------
 mp_sched_carg_t *make_carg_entry(mp_sched_carg_t *carg, int idx, uint8_t type, int val, const uint8_t *sval, const char *key)
 {
-	carg->entry[idx] = calloc(sizeof(mp_sched_carg_entry_t), 1);
+    if (idx >= MP_SCHED_CTYPE_MAX_ITEMS) {
+        free_carg(carg);
+        return NULL;
+    }
+
+    if (carg->entry[idx]) {
+        free_carg(carg);
+        return NULL;
+    }
+
+    carg->entry[idx] = calloc(sizeof(mp_sched_carg_entry_t), 1);
 	if (carg->entry[idx] == NULL) {
 		free_carg(carg);
 		return NULL;

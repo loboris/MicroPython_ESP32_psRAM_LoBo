@@ -25,7 +25,7 @@ If you don't have it installed, install it using `pip`:<br>
 
 You can use the `flash.sh` script to flash the firmware:<br>
 
-Change you working directory to the selected firmware directory and run:
+Change you working directory to the selected firmware directory (the one containing **MicroPython.bin**) and run:
 
 ```
 ../flash.sh -p <your_comm_port> -b <baud_rate>

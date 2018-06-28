@@ -177,36 +177,6 @@ STATIC mp_obj_t mp_sys_espidf_info(void)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mp_sys_espidf_info_obj, mp_sys_espidf_info);
 
-#ifdef CONFIG_MICROPY_USE_THREADED_REPL
-//------------------------------------
-STATIC mp_obj_t mp_sys_exec_repl(void)
-{
-    for (;;) {
-        if (pyexec_mode_kind == PYEXEC_MODE_RAW_REPL) {
-            if (pyexec_raw_repl() != 0) {
-                break;
-            }
-        }
-        else {
-            if (pyexec_friendly_repl() != 0) {
-                break;
-            }
-        }
-    }
-    prepareSleepReset(0, "ESP32: soft reboot\r\n");
-    esp_restart(); // no return !!
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(mp_sys_exec_repl_obj, mp_sys_exec_repl);
-
-//-------------------------------------
-STATIC mp_obj_t mp_sys_stack_size(void)
-{
-	return mp_obj_new_int(mpy_repl_stack_size);
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(mp_sys_stack_size_obj, mp_sys_stack_size);
-#endif
-
 //------------------------------------------------------------------
 STATIC mp_obj_t mp_sys_timezone(size_t n_args, const mp_obj_t *args)
 {
@@ -247,10 +217,6 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_sys_timezone_obj, 0, 1, mp_sys_timezone);
 STATIC const mp_rom_map_elem_t mp_module_sys_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_sys) },
 
-	#ifdef CONFIG_MICROPY_USE_THREADED_REPL
-	{ MP_ROM_QSTR(MP_QSTR_REPL),			MP_ROM_PTR(&mp_sys_exec_repl_obj) },
-	{ MP_ROM_QSTR(MP_QSTR_stackSize),		MP_ROM_PTR(&mp_sys_stack_size_obj) },
-	#endif
     { MP_ROM_QSTR(MP_QSTR_path),			MP_ROM_PTR(&MP_STATE_VM(mp_sys_path_obj)) },
     { MP_ROM_QSTR(MP_QSTR_argv),			MP_ROM_PTR(&MP_STATE_VM(mp_sys_argv_obj)) },
     { MP_ROM_QSTR(MP_QSTR_version),			MP_ROM_PTR(&version_obj) },

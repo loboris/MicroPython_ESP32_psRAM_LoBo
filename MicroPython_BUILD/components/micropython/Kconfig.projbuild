@@ -3,585 +3,610 @@ menu "MicroPython"
         string "Board name"
         default "ESP32 board"
         help
-        Hardware board mame
+            Hardware board mame
 
     config MICROPY_HW_MCU_NAME
         string "MCU name"
         default "ESP32"
         help
-        Hardware MCU mame
+            Hardware MCU mame
 
     config MICROPY_TIMEZONE
         string "Time zone"
         default "GMT0BST"
         help
-        Set the default time zone string used when updating the time from NTP server
-        You can use 'components/micropython/docs/zones.csv'
-        file to find the time zone string.
-        Use the second entry for your Region/city as the value set here. Example:
-        For Zagreb, the zones.csv file contains :"Europe/Zagreb","CET-1CEST,M3.5.0,M10.5.0/3".
-        You should put "CET-1CEST,M3.5.0,M10.5.0/3" or "CET-1CEST" as Time zone.
+            Set the default time zone string used when updating the time from NTP server
+            You can use 'components/micropython/docs/zones.csv'
+            file to find the time zone string.
+            Use the second entry for your Region/city as the value set here. Example:
+            For Zagreb, the zones.csv file contains :"Europe/Zagreb","CET-1CEST,M3.5.0,M10.5.0/3".
+            You should put "CET-1CEST,M3.5.0,M10.5.0/3" or "CET-1CEST" as Time zone.
 
     config MICROPY_USE_OTA
         bool "Use OTA partition layout"
         default n
         help
-        Use OTA partition layout and include OTA module into build
+            Use OTA partition layout and include OTA module into build
 
     config GPIO_INPUT_FORCE_FACTORY
         bool "Use GPIO pin to force boot from Factory partition"
-		depends on MICROPY_USE_OTA
+        depends on MICROPY_USE_OTA
         default no
         help
-        If OTA layout is enabled and OTA update has been executed
-        the system will boot from one of the OTA partition
-        To force boot from Factory partition defined GPIO
-        must be on specified level for 3 seconds during boot
+            If OTA layout is enabled and OTA update has been executed
+            the system will boot from one of the OTA partition
+            To force boot from Factory partition defined GPIO
+            must be on specified level for 3 seconds during boot
 
     config GPIO_PIN_FORCE_FACTORY
         int "GPIO to force boot from Factory partition"
-    	depends on GPIO_INPUT_FORCE_FACTORY
+        depends on GPIO_INPUT_FORCE_FACTORY
         range 0 39
         default 0
         help
-        Set GPIO pin to be used to force boot from Factory partition
+            Set GPIO pin to be used to force boot from Factory partition
 
     config GPIO_LEVEL_FORCE_FACTORY
-    	depends on GPIO_INPUT_FORCE_FACTORY
+        depends on GPIO_INPUT_FORCE_FACTORY
         int "GPIO level to force boot from Factory partition"
         range 0 1
         default 0
         help
-        Set GPIO pin level to force boot from Factory partition
+            Set GPIO pin level to force boot from Factory partition
 
     config BOOT_SET_LED
-        int "Activate LED (gpio) on boot"
+        int "Activate LED (GPIO) on boot"
         range -1 33
         default -1
         help
-        Set to GPIO pin to use as LED indication during boot
-        not used if set to -1
+            Set the GPIO pin to use as LED indication, switching on some device or any other purpose during boot
+            not used if set to -1
 
     config BOOT_LED_ON
-    	depends on BOOT_SET_LED >= 0
+        depends on BOOT_SET_LED >= 0
         int "Set boot LED On level"
         range 0 1
         default 0
         help
-        Set to GPIO pin level for boot LED On state
+            Set to GPIO pin level for boot LED On state
+
+    config BOOT_RESET_LED
+        depends on BOOT_SET_LED >= 0
+        bool "Deactivate LED (GPIO) on MicroPython start"
+        default n
+        help
+            Deactivate the GPIO pin used for LED indication, switching on some device or any other purpose
+            after MicroPython starts
 
     menu "System settings"
-		config MICRO_PY_LOG_LEVEL
-		    int
-		    default 0 if MICRO_PY_LOG_LEVEL0
-		    default 1 if MICRO_PY_LOG_LEVEL1
-		    default 2 if MICRO_PY_LOG_LEVEL2
-		    default 3 if MICRO_PY_LOG_LEVEL3
-		    default 4 if MICRO_PY_LOG_LEVEL4
-		    default 5 if MICRO_PY_LOG_LEVEL5
-		
-			choice
-			    prompt "Set ESP32 log level"
-			    default MICRO_PY_LOG_LEVEL2
-			    help
-			        Select Log (debug) level
-			
-			    config MICRO_PY_LOG_LEVEL0
-			        bool "None"
-			    config MICRO_PY_LOG_LEVEL1
-			        bool "Error"
-			    config MICRO_PY_LOG_LEVEL2
-			        bool "Warning"
-			    config MICRO_PY_LOG_LEVEL3
-			        bool "Info"
-			    config MICRO_PY_LOG_LEVEL4
-			        bool "Debug"
-			    config MICRO_PY_LOG_LEVEL5
-			        bool "Verbose"
-			endchoice
+        config MICRO_PY_LOG_LEVEL
+            int
+            default 0 if MICRO_PY_LOG_LEVEL0
+            default 1 if MICRO_PY_LOG_LEVEL1
+            default 2 if MICRO_PY_LOG_LEVEL2
+            default 3 if MICRO_PY_LOG_LEVEL3
+            default 4 if MICRO_PY_LOG_LEVEL4
+            default 5 if MICRO_PY_LOG_LEVEL5
 
-	    config MICROPY_USE_UNICODE
-	        bool "Enable UNICODE support in MicroPython"
-	        default y
-	        help
-	        Enable UNICODE support in MicroPython
-	        Running without UNICODE support may solve some issues,
-	        also the string operations may be faster
-	
-	    config MICROPY_ENABLE_FINALISER
-	        bool "Enable finalizer"
-	        default y
-	        help
-	        Whether to enable finalisers in the garbage collector
-	        If enabled, the __del__ methods of the objects will be called during garbage collect
-	
-	    config MICROPY_GC_COLLECT_RETVAL
-	        bool "gc.collect returns value"
-	        default n
-	        help
-	        Whether to return number of collected objects from gc.collect()
-	        If enabled, gc.collect will return the tuple of marked (used) and collected heap blocks
-	
-	    config MICROPY_GC_SET_THRESHOLD
-	        bool "Set GC threshold on boot"
-	        default y
-	        help
-	        Set the automatic garbage collector threshold on boot
-	
-	    config MICROPY_GC_THRESHOLD_VALUE
-	        int "GC threshold percentage"
-	        range 50 95
-	        default 90
-	        help
-	        Default automatic garbage collector threshold value as percentage of the available heap
-	        Threshold value can be changed at runtime using gc.threshold() function
-	
-	    config MICROPY_SCHEDULER_DEPTH
-	        int "Scheduler depth"
-	        range 6 32
-	        default 8
-	        help
-	        Maximum number of entries in the scheduler
-	
-	    config MICROPY_PY_THREAD_GIL_VM_DIVISOR
-	        int "Thread GIL VM divisor"
-	        range 0 64
-	        default 32
-	        help
-			Number of VM jump-loops to do before releasing the GIL.
-			This affects the thread switching frequency.
-			If set to 0, disables the divisor.
-	
-	    config MICROPY_USE_THREADED_REPL
-	        bool "Start REPL in separate thread"
-	        default n
-	        help
-	        Start the REPL in its own thread
-	        Running REPL in thread may solve some issues with uasyncio
-	        and long running or infinite loops
-	
-	    config MICROPY_RX_BUFFER_SIZE
-	        int "RX buffer size"
-	        range 256 4096
-	        default 1080
-	        help
-	        Set the size of the stdin RX buffer in bytes
-	        Minimum of 1080 bytes must be set if you want to use YModem module
-	
-	    config MICROPY_USE_TASK_WDT
-	        bool "Enable WatchDog for MicroPython task"
-	        default y
-	        help
-	        Enable system WatchDog to monitor MicroPython task 
-	
-	    config MICROPY_USE_BOTH_CORES
-	        bool "Use both cores for MicroPython tasks (experimental)"
-	    	depends on !FREERTOS_UNICORE
-	        default n
-	        help
-	        Run MicroPython tasks on both cores, if not selected MicroPython tasks are created pinned to one core
-	        WARNING: When enabled, it may introduce some issues with uasyncio and threads
-	                 There is no benefits from using it at the moment, so it is not recommended for now!
-	
-	    config MICROPY_TASK_PRIORITY
-	        int "Main task priority"
-	        range 1 15
-	        default 5
-	        help
-	        Set the priority of the main MicroPython task
-	
-	    config MICROPY_STACK_SIZE
-	        int "MicroPython stack size (KB)"
-	        range 6 32 if !SPIRAM_SUPPORT
-	        range 6 64 if SPIRAM_SUPPORT
-	        default 16
-	        help
-	        Set the default size of the MicroPython stack in Kbytes.
-	
-	    config MICROPY_HEAP_SIZE
-	        int "MicroPython heap size (KB)"
-	        range 48 96 if !SPIRAM_SUPPORT
-	        range 48 74 if !SPIRAM_SUPPORT && MICROPY_USE_CURL && MICROPY_USE_CURL_TLS
-	        range 512 3584 if SPIRAM_SUPPORT
-	        default 80 if !SPIRAM_SUPPORT
-	        default 72 if !SPIRAM_SUPPORT && MICROPY_USE_CURL && MICROPY_USE_CURL_TLS
-	        default 3072 if SPIRAM_SUPPORT
-	        help
-	        Set the default size of the MicroPython heap in Kbytes
-	        If SPIRAM is not used, heap is allocated from DRAM and setting the heap size too large
-	        may result in insuficient heap for C services like mqtt, gsm, curl... 
-	
-	    config MICROPY_THREAD_MAX_THREADS
-	        int "Maximum number of threads"
-	        range 1 16
-	        default 4
-	        help
-	        Set the maximum number of threads that can run simultaneosly
+            choice
+                prompt "Set ESP32 log level"
+                default MICRO_PY_LOG_LEVEL2
+                help
+                    Select Log (debug) level
 
-	    config MICROPY_THREAD_STACK_SIZE
-	        int "Threads default stack size (KB)"
-	        range 2 32
-	        default 4
-	        help
-	        Set the default thread stack size.
-	        Different stack size can be set when starting the thread
-	
-	    config MICROPY_USE_TELNET
-	        bool "Enable Telnet server"
-	        default y
-	        help
-	        Enable Telnet server and REPL over telnet
+                config MICRO_PY_LOG_LEVEL0
+                    bool "None"
+                config MICRO_PY_LOG_LEVEL1
+                    bool "Error"
+                config MICRO_PY_LOG_LEVEL2
+                    bool "Warning"
+                config MICRO_PY_LOG_LEVEL3
+                    bool "Info"
+                config MICRO_PY_LOG_LEVEL4
+                    bool "Debug"
+                config MICRO_PY_LOG_LEVEL5
+                    bool "Verbose"
+            endchoice
 
-	    config MICROPY_USE_WEBSERVER
-	        bool "Enable Web server (experimental)"
-	        default n
-	        help
-	        Enable Web server (experimental)
+        config MICROPY_USE_TASK_WDT
+            bool "Enable WatchDog for MicroPython task"
+            default y
+            help
+                Enable system WatchDog to monitor MicroPython task
 
-	    config MICROPY_USE_FTPSERVER
-	        bool "Enable Ftp server"
-	        default y
-	        help
-	        Enable Ftp server
+        config MICROPY_TASK_WDT_PANIC
+            bool "Invoke panic handler on MicroPython task Watchdog timeout"
+            depends on MICROPY_USE_TASK_WDT
+            default n
+            help
+                If this option is enabled, the Task Watchdog Timer will be configured to
+                trigger the panic handler when the MicroPython task times out.
 
-	    menu "FTP Server Configuration"
-	        depends on MICROPY_USE_FTPSERVER
+        config MICROPY_USE_UNICODE
+            bool "Enable UNICODE support in MicroPython"
+            default y
+            help
+                Enable UNICODE support in MicroPython
+                Running without UNICODE support may solve some issues,
+                also the string operations may be faster
 
-			config FTPSERVER_LOG_LEVEL
-			    int
-			    default 0 if FTPSERVER_LOG_LEVEL0
-			    default 1 if FTPSERVER_LOG_LEVEL1
-			    default 2 if FTPSERVER_LOG_LEVEL2
-			    default 3 if FTPSERVER_LOG_LEVEL3
-			    default 4 if FTPSERVER_LOG_LEVEL4
-			
-				choice
-				    prompt "Set FTP Server log level"
-				    default FTPSERVER_LOG_LEVEL1
-				    help
-				        Select Log (debug) level
-				
-				    config FTPSERVER_LOG_LEVEL0
-				        bool "None"
-				    config FTPSERVER_LOG_LEVEL1
-				        bool "Error"
-				    config FTPSERVER_LOG_LEVEL2
-				        bool "Warning"
-				    config FTPSERVER_LOG_LEVEL3
-				        bool "Info"
-				    config FTPSERVER_LOG_LEVEL4
-				        bool "Debug"
-				endchoice
-	
-		    config MICROPY_FTPSERVER_TIMEOUT
-		        int "Ftp server connection timeout (seconds)"
-		        range 60 3600
-		        default 300
-		        help
-		        Disconnect ftp client if no activity for more than this timeout value
+        config MICROPY_ENABLE_FINALISER
+            bool "Enable finalizer"
+            default y
+            help
+                Whether to enable finalisers in the garbage collector
+                If enabled, the __del__ methods of the objects will be called during garbage collect
 
-		    config MICROPY_FTPSERVER_BUFFER_SIZE
-		        int "Transfer buffer size (bytes)"
-		        range 512 10240
-		        default 1024
-		        help
-		        	Transfer buffer size
-		        	Larger buffer enables faster transfer
-		endmenu	
+        config MICROPY_GC_COLLECT_RETVAL
+            bool "gc.collect returns value"
+            default n
+            help
+                Whether to return number of collected objects from gc.collect()
+                If enabled, gc.collect will return the tuple of marked (used) and collected heap blocks
+
+        config MICROPY_GC_SET_THRESHOLD
+            bool "Set GC threshold on boot"
+            default y
+            help
+                Set the automatic garbage collector threshold on boot
+
+        config MICROPY_GC_THRESHOLD_VALUE
+            int "GC threshold percentage"
+            range 50 95
+            default 90
+            help
+                Default automatic garbage collector threshold value as percentage of the available heap
+                Threshold value can be changed at runtime using gc.threshold() function
+
+        config MICROPY_SCHEDULER_DEPTH
+            int "Scheduler depth"
+            range 6 32
+            default 8
+            help
+                Maximum number of entries in the scheduler
+
+        config MICROPY_PY_THREAD_GIL_VM_DIVISOR
+            int "Thread GIL VM divisor"
+            range 0 64
+            default 32
+            help
+                Number of VM jump-loops to do before releasing the GIL.
+                This affects the thread switching frequency.
+                If set to 0, disables the divisor.
+
+        config MICROPY_RX_BUFFER_SIZE
+            int "RX buffer size"
+            range 256 4096
+            default 1080
+            help
+                Set the size of the stdin RX buffer in bytes
+                Minimum of 1080 bytes must be set if you want to use YModem module
+
+        config MICROPY_USE_BOTH_CORES
+            bool "Use both cores for MicroPython tasks (experimental)"
+            depends on !FREERTOS_UNICORE
+            default n
+            help
+                Run MicroPython tasks on both cores, if not selected MicroPython tasks are created pinned to one core
+                WARNING: When enabled, it may introduce some issues with uasyncio and threads
+                         There is no benefits from using it at the moment, so it is not recommended for now!
+
+        config MICROPY_TASK_PRIORITY
+            int "Main task priority"
+            range 1 15
+            default 5
+            help
+                Set the priority of the main MicroPython task
+
+        config MICROPY_STACK_SIZE
+            int "MicroPython stack size (KB)"
+            range 6 32 if !SPIRAM_SUPPORT
+            range 6 64 if SPIRAM_SUPPORT
+            default 16
+            help
+                Set the default size of the MicroPython stack in Kbytes.
+
+        config MICROPY_HEAP_SIZE
+            int "MicroPython heap size (KB)"
+            range 48 96 if !SPIRAM_SUPPORT
+            range 48 74 if !SPIRAM_SUPPORT && MICROPY_USE_CURL && MICROPY_USE_CURL_TLS
+            range 512 3840 if SPIRAM_SUPPORT
+            default 80 if !SPIRAM_SUPPORT
+            default 72 if !SPIRAM_SUPPORT && MICROPY_USE_CURL && MICROPY_USE_CURL_TLS
+            default 3072 if SPIRAM_SUPPORT
+            help
+                Set the default size of the MicroPython heap in Kbytes
+                If SPIRAM is not used, heap is allocated from DRAM and setting the heap size too large
+                may result in insuficient heap for C services like mqtt, gsm, curl...
+
+        config MICROPY_THREAD_MAX_THREADS
+            int "Maximum number of threads"
+            range 1 16
+            default 4
+            help
+                Set the maximum number of threads that can run simultaneosly
+
+        config MICROPY_THREAD_STACK_SIZE
+            int "Threads default stack size (KB)"
+            range 2 32
+            default 4
+            help
+                Set the default thread stack size.
+                Different stack size can be set when starting the thread
+
+        config MICROPY_USE_TELNET
+            bool "Enable Telnet server"
+            default y
+            help
+                Enable Telnet server and REPL over telnet
+
+        config MICROPY_USE_WEBSERVER
+            bool "Enable Web server (experimental)"
+            default n
+            help
+                Enable Web server (experimental)
+
+        config MICROPY_USE_FTPSERVER
+            bool "Enable Ftp server"
+            default y
+            help
+                Enable Ftp server
+
+        menu "FTP Server Configuration"
+            depends on MICROPY_USE_FTPSERVER
+
+            config FTPSERVER_LOG_LEVEL
+                int
+                default 0 if FTPSERVER_LOG_LEVEL0
+                default 1 if FTPSERVER_LOG_LEVEL1
+                default 2 if FTPSERVER_LOG_LEVEL2
+                default 3 if FTPSERVER_LOG_LEVEL3
+                default 4 if FTPSERVER_LOG_LEVEL4
+
+                choice
+                    prompt "Set FTP Server log level"
+                    default FTPSERVER_LOG_LEVEL1
+                    help
+                        Select Log (debug) level
+
+                    config FTPSERVER_LOG_LEVEL0
+                        bool "None"
+                    config FTPSERVER_LOG_LEVEL1
+                        bool "Error"
+                    config FTPSERVER_LOG_LEVEL2
+                        bool "Warning"
+                    config FTPSERVER_LOG_LEVEL3
+                        bool "Info"
+                    config FTPSERVER_LOG_LEVEL4
+                        bool "Debug"
+                endchoice
+
+            config MICROPY_FTPSERVER_TIMEOUT
+                int "Ftp server connection timeout (seconds)"
+                range 60 3600
+                default 300
+                help
+                    Disconnect ftp client if no activity for more than this timeout value
+
+            config MICROPY_FTPSERVER_BUFFER_SIZE
+                int "Transfer buffer size (bytes)"
+                range 512 10240
+                default 1024
+                help
+                    Transfer buffer size
+                    Larger buffer enables faster transfer
+        endmenu
     endmenu
 
     menu "Modules"
-	    config MICROPY_PY_FRAMEBUF
-	        bool "Enable framebuffer"
-	        default n
-	        help
-	        Include framebuffer module into build
-	
-	    config MICROPY_PY_USE_BTREE
-	        bool "Include Btree"
-	        default n
-	        help
-	        Include Btree module into build
-	
-	    config MICROPY_USE_WEBSOCKETS
-	        bool "Use Websockets"
-	        default n
-	        help
-	        Include websockets module into build
-	
-	    config MICROPY_USE_DISPLAY
-	        bool "Use Display module"
-	        default n
-	        help
-	        Include Display module into build
-	        Display module includes support for various SPI TFT displays
-	
-	    config MICROPY_USE_EVE
-	        bool "Use EVE display module (experimental, do not enable)"
-	        default n
-	        help
-	        Include EVE display module into build
-	        Display module includes support for EVE displays (FT80x, FT81x)
-	
-	    config MICROPY_USE_GSM
-	        bool "Use GSM module"
-	        depends on PPP_SUPPORT
-	        default n
-	        help
-	        Include GSM module and PPPoS support into build
-	
-	    config MICROPY_USE_GPS
-	        bool "Use GPS module"
-	        default y
-	        help
-	        Include GPS module into build
-	
-	    config MICROPY_GPS_SERVICE_STACK
-	        int "GPS service stack size"
-	        depends on MICROPY_USE_GPS
-	        default 3072
-            range 3072 6144
-	        help
-	        Set the stack size of GPS service task
-	
-	    config MICROPY_USE_ETHERNET
-	        bool "Use Ethernet module"
-	        default n
-	        help
-	        Include Ethernet (network.LAN) module into build
-	
-	    config MICROPY_USE_BLUETOOTH
-	        bool "Use Bluetooth module (experimental, do not enable)"
-	        depends on BT_ENABLED
-	        default n
-	        help
-	        Include Bluetooth module into build
-	        When using Bluetooth ~72 KB more RAM will be used,
-	        it is not recommended to use it on boards without psRAM!
-	
-	    config MICROPY_USE_MDNS
-	        bool "Use mDNS module"
-	        default y
-	        help
-	        Include mDNS module into build
-	
-	    config MICROPY_USE_CURL
-	        bool "Use Curl module"
-	        default n
-	        help
-	        Include CURL module into build
-	        Using CURL module will add ~230 KB to your flash code size
-	
-	    config MICROPY_USE_CURL_TLS
-	        bool "Enable TLS in Curl module"
-	        depends on MICROPY_USE_CURL
-	        default y if SPIRAM_SUPPORT
-	        default n if !SPIRAM_SUPPORT
-	        help
-	        Enable SSL/TLS in CURL module
-	        TLS support requires large amount RAM !
-	        If SPIRAM is not used, MicroPython heap size should not be set larger than 72KB !
-	
-	    config MICROPY_USE_CURLFTP
-	        bool "FTP support in Curl module"
-	        depends on MICROPY_USE_CURL
-	        default n
-	        help
-	        Include Ftp support in Curl module
-	        Not including it may save ~24 KB of flash code space
-	
-	    config MICROPY_USE_SSH
-	        bool "Use SSH module"
-	        default n
-	        help
-	        Include SSH module into build
-	        Using SSH module will add ~86 KB to your flash code size
-	
-	    config MICROPY_USE_MQTT
-	        bool "Use Mqtt module"
-	        default n
-	        help
-	        Include Mqtt module into build
-	
-	    menu "MQTT Configuration"
-	        depends on MICROPY_USE_MQTT
-			config MQTT_PROTOCOL_311
-			    bool "Enable MQTT protocol 3.1.1"
-			    default y
-			    help
-			        If not, this library will use MQTT protocol 3.1
-			
-			config MQTT_TRANSPORT_SSL
-			    bool "Enable MQTT over SSL"
-			    default y
-			    help
-			        Enable MQTT transport over SSL with mbedtls
-			
-			config MQTT_TRANSPORT_WEBSOCKET
-			    bool "Enable MQTT over Websocket"
-			    default y
-			    help
-			        Enable MQTT transport over Websocket.
-			
-			config MQTT_TRANSPORT_WEBSOCKET_SECURE
-			    bool "Enable MQTT over Websocket Secure"
-			    default y
-			    depends on MQTT_TRANSPORT_WEBSOCKET
-			    depends on MQTT_TRANSPORT_SSL
-			    help
-			        Enable MQTT transport over Websocket Secure.
-			
-			config MQTT_USE_CUSTOM_CONFIG
-			    bool "MQTT Using custom configurations"
-			    default n
-			    help
-			        Custom MQTT configurations.
-			
-			config MQTT_TCP_DEFAULT_PORT
-			    int "Default MQTT over TCP port"
-			    default 1883
-			    depends on MQTT_USE_CUSTOM_CONFIG
-			    help
-			        Default MQTT over TCP port
-			
-			config MQTT_SSL_DEFAULT_PORT
-			    int "Default MQTT over SSL port"
-			    default 8883
-			    depends on MQTT_USE_CUSTOM_CONFIG
-			    depends on MQTT_TRANSPORT_SSL
-			    help
-			        Default MQTT over SSL port
-			        
-			config MQTT_WS_DEFAULT_PORT
-			    int "Default MQTT over Websocket port"
-			    default 80
-			    depends on MQTT_USE_CUSTOM_CONFIG
-			    depends on MQTT_TRANSPORT_WEBSOCKET
-			    help
-			        Default MQTT over Websocket port
-			
-			config MQTT_WSS_DEFAULT_PORT
-			    int "Default MQTT over Websocket Secure port"
-			    default 443
-			    depends on MQTT_USE_CUSTOM_CONFIG
-			    depends on MQTT_TRANSPORT_WEBSOCKET
-			    depends on MQTT_TRANSPORT_WEBSOCKET_SECURE
-			    help
-			        Default MQTT over Websocket Secure port
-			
-			config MQTT_BUFFER_SIZE
-			    int "Default MQTT Buffer Size"
-			    default 1024
-			    depends on MQTT_USE_CUSTOM_CONFIG
-			    help
-			        This buffer size using for both transmit and receive
-			
-			config MQTT_TASK_STACK_SIZE
-			    int "MQTT task stack size"
-			    default 6144
-			    depends on MQTT_USE_CUSTOM_CONFIG
-			    help
-			        MQTT task stack size
-			
-			config MQTT_LOG_LEVEL
-			    int
-			    default 0 if MQTT_LOG_LEVEL0
-			    default 1 if MQTT_LOG_LEVEL1
-			    default 2 if MQTT_LOG_LEVEL2
-			    default 3 if MQTT_LOG_LEVEL3
-			    default 4 if MQTT_LOG_LEVEL4
-			
-				choice
-				    prompt "Set Mqtt log level"
-				    default MQTT_LOG_LEVEL1
-				    help
-				        Select Log (debug) level
-				
-				    config MQTT_LOG_LEVEL0
-				        bool "None"
-				    config MQTT_LOG_LEVEL1
-				        bool "Error"
-				    config MQTT_LOG_LEVEL2
-				        bool "Warning"
-				    config MQTT_LOG_LEVEL3
-				        bool "Info"
-				    config MQTT_LOG_LEVEL4
-				        bool "Debug"
-				endchoice
+        config MICROPY_PY_FRAMEBUF
+            bool "Enable framebuffer"
+            default n
+            help
+                Include framebuffer module into build
 
-	    endmenu
-	endmenu
+        config MICROPY_PY_USE_BTREE
+            bool "Include Btree"
+            default n
+            help
+                Include Btree module into build
+
+        config MICROPY_USE_WEBSOCKETS
+            bool "Use Websockets"
+            default n
+            help
+                Include websockets module into build
+
+        config MICROPY_USE_DISPLAY
+            bool "Use Display module"
+            default n
+            help
+                Include Display module into build
+                Display module includes support for various SPI TFT displays
+
+        config MICROPY_USE_EVE
+            bool "Use EVE display module (experimental, do not enable)"
+            default n
+            help
+                Include EVE display module into build
+                Display module includes support for EVE displays (FT80x, FT81x)
+
+        config MICROPY_USE_GSM
+            bool "Use GSM module"
+            depends on PPP_SUPPORT
+            default n
+            help
+                Include GSM module and PPPoS support into build
+
+        config MICROPY_USE_GPS
+            bool "Use GPS module"
+            default y
+            help
+                Include GPS module into build
+
+        config MICROPY_GPS_SERVICE_STACK
+            int "GPS service stack size"
+            depends on MICROPY_USE_GPS
+            default 3072
+            range 3072 6144
+            help
+                Set the stack size of GPS service task
+
+        config MICROPY_USE_ETHERNET
+            bool "Use Ethernet module"
+            default n
+            help
+                Include Ethernet (network.LAN) module into build
+
+        config MICROPY_USE_BLUETOOTH
+            bool "Use BLE module (experimental, do not enable)"
+            depends on SPIRAM_SUPPORT && BT_ENABLED && BLUEDROID_ENABLED && GATTS_ENABLE && GATTC_ENABLE
+            default n
+            help
+                Include Bluetooth module into build
+                When using Bluetooth ~72 KB more RAM will be used
+                It can only be used on boards with psRAM
+                The used Flash size will increase by more than 500 KB if used
+
+        config MICROPY_USE_RFCOMM
+            bool "Use RFCOMM module"
+            depends on SPIRAM_SUPPORT && BT_ENABLED && BLUEDROID_ENABLED && CLASSIC_BT_ENABLED && BT_SPP_ENABLED
+            default n
+            help
+                Include Bluetooth RFCOMM module into build
+                When using Bluetooth ~72 KB more RAM will be used
+                It can only be used on boards with psRAM
+                The used Flash size will increase by more than 500 KB if used
+
+        config MICROPY_USE_MDNS
+            bool "Use mDNS module"
+            default y
+            help
+                Include mDNS module into build
+
+        config MICROPY_USE_CURL
+            bool "Use Curl module"
+            default n
+            help
+                Include CURL module into build
+                Using CURL module will add ~230 KB to your flash code size
+
+        config MICROPY_USE_CURL_TLS
+            bool "Enable TLS in Curl module"
+            depends on MICROPY_USE_CURL
+            default y if SPIRAM_SUPPORT
+            default n if !SPIRAM_SUPPORT
+            help
+                Enable SSL/TLS in CURL module
+                TLS support requires large amount RAM !
+                If SPIRAM is not used, MicroPython heap size should not be set larger than 72KB !
+
+        config MICROPY_USE_CURLFTP
+            bool "FTP support in Curl module"
+            depends on MICROPY_USE_CURL
+            default n
+            help
+                Include Ftp support in Curl module
+                Not including it may save ~24 KB of flash code space
+
+        config MICROPY_USE_SSH
+            bool "Use SSH module"
+            default n
+            help
+                Include SSH module into build
+                Using SSH module will add ~86 KB to your flash code size
+
+        config MICROPY_USE_MQTT
+            bool "Use Mqtt module"
+            default n
+            help
+                Include Mqtt module into build
+
+        menu "MQTT Configuration"
+            depends on MICROPY_USE_MQTT
+            config MQTT_PROTOCOL_311
+                bool "Enable MQTT protocol 3.1.1"
+                default y
+                help
+                    If not, this library will use MQTT protocol 3.1
+
+            config MQTT_TRANSPORT_SSL
+                bool "Enable MQTT over SSL"
+                default y
+                help
+                    Enable MQTT transport over SSL with mbedtls
+
+            config MQTT_TRANSPORT_WEBSOCKET
+                bool "Enable MQTT over Websocket"
+                default y
+                help
+                    Enable MQTT transport over Websocket.
+
+            config MQTT_TRANSPORT_WEBSOCKET_SECURE
+                bool "Enable MQTT over Websocket Secure"
+                default y
+                depends on MQTT_TRANSPORT_WEBSOCKET
+                depends on MQTT_TRANSPORT_SSL
+                help
+                    Enable MQTT transport over Websocket Secure.
+
+            config MQTT_USE_CUSTOM_CONFIG
+                bool "MQTT Using custom configurations"
+                default n
+                help
+                    Custom MQTT configurations.
+
+            config MQTT_TCP_DEFAULT_PORT
+                int "Default MQTT over TCP port"
+                default 1883
+                depends on MQTT_USE_CUSTOM_CONFIG
+                help
+                    Default MQTT over TCP port
+
+            config MQTT_SSL_DEFAULT_PORT
+                int "Default MQTT over SSL port"
+                default 8883
+                depends on MQTT_USE_CUSTOM_CONFIG
+                depends on MQTT_TRANSPORT_SSL
+                help
+                    Default MQTT over SSL port
+
+            config MQTT_WS_DEFAULT_PORT
+                int "Default MQTT over Websocket port"
+                default 80
+                depends on MQTT_USE_CUSTOM_CONFIG
+                depends on MQTT_TRANSPORT_WEBSOCKET
+                help
+                    Default MQTT over Websocket port
+
+            config MQTT_WSS_DEFAULT_PORT
+                int "Default MQTT over Websocket Secure port"
+                default 443
+                depends on MQTT_USE_CUSTOM_CONFIG
+                depends on MQTT_TRANSPORT_WEBSOCKET
+                depends on MQTT_TRANSPORT_WEBSOCKET_SECURE
+                help
+                    Default MQTT over Websocket Secure port
+
+            config MQTT_BUFFER_SIZE
+                int "Default MQTT Buffer Size"
+                default 1024
+                depends on MQTT_USE_CUSTOM_CONFIG
+                help
+                    This buffer size using for both transmit and receive
+
+            config MQTT_TASK_STACK_SIZE
+                int "MQTT task stack size"
+                default 6144
+                depends on MQTT_USE_CUSTOM_CONFIG
+                help
+                    MQTT task stack size
+
+            config MQTT_LOG_LEVEL
+                int
+                default 0 if MQTT_LOG_LEVEL0
+                default 1 if MQTT_LOG_LEVEL1
+                default 2 if MQTT_LOG_LEVEL2
+                default 3 if MQTT_LOG_LEVEL3
+                default 4 if MQTT_LOG_LEVEL4
+
+                choice
+                    prompt "Set Mqtt log level"
+                    default MQTT_LOG_LEVEL1
+                    help
+                        Select Log (debug) level
+
+                    config MQTT_LOG_LEVEL0
+                        bool "None"
+                    config MQTT_LOG_LEVEL1
+                        bool "Error"
+                    config MQTT_LOG_LEVEL2
+                        bool "Warning"
+                    config MQTT_LOG_LEVEL3
+                        bool "Info"
+                    config MQTT_LOG_LEVEL4
+                        bool "Debug"
+                endchoice
+
+        endmenu
+    endmenu
     menu "File systems"
-		config MICROPY_FILESYSTEM_TYPE
-		    int
-		    default 0 if MICROPY_FS_TYPE0
-		    default 1 if MICROPY_FS_TYPE1
-		    default 2 if MICROPY_FS_TYPE2
-		
-			choice
-			    prompt "Set internal filesystem type"
-			    default MICROPY_FS_TYPE0
-			    help
-			        Select internal file system type
-			
-			    config MICROPY_FS_TYPE0
-			        bool "SPIFFS"
-			    config MICROPY_FS_TYPE1
-			        bool "FatFS"
-			    config MICROPY_FS_TYPE2
-			        bool "LittleFS"
-			endchoice
+        config MICROPY_FILESYSTEM_TYPE
+            int
+            default 0 if MICROPY_FS_TYPE0
+            default 1 if MICROPY_FS_TYPE1
+            default 2 if MICROPY_FS_TYPE2
+
+            choice
+                prompt "Set internal filesystem type"
+                default MICROPY_FS_TYPE0
+                help
+                    Select internal file system type
+
+                config MICROPY_FS_TYPE0
+                    bool "SPIFFS"
+                config MICROPY_FS_TYPE1
+                    bool "FatFS"
+                config MICROPY_FS_TYPE2
+                    bool "LittleFS"
+            endchoice
 
         config LITTLEFLASH_USE_WEAR_LEVELING
             bool "Use LittleFS on top of ESP32 wear leveling"
-			depends on MICROPY_FILESYSTEM_TYPE = 2
+            depends on MICROPY_FILESYSTEM_TYPE = 2
             default y
             help
-            LittleFS will be used on top of wear leveling system.
-            This options distributes wearing of the Flash sectors evenly over the whole file system partition.
-            It is RECOMMENDED to use this option.
-            Note: LittleFS block size will be the one selected for wear leveling
-                  → Component config → Wear Levelling → Wear Levelling library sector size
-                  With block size of 4096 bytes the operations will be faster,
-                  but if lot of small files are used, more of the file system space will be wasted.
-                  Block size of 512 bytes is more suited if small files are used,
-                  but the file system operations will be slower. 
+                LittleFS will be used on top of wear leveling system.
+                This options distributes wearing of the Flash sectors evenly over the whole file system partition.
+                It is RECOMMENDED to use this option.
+                Note: LittleFS block size will be the one selected for wear leveling
+                        → Component config → Wear Levelling → Wear Levelling library sector size
+                        With block size of 4096 bytes the operations will be faster,
+                        but if lot of small files are used, more of the file system space will be wasted.
+                        Block size of 512 bytes is more suited if small files are used,
+                        but the file system operations will be slower.
 
         config MICROPY_FATFS_MAX_OPEN_FILES
             int "Maximum number of opened files"
             range 4 24
             default 6
             help
-            Maximum number of opened files
+                Maximum number of opened files
 
         config MICROPY_SDMMC_SHOW_INFO
             bool "Show SDCard/InternalFS info"
             default y
             help
-            Show info after initializing SD card or internal FS
+                Show info after initializing SD card or internal FS
     endmenu
 
     menu "SD Card configuration"
-		config SDCARD_MODE
-		    int
-		    default 1 if SDCARD_MODE1
-		    default 2 if SDCARD_MODE2
-		    default 3 if SDCARD_MODE3
-		
-			choice
-			    prompt "SD Card mode"
-			    default SDCARD_MODE3
-			    help
-			        Select SD Card operating mode
-			
-			    config SDCARD_MODE1
-			        bool "SPI Mode"
-			        depends on !MEMMAP_SPIRAM_ENABLE 
-			    config SDCARD_MODE2
-			        bool "1-line SD Mode" 
-			    config SDCARD_MODE3
-			        bool "4-line SD Mode" 
-			endchoice
+        config SDCARD_MODE
+            int
+            default 1 if SDCARD_MODE1
+            default 2 if SDCARD_MODE2
+            default 3 if SDCARD_MODE3
+
+            choice
+                prompt "SD Card mode"
+                default SDCARD_MODE3
+                help
+                    Select SD Card operating mode
+
+                config SDCARD_MODE1
+                    bool "SPI Mode"
+                    depends on !MEMMAP_SPIRAM_ENABLE
+                config SDCARD_MODE2
+                    bool "1-line SD Mode"
+                config SDCARD_MODE3
+                    bool "4-line SD Mode"
+            endchoice
+
+        config SDMMC_ALLOW_SPI_HIGHSPEED
+            bool "Allow hispeed in SPI mode"
+            default n
+            help
+                Allow using high speed mode when SD Card is configured in SPI mode
 
         config SDCARD_CLK
             int "CLK pin"
@@ -589,7 +614,7 @@ menu "MicroPython"
             range 1 32
             default 14
             help
-            Pin used as SPI CLK
+                Pin used as SPI CLK
 
         config SDCARD_MOSI
             int "MOSI pin"
@@ -597,7 +622,7 @@ menu "MicroPython"
             range 1 32
             default 15
             help
-            Pin used as SPI MOSI
+                Pin used as SPI MOSI
 
         config SDCARD_MISO
             int "MISO pin"
@@ -605,7 +630,7 @@ menu "MicroPython"
             range 1 32
             default 2
             help
-            Pin used as SPI MISO
+                Pin used as SPI MISO
 
         config SDCARD_CS
             int "CS pin"
@@ -613,6 +638,6 @@ menu "MicroPython"
             range 1 32
             default 13
             help
-            Pin used as SPI CS
+                Pin used as SPI CS
     endmenu
 endmenu

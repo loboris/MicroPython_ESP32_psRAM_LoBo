@@ -66,7 +66,7 @@ static const char *MODNETTWORK_TAG = "[modnetwork]";
 
 NORETURN void _esp_exceptions(esp_err_t e) {
    switch (e) {
-      case ESP_ERR_WIFI_NOT_INIT: 
+      case ESP_ERR_WIFI_NOT_INIT:
         mp_raise_msg(&mp_type_OSError, "Wifi Not Initialized");
         break;
       case ESP_ERR_WIFI_NOT_STARTED:
@@ -113,7 +113,7 @@ NORETURN void _esp_exceptions(esp_err_t e) {
         break;
       case ESP_ERR_TCPIP_ADAPTER_NO_MEM:
       case ESP_ERR_NO_MEM:
-        mp_raise_OSError(MP_ENOMEM); 
+        mp_raise_OSError(MP_ENOMEM);
         break;
       default:
         nlr_raise(mp_obj_new_exception_msg_varg(
@@ -763,12 +763,13 @@ STATIC mp_obj_t esp_status(size_t n_args, const mp_obj_t *args) {
             mp_obj_t list = mp_obj_new_list(0, NULL);
             for (int i = 0; i < station_list.num; ++i) {
             	ip4_addr_t addr;
-                mp_obj_tuple_t *t = mp_obj_new_tuple(2, NULL);
+                mp_obj_tuple_t *t = mp_obj_new_tuple(3, NULL);
                 t->items[0] = mp_obj_new_bytes(stations[i].mac, sizeof(stations[i].mac));
                 if (dhcp_search_ip_on_mac(stations[i].mac , &addr)) {
                 	t->items[1] = netutils_format_ipv4_addr((uint8_t*)&addr.addr, NETUTILS_BIG);
                 }
                 else t->items[1] = mp_const_none;
+                t->items[2] = MP_OBJ_NEW_SMALL_INT(stations[i].rssi);
                 mp_obj_list_append(list, t);
             }
             return list;

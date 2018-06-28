@@ -105,11 +105,20 @@ MP_EXTRA_INC += -I$(ESPCOMP)/mdns/include
 ifdef CONFIG_MICROPY_USE_BLUETOOTH
 MP_EXTRA_INC += -I$(ESPCOMP)/bt/include
 MP_EXTRA_INC += -I$(ESPCOMP)/bt/bluedroid/api/include
+else
+ifdef CONFIG_MICROPY_USE_RFCOMM
+MP_EXTRA_INC += -I$(ESPCOMP)/bt/include
+MP_EXTRA_INC += -I$(ESPCOMP)/bt/bluedroid/api/include
+endif
 endif
 
 ifdef CONFIG_MICROPY_USE_GPS
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/libnmea/src/nmea
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/libnmea/src/parsers
+endif
+
+ifdef CONFIG_MICROPY_USE_REQUESTS
+MP_EXTRA_INC += -I$(ESPCOMP)/esp_http_client/include/
 endif
 
 # CPP macro
@@ -183,6 +192,10 @@ ifdef CONFIG_MICROPY_USE_CURL
 SRC_C += esp32/modcurl.c
 endif
 
+ifdef CONFIG_MICROPY_USE_REQUESTS
+SRC_C += esp32/modrequests.c
+endif
+
 ifdef CONFIG_MICROPY_USE_GPS
 SRC_C += esp32/machine_gps.c
 endif
@@ -214,6 +227,10 @@ endif
 ifdef CONFIG_MICROPY_USE_BLUETOOTH
 SRC_C += esp32/bluetooth_le.c
 SRC_C += esp32/modbluetooth.c
+endif
+
+ifdef CONFIG_MICROPY_USE_RFCOMM
+SRC_C += esp32/machine_rfcomm.c
 endif
 
 EXTMOD_SRC_C = $(addprefix extmod/,\

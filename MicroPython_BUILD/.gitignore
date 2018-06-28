@@ -35,4 +35,5 @@ sdkconfig.fw_all
 sdkconfig.fw_psram_all
 
 make_firmwares.sh
+make_firmware_archives.sh
 mncfg_exit.txt

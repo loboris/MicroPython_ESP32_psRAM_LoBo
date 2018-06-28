@@ -130,6 +130,26 @@ get_config_flash_sz() {
     fi
 }
 
+#---------------
+check_config() {
+    # If BT is enabled, check and modify, if needed, some configuration
+    local TMPVAR1=""
+    local USE_RFCOMM=$(grep -e CONFIG_MICROPY_USE_RFCOMM=y sdkconfig)
+    local USE_BT=$(grep -e CONFIG_MICROPY_USE_BLUETOOTH=y sdkconfig)
+
+    if [ "${USE_RFCOMM}" == "CONFIG_MICROPY_USE_RFCOMM=y" ] || [ "${USE_BT}" == "CONFIG_MICROPY_USE_BLUETOOTH=y" ]; then
+        # change to RELEASE optimization level to decrease IRAM usage
+        TMPVAR1=$(grep -e CONFIG_OPTIMIZATION_LEVEL_DEBUG=y sdkconfig)
+        if [ "${TMPVAR1}" == "CONFIG_OPTIMIZATION_LEVEL_DEBUG=y" ]; then
+            sed --in-place='.bak1' 's/CONFIG_OPTIMIZATION_LEVEL_DEBUG=y/CONFIG_OPTIMIZATION_LEVEL_DEBUG=/g' sdkconfig
+            sed --in-place='.bak2' 's/CONFIG_OPTIMIZATION_LEVEL_RELEASE=/CONFIG_OPTIMIZATION_LEVEL_RELEASE=y/g' sdkconfig
+            rm -f sdkconfig.bak1 > /dev/null 2>&1
+            rm -f sdkconfig.bak2 > /dev/null 2>&1
+            return 1
+        fi
+   fi
+   return 0
+}
 
 #-----------------
 set_partitions() {
@@ -678,6 +698,11 @@ executeCommand() {
             echo "** Restored 'sdkconfig' **'"
         fi
         make menuconfig 2>/dev/null
+        check_config
+        result=$?
+        if [ $result -eq 1 ]; then
+            make menuconfig 2>/dev/null
+        fi
 
     # ---------------------------------
     elif [ "${arg}" == "makefs" ]; then
@@ -780,8 +805,8 @@ executeCommand() {
         echo "========================================="
         make ${arg} 2>/dev/null
 
-    # -----------------------------------
-    elif [ "${arg}" == "firmware" ] || [ "${arg}" == "firmwareall" ]; then
+    # -------------------------------------------------------------------------------------------------------
+    elif [ "${arg}" == "firmware" ] || [ "${arg}" == "firmwareall" ] || [ "${arg}" == "firmwareallbt" ]; then
         echo "======================="
         echo "Saving the firmware ..."
         echo "======================="
@@ -796,6 +821,13 @@ executeCommand() {
                 esp32dir="esp32_all"
             fi
         fi
+        if [ "${arg}" == "firmwareallbt" ]; then
+            if [ "${BUILD_TYPE}" != "" ]; then
+                esp32dir="esp32_psram_all_bt"
+            else
+                esp32dir="esp32_all_bt"
+            fi
+        fi
         local useota=$(grep -e CONFIG_MICROPY_USE_OTA=y sdkconfig)
         if [ "${useota}" == "CONFIG_MICROPY_USE_OTA=y" ]; then
             esp32dir="${esp32dir}_ota"
@@ -806,9 +838,7 @@ executeCommand() {
         cp -f partitions_mpy.csv firmware/${esp32dir} > /dev/null 2>&1
         cp -f build/phy_init_data.bin firmware/${esp32dir} > /dev/null 2>&1
         cp -f sdkconfig firmware/${esp32dir} > /dev/null 2>&1
-        echo "#!/bin/bash" > firmware/${esp32dir}/flash.sh
-        make echo_flash_cmd >> firmware/${esp32dir}/flash.sh 2>/dev/null
-        chmod +x firmware/${esp32dir}/flash.sh > /dev/null 2>&1
+        rm -f firmware/${esp32dir}/flash.sh > /dev/null 2>&1
         return 0
 
     # -------------------------------

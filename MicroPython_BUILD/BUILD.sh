@@ -50,8 +50,8 @@
 
 
 #=======================
-TOOLS_VER=ver20180604.id
-BUILD_VER=ver20180604.id
+TOOLS_VER=ver20180628.id
+BUILD_VER=ver20180628.id
 #=======================
 
 # -----------------------------
@@ -182,10 +182,20 @@ export CROSS_COMPILE=xtensa-esp32-elf-
 
 for arg in "${POSITIONAL_ARGS[@]}"
 do
+    if [ "${arg}" == "menuconfig" ]; then
+        check_config
+        result=$?
+        if [ $result -eq 1 ]; then
+            make menuconfig 2>/dev/null
+        fi
+    fi
     if [ "${arg}" == "all" ] || [ "${arg}" == "flash" ] || [ "${arg}" == "makefs" ] || [ "${arg}" == "flashfs" ] || [ "${arg}" == "makefatfs" ] || [ "${arg}" == "flashfatfs" ] || [ "${arg}" == "makelfsfs" ] || [ "${arg}" == "flashlfsfs" ]; then
         set_partitions ${APP_SIZE}
         if [ $? -ne 0 ]; then
             exit 1
+        fi
+        if [ "${arg}" == "all" ] || [ "${arg}" == "flash" ]; then
+            check_config
         fi
     fi
 
@@ -215,6 +225,7 @@ do
     if [ $result -eq 0 ]; then
         echo "OK."
         if [ "${arg}" == "all" ]; then
+            set_partitions ${APP_SIZE}
             echo "--------------------------------"
             echo "Build complete."
             echo "You can now run ./BUILD.sh flash"

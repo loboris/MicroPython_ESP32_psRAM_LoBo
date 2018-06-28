@@ -37,6 +37,7 @@
 #include "py/stream.h"
 #include "py/mphal.h"
 #include "modmachine.h"
+#include "py/objstr.h"
 
 #include "machine_hw_spi.h"
 
@@ -397,7 +398,7 @@ STATIC mp_obj_t mp_machine_spi_write_readinto(mp_obj_t self_in, mp_obj_t wr_buf,
     return mp_const_false;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(mp_machine_spi_write_readinto_obj, mp_machine_spi_write_readinto);
-#include "py/objstr.h"
+
 //---------------------------------------------------------------------------------------------------------
 STATIC mp_obj_t mp_machine_spi_read_from_mem(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {

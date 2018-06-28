@@ -63,6 +63,7 @@ typedef struct _sdcard_config_t {
     int8_t	mosi;
     int8_t	miso;
     int8_t	cs;
+    int8_t  hispeed;
 } sdcard_config_t;
 
 extern const mp_obj_type_t mp_native_vfs_type;

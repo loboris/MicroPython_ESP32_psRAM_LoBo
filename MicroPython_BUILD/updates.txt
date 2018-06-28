@@ -1,3 +1,43 @@
+=== 2018-06-27 ===
+
+Removed option to run REPL in separate thread
+  the option was introduced to reseolve some issues
+  which was fixed later
+
+Refactored I2C slave support
+  much improved i2c slave operation
+
+Added 'machine.RFCOMM' module
+  support for Bluetooth classic SPP profile
+  functionallity equivalent to that of the UART module
+  Works only on boards with external SPI_RAM
+
+Added 'highspeed' option when configuring SDCard in SPI mode
+
+Updated 'machine' module
+  fixed bug in 'machine.stdin_disable()' function
+  added 'machine.WDT()' function
+
+Updated 'machine.ADC' module
+  arg name '8bit' changed to 'byte' in read_timed() function
+
+Updated 'network' module
+  station's rssi is reported in 'status('stations')' function
+
+Updated 'curl' module
+  fixed param parsing in curl.post() function
+
+Updated 'mdns' module
+  fixed param parsing in addService() function
+
+'esp-idf' updated
+     date: 2018-06-25
+  version: v3.1-beta1-8-g5ebb70ec
+     hash: 5ebb70ecc5e62f22b2f7bd85be4f8bbc29f1bf69
+
+Other minor updates, improvements and bug fixes
+
+
 === 2018-06-04 ===
 
 Refactored 'machine.Pin' module

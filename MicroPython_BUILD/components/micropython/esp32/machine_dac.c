@@ -275,6 +275,7 @@ static void dac_task(void *pvParameters)
     dac_output_enable(self->dac_id);
     dac_output_voltage(self->dac_id, 128);
 
+    esp_log_level_set("I2S", CONFIG_LOG_DEFAULT_LEVEL);
     task_stop = false;
     task_running = false;
 
@@ -664,7 +665,7 @@ STATIC mp_obj_t mdac_write_timed(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
 
     int freq = args[ARG_freq].u_int;
     if ((freq < 5000) || (freq > 500000)) {
-        mp_raise_ValueError("frequency out of range (5000 - 500000 Hz)");
+        mp_raise_ValueError("sample rate out of range (5000 - 500000 Hz)");
     }
 
     // Get arguments
