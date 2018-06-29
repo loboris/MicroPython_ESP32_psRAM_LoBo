@@ -106,12 +106,10 @@ void mp_task(void *pvParameter)
 
     uart_init();
 
-	#if CONFIG_BOOT_SET_LED >= 0
-    #if CONFIG_BOOT_RESET_LED
+	#if (CONFIG_BOOT_SET_LED >= 0) && defined(CONFIG_BOOT_RESET_LED)
 	// Deactivate boot led
 	gpio_pad_select_gpio(CONFIG_BOOT_SET_LED);
 	GPIO_OUTPUT_SET(CONFIG_BOOT_SET_LED, CONFIG_BOOT_LED_ON ^ 1);
-    #endif
 	#endif
 
 	// Get and print reset & wakeup reasons
