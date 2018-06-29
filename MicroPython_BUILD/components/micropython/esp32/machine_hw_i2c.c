@@ -310,7 +310,7 @@ STATIC void i2c_slave_task(void *pvParameters)
             // write transaction, data received from master
             cb_type = I2C_SLAVE_CBTYPE_DATA_RX;
             ovf = slave_state.rxovf;
-            len = slave_state.rxptr - slave_state.rxaddr;
+            len = slave_state.rxptr;
             addr = slave_state.rxaddr;
         }
         cb_type &= i2c_obj->slave_cbtype; // mask allowed callback types
