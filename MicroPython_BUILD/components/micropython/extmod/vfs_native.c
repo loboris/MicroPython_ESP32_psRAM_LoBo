@@ -772,13 +772,13 @@ static void _sdcard_mount()
         host.max_freq_khz = (sdcard_config.hispeed > 0) ? SDMMC_FREQ_HIGHSPEED : SDMMC_FREQ_DEFAULT;
 		if (sdcard_config.mode == 2) {
 	        // Use 1-line SD mode
-            _setPins(4, 12, -1, -1);
+		    _setPins(4, 12, 15, 13);
 	        host.flags = SDMMC_HOST_FLAG_1BIT;
 	        slot_config.width = 1;
 		}
 		else {
 	        // Use 4-line SD mode
-	        _setPins(2, 14, 15, 13);
+		    _setPins(4, 12, -1, -1);
             host.flags = SDMMC_HOST_FLAG_4BIT;
             slot_config.width = 4;
 		}
