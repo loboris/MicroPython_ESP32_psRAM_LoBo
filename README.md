@@ -6,13 +6,13 @@
 
 > This repository can be used to build MicroPython for ESP32 boards/modules with **psRAM** as well as for ESP32 boards/modules **without psRAM.**<br><br>
 > *Building on* **Linux**, **MacOS** *and* **Windows** (including **Linux Subsystem on Windows 10**) *is supported*.<br><br>
-> MicroPython works great on ESP32, but the most serious issue is still (as on most other MicroPython boards) limited amount of free memory.<br>
+> MicroPython works great on ESP32, but the most serious issue is still (as on most other MicroPython boards) the limited amount of free memory.<br>
 > This repository contains all the tools and sources necessary to **build working MicroPython firmware** which can fully use the advantages of **4MB** (or more) of **psRAM**.<br>
 > It is **huge difference** between MicroPython running with **less than 100KB** of free memory and running with **4MB** of free memory.
 
 <br>
 
-ESP32 can use external **SPIRAM** (psRAM) to expand available RAM up to 16MB.
+ESP32 can use external **SPIRAM** (psRAM) to expand the available RAM up to 16MB.
 
 Currently, there are several modules & development boards which incorporates **4MB** of psRAM:<br>
 
@@ -30,7 +30,7 @@ Currently, there are several modules & development boards which incorporates **4
 
 [Wiki pages](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki) with detailed documentation specific to this **MicroPython** port are available.
 
-Some examples can be found in [modules_examples](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/tree/master/MicroPython_BUILD/components/micropython/esp32/modules_examples) directory.
+Some examples can be found in the [modules_examples](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/tree/master/MicroPython_BUILD/components/micropython/esp32/modules_examples) directory.
 
 ---
 
@@ -42,7 +42,7 @@ It is **huge difference** between MicroPython running with **less than 100KB** o
 
 ## **The MicroPython firmware is built as esp-idf component**
 
-This means the regular esp-idf **menuconfig** system can be used for configuration. Besides the ESP32 configuration itself, many MicroPython options can also be configured via **menuconfig**.
+This means the regular esp-idf **menuconfig** system can be used for configuration. Besides the ESP32 configuration itself, many MicroPython options can also be configured via the **menuconfig** utility.
 
 This way many features not available in standard ESP32 MicroPython are enabled, like unicore/dualcore, all Flash speed/mode options etc. No manual *sdkconfig.h* editing and tweaking is necessary.
 
@@ -59,10 +59,10 @@ This way many features not available in standard ESP32 MicroPython are enabled, 
 * Internal Fat filesystem is built with esp-idf **wear leveling** driver, so there is less danger of damaging the flash with frequent writes.
 * **SPIFFS** filesystem is supported and can be used instead of FatFS in SPI Flash. Configurable via **menuconfig**
 * Flexible automatic and/or manual filesystem configuration
-* **sdcard** support is included which uses esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For imformation on how to connect sdcard see the documentation.
-* Files **timestamp** is correctly set to system time both on internal fat filesysten and on sdcard
-* **Native ESP32 VFS** support for spi Flash & sdcard filesystems.
-* **RTC Class** is added to machine module, including methods for synchronization of system time to **ntp** server, **deepsleep**, **wakeup** from deepsleep **on external pin** level, ...
+* **sdcard** support is included which uses the esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For information on how to connect an sdcard see the documentation.
+* Files **timestamp** is correctly set to system time both on internal FAT filesysten and on sdcard
+* **Native ESP32 VFS** support for SPI Flash & sdcard filesystems.
+* **RTC Class** is added to machine module, including methods for synchronization of the system time to an **ntp** server, **deepsleep**, **wakeup** from deepsleep **on external pin** level, ...
 * **Time zone** can be configured via **menuconfig** and is used when syncronizing time from NTP server
 * Built-in **ymodem module** for fast transfer of text/binary files to/from host
 * Some additional frozen modules are added, like **pye** editor, **urequests**, **functools**, **logging**, ...
@@ -71,21 +71,21 @@ This way many features not available in standard ESP32 MicroPython are enabled, 
 * **Neopixel** module using ESP32 **RMT** peripheral with many new features
 * **DHT** module implemented using ESP32 RMT peripheral
 * **1-wire** module implemented using ESP32 RMT peripheral
-* **i2c** module uses ESP32 hardware i2c driver
-* **spi** module uses ESP32 hardware spi driver
+* **i2c** module uses ESP32 hardware I2C driver
+* **spi** module uses ESP32 hardware SPI driver
 * **adc** module improved, new functions added
 * **pwm** module, ESP32 hardware based
 * **timer** module improved, new timer types and features
 * **curl** module added, many client protocols including FTP and eMAIL
 * **ssh** module added with sftp/scp support and _exec_ function to execute program on server
-* **display** module added with full support for spi TFT displays
+* **display** module added with full support for SPI TFT displays
 * **mqtt** module added, implemented in C, runs in separate task
 * **mDNS** module added, implemented in C, runs in separate task
-* **telnet** module added, connect to **REPL via WiFi** using telnet protocol
+* **telnet** module added, connect to **REPL via WiFi** using the telnet protocol
 * **ftp** server module added, runs as separate ESP32 task
 * **GSM/PPPoS** support, connect to the Internet via GSM module
-* **OTA Update** supported, various partitions layouts
-* **Eclipse** project files included. To include it into Eclipse goto File->Import->Existing Projects into Workspace->Select root directory->[select *MicroPython_BUILD* directory]->Finish. **Rebuild index**.
+* **OTA Update** supported, various partition layouts
+* **Eclipse** project files included. To include it into Eclipse go to `File->Import->Existing Projects into Workspace->Select root directory->[select *MicroPython_BUILD* directory]->Finish`. **Rebuild index**.
 
 ---
 
@@ -94,7 +94,7 @@ This way many features not available in standard ESP32 MicroPython are enabled, 
 
 ---
 
-Detailed instructions on **MicroPython** building process are available in the [Wiki](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki/build).
+Detailed instructions for the **MicroPython** building process are available in the [Wiki](https://github.com/loboris/MicroPython_ESP32_psRAM_LoBo/wiki/build).
 
 ---
 
@@ -120,10 +120,10 @@ rtc.init((2017, 6, 12, 14, 35, 20))
 rtc.now()
 
 rtc.ntp_sync(server="<ntp_server>" [,update_period=])
-  # <ntp_server> can be empty string, then the default server is used ("pool.ntp.org")
+  # <ntp_server> use an empty string for the default server ("pool.ntp.org")
 
 rtc.synced()
-  # returns True if time synchronized to NTP server
+  # returns True when time is synchronized with the NTP server
 
 rtc.wake_on_ext0(Pin, level)
 rtc.wake_on_ext1(Pin, level)
@@ -159,7 +159,7 @@ uos.mountsd()
 uos.listdir('/sd')
 ```
 
-Working directory can be changed to root of the sd card automatically on mount:
+Working directory can be changed to he root of the sd card automatically on mount:
 
 ```python
 >>> import uos
