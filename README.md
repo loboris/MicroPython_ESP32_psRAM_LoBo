@@ -159,7 +159,7 @@ uos.mountsd()
 uos.listdir('/sd')
 ```
 
-Working directory can be changed to he root of the sd card automatically on mount:
+Working directory can be changed to the root of the sd card automatically on mount:
 
 ```python
 >>> import uos
