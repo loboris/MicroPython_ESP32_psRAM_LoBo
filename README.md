@@ -16,12 +16,13 @@ ESP32 can use external **SPIRAM** (psRAM) to expand available RAM up to 16MB.
 
 Currently, there are several modules & development boards which incorporates **4MB** of psRAM:<br>
 
-* [**M5Stack**](http://www.m5stack.com) _Development Kit_ [version with psRAM](https://www.aliexpress.com/store/product/M5Stack-NEWEST-4M-PSRAM-ESP32-Development-Board-with-MPU9250-9DOF-Sensor-Color-LCD-for-Arduino-Micropython/3226069_32847906756.html?spm=2114.12010608.0.0.1ba0ee41gOPji)
-* **TTGO T8 V1.1** _board_, available at [eBay](https://www.ebay.com/itm/TTGO-T8-V1-1-ESP32-4MB-PSRAM-TF-CARD-3D-ANTENNA-WiFi-bluetooth/152891206854?hash=item239906acc6:g:7QkAAOSwMfhadD85)
+* [**M5Stack FIRE IoT Kit**](http://www.m5stack.com) _Development Kit_ [with psRAM](https://www.aliexpress.com/store/product/M5Stack-NEWEST-4M-PSRAM-ESP32-Development-Board-with-MPU9250-9DOF-Sensor-Color-LCD-for-Arduino-Micropython/3226069_32847906756.html?spm=2114.12010608.0.0.1ba0ee41gOPji) **`new version`** 
+* **TTGO T8 V1.3** _board_, available at [Aliexpress](https://www.aliexpress.com/store/product/TTGO-T8-V1-3-ESP32-4MB-PSRAM-TF-CARD-3D-ANTENNA-WiFi-bluetooth-ESP32-WROVER-Micropython/2090076_32851423415.html?spm=2114.12010615.8148356.8.7bb34f23YGFrN9 "AliExpress") **`new version`** 
 * **ESP-WROVER-KIT** _boards_ from Espressif, available from [ElectroDragon](http://www.electrodragon.com/product/esp32-wrover-kit/), [AnalogLamb](https://www.analoglamb.com/product/esp-wrover-kit-esp32-wrover-module/), ...
-* **WiPy 3.0** _board_ from [Pycom](https://pycom.io/product/wipy-3/).
+* **WiPy 3.0** _board_ from [Pycom](https://pycom.io/product/wipy-3/)
 * **TTGO TAudio** _board_ ([eBay](https://www.ebay.com/itm/TTGO-TAudio-V1-0-ESP32-WROVER-SD-Card-Slot-Bluetooth-WI-FI-Module-MPU9250/152835010520?hash=item2395ad2fd8:g:Jt8AAOSwR2RaOdEp))
-* **Lolin32 Pro** _board_ from [Wemos](https://wiki.wemos.cc/products:lolin32:lolin32_pro) - **`no longer available`** ([Schematic](https://wiki.wemos.cc/_media/products:lolin32:sch_lolin32_pro_v1.0.0.pdf)).
+* **TTGO T-Cell** _board with 18650 battery holder_, available at [Aliexpress](https://www.aliexpress.com/store/product/TTGO-T-Cell-WiFi-Bluetooth-Module-18650-Battery-holder-seat-2A-fuse-ESP32-4-MB-SPI/2090076_32854506009.html?spm=2114.12010615.8148356.1.7bb34f23xEo3By "Aliexpress")
+* **LOLIN D32 Pro V2.0.0** _board_ from Wemos avaliable at [AliExpress](https://www.aliexpress.com/store/product/LOLIN-D32-Pro-V2-0-0-wifi-bluetooth-board-based-ESP-32-esp32-Rev1-ESP32-WROVER/1331105_32883116057.html?spm=2114.12010608.0.0.4d9530efbvNRtZ) **`new version`** 
 * **ESP-WROVER** _module_ from Espressif, available from [ElectroDragon](http://www.electrodragon.com/product/esp32-wrover-v4-module-based-esp32/) and many other vendors.
 * **ALB32-WROVER** _module_ (4 MB SPIRAM & 4/8/16 MB Flash) from [AnalogLamb](https://www.analoglamb.com/product/alb32-wrover-esp32-module-with-64mb-flash-and-32mb-psram/).
 * **S01**, **L01** and **G01** _OEM modules_ from [Pycom](https://pycom.io/webshop#oem-products).
