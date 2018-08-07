@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2013-2017 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -168,8 +169,10 @@ MATH_FUN_1(erfc, erfc)
 MATH_FUN_1(gamma, tgamma)
 // lgamma(x): return the natural logarithm of the gamma function of x
 MATH_FUN_1(lgamma, lgamma)
+// hypot(x, y): return sqrt(x*x + y*y)
+MATH_FUN_2(hypot, hypot)
 #endif
-//TODO: factorial, fsum
+//TODO: fsum
 
 // Function that takes a variable number of arguments
 
@@ -232,6 +235,37 @@ STATIC mp_obj_t mp_math_degrees(mp_obj_t x_obj) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_math_degrees_obj, mp_math_degrees);
 
+#include "py/objint.h"
+// factorial(x)
+STATIC mp_obj_t mp_math_factorial(mp_obj_t x_obj) {
+	int n = mp_obj_get_int(x_obj);
+	if ((n < 0) || (n > 50)) {
+    	mp_raise_ValueError("range error (0 - 50 allowed)");
+	}
+	if (n < 21) {
+		uint64_t fact = 1;
+		for (int i = 1; i <= n; i++) {
+			fact *= i;
+		}
+
+		return mp_obj_new_int_from_ull(fact);
+	}
+	mp_obj_int_t *fact = mp_obj_int_new_mpz();
+	mp_obj_int_t *zi = mp_obj_int_new_mpz();
+	mp_obj_int_t *z1 = mp_obj_int_new_mpz();
+	mpz_set_from_ll(&fact->mpz, 1, true);
+	mpz_set_from_ll(&zi->mpz, 1, true);
+	mpz_set_from_ll(&z1->mpz, 1, true);
+
+	for (int i = 1; i <= n; i++) {
+		mpz_mul_inpl(&fact->mpz, &fact->mpz, &zi->mpz);
+		mpz_add_inpl(&zi->mpz, &zi->mpz, &z1->mpz);
+	}
+	return MP_OBJ_FROM_PTR(fact);
+}
+
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_math_factorial_obj, mp_math_factorial);
+
 STATIC const mp_rom_map_elem_t mp_module_math_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_math) },
     { MP_ROM_QSTR(MP_QSTR_e), mp_const_float_e },
@@ -274,11 +308,13 @@ STATIC const mp_rom_map_elem_t mp_module_math_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_trunc), MP_ROM_PTR(&mp_math_trunc_obj) },
     { MP_ROM_QSTR(MP_QSTR_radians), MP_ROM_PTR(&mp_math_radians_obj) },
     { MP_ROM_QSTR(MP_QSTR_degrees), MP_ROM_PTR(&mp_math_degrees_obj) },
+    { MP_ROM_QSTR(MP_QSTR_factorial), MP_ROM_PTR(&mp_math_factorial_obj) },
     #if MICROPY_PY_MATH_SPECIAL_FUNCTIONS
     { MP_ROM_QSTR(MP_QSTR_erf), MP_ROM_PTR(&mp_math_erf_obj) },
     { MP_ROM_QSTR(MP_QSTR_erfc), MP_ROM_PTR(&mp_math_erfc_obj) },
     { MP_ROM_QSTR(MP_QSTR_gamma), MP_ROM_PTR(&mp_math_gamma_obj) },
     { MP_ROM_QSTR(MP_QSTR_lgamma), MP_ROM_PTR(&mp_math_lgamma_obj) },
+    { MP_ROM_QSTR(MP_QSTR_hypot), MP_ROM_PTR(&mp_math_hypot_obj) },
     #endif
 };
 

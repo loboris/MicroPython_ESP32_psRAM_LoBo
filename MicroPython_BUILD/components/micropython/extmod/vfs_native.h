@@ -31,17 +31,21 @@
  *
  */
 
+#include "sdkconfig.h"
 #include "py/lexer.h"
 #include "py/obj.h"
 #include "py/objint.h"
 #include "extmod/vfs.h"
 
-#if MICROPY_USE_SPIFFS
+#if CONFIG_MICROPY_FILESYSTEM_TYPE == 0
 #define VFS_NATIVE_MOUNT_POINT			"/_#!#_spiffs"
+#elif CONFIG_MICROPY_FILESYSTEM_TYPE == 2
+#define VFS_NATIVE_MOUNT_POINT			"/_#!#_littlefs"
 #else
 #define VFS_NATIVE_MOUNT_POINT			"/_#!#_spiflash"
 #endif
 #define VFS_NATIVE_SDCARD_MOUNT_POINT	"/_#!#_sdcard"
+#define VFS_NATIVE_INTERNAL_PART_LABEL	"internalfs"
 #define VFS_NATIVE_INTERNAL_MP			"/flash"
 #define VFS_NATIVE_EXTERNAL_MP			"/sd"
 #define VFS_NATIVE_TYPE_SPIFLASH		0
@@ -59,6 +63,7 @@ typedef struct _sdcard_config_t {
     int8_t	mosi;
     int8_t	miso;
     int8_t	cs;
+    int8_t  hispeed;
 } sdcard_config_t;
 
 extern const mp_obj_type_t mp_native_vfs_type;
@@ -74,6 +79,7 @@ mp_import_stat_t native_vfs_import_stat(struct _fs_user_mount_t *vfs, const char
 mp_obj_t nativefs_builtin_open_self(mp_obj_t self_in, mp_obj_t path, mp_obj_t mode);
 int mount_vfs(int type, char *chdir_to);
 MP_DECLARE_CONST_FUN_OBJ_KW(mp_builtin_open_obj);
+MP_DECLARE_CONST_FUN_OBJ_0(native_vfs_getdrive_obj);
 //MP_DECLARE_CONST_FUN_OBJ_2(native_vfs_chdir_obj);
 
 int internalUmount();

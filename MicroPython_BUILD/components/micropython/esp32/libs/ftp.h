@@ -79,6 +79,7 @@ bool ftp_disable (void);
 bool ftp_reset (void);
 int ftp_getstate();
 bool ftp_terminate (void);
+bool ftp_stop_requested();
 int32_t ftp_get_maxstack (void);
 
 #endif

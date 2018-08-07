@@ -40,16 +40,18 @@ STATIC void uart_irq_handler(void *arg);
 QueueHandle_t uart0_mutex = NULL;
 QueueSetMemberHandle_t uart0_semaphore = NULL;
 int uart0_raw_input = 0;
+static uart_isr_handle_t uart0_handle = NULL;
 
 //------------------
 void uart_init(void)
 {
-	uart0_mutex = xSemaphoreCreateMutex();
-	uart0_semaphore = xSemaphoreCreateBinary();
+	if (uart0_mutex == NULL) uart0_mutex = xSemaphoreCreateMutex();
+	if (uart0_semaphore == NULL) uart0_semaphore = xSemaphoreCreateBinary();
 
-	uart_isr_handle_t handle;
-    uart_isr_register(UART_NUM_0, uart_irq_handler, NULL, ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM, &handle);
-    uart_enable_rx_intr(UART_NUM_0);
+	if (uart0_handle == NULL) {
+		uart_isr_register(UART_NUM_0, uart_irq_handler, NULL, ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM, &uart0_handle);
+		uart_enable_rx_intr(UART_NUM_0);
+	}
 }
 
 // all code executed in ISR must be in IRAM, and any const data must be in DRAM

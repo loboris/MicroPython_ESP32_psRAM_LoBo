@@ -1,0 +1,190 @@
+=== 2018-06-27 ===
+
+Removed option to run REPL in separate thread
+  the option was introduced to resolve some issues
+  which was fixed later, so it is not needed anymore
+
+Refactored I2C slave support
+  much improved i2c slave operation
+
+Added 'machine.RFCOMM' module
+  support for Bluetooth classic SPP profile
+  functionality equivalent to that of the UART module
+  Works only on boards with external SPI_RAM
+
+Added 'highspeed' option when configuring SDCard in SPI mode
+
+Updated 'machine' module
+  fixed bug in 'machine.stdin_disable()' function
+  added 'machine.WDT()' function
+
+Updated 'machine.ADC' module
+  arg name '8bit' changed to 'byte' in read_timed() function
+
+Updated 'network' module
+  station's rssi is reported in 'status('stations')' function
+
+Updated 'curl' module
+  fixed param parsing in curl.post() function
+
+Updated 'mdns' module
+  fixed param parsing in addService() function
+
+'esp-idf' updated
+     date: 2018-06-27
+  version: v3.1-beta1-14-g698d3baf
+     hash: 698d3bafa51a06a89605c6a15f89df514efa21f8
+
+Other minor updates, improvements and bug fixes
+
+
+=== 2018-06-04 ===
+
+Refactored 'machine.Pin' module
+  better interrupt handling, debouncing added
+
+Refactored 'machine.ADC' module
+  new functions added
+  background data collecting and timed read to array or file
+
+Refactored 'machine.DAC' module
+  new functions added
+  timed write from array or file
+  waveform generator
+  playing wav files
+
+Updated 'machine' module
+  fixed reading internal temperature sensor
+  added reading internal Vdd (experimental)
+
+Updated 'display' module
+  added 'readScreen()' function
+
+Updated 'neopixel' module
+  fixed issue when neopixel is configured on multiple pins
+
+Refactored 'utimeq' module
+  new sort method for time item, ascending and descending sort available
+  new functions added:
+    len() returns tuple of current queue length and allocated length
+    dump([True]) is provided which prints the detailed que information.
+    peek(idx, res) is provided, which peeks the queue item form the index idx
+    peektime([idx]) accepts optional argument to peek the time value from queue at index idx.
+    time values in a range of int64_t are accepted and properly sorted. Floats can be accepted as time value and are rounded to int64_t
+    overflow on time value never occurs as the time range is more then 290000 years with micro seconds value.
+
+Menuconfig:
+  added option to enable/disable automatic garbage collection on boot
+  added option to set automatic garbage collection threshold
+
+  
+'esp-idf' updated
+     date: 2018-05-19
+  version: v3.1-dev-1101-g1f7b41e2
+     hash: 1f7b41e206646417adc572da928175d33c986bd3
+
+Other minor updates, improvements and bug fixes
+
+
+-------------------------------------------------------------------------------
+
+
+=== 2018-05-15 ===
+
+Updated MicroPython core
+
+Some improvements in garbage collector
+
+Added MicroPython system options in 'menuconfig'
+
+Updated some frozen modules
+  upip, urequests, logging
+
+
+-------------------------------------------------------------------------------
+
+
+=== 2018-05-15 ===
+
+Updated 'uart' module
+  fixed critical bug which could cause crash after gc collect
+  added 'deinit' function
+
+Updated 'gc' module
+  improved garbage collection, especially when multiple threads are running
+  added 'collectif' function which conditionally performs
+    garbage collection if the used heap is above the given values
+  optional argument can now be used with 'gc.collect()' and 'gc.collectif()'
+    which enables printing gc some gc information
+  'gc.threshold()' value must be > 20K
+  'gc.threshold()' accepts additional argument which can set the gc debug level
+
+Updated '_thread' module, some improvements
+
+Some new MicroPython system options added to menuconfig
+
+Temporary solution for esp-idf bug:
+  cannot set the QIO mode on some Flash chips
+
+
+-------------------------------------------------------------------------------
+
+
+=== 2018-05-10 ===
+
+'esp-idf' updated
+     date: 2018-05-08
+  version: v3.1-dev-961-ga2556229
+     hash: a2556229aa6f55b16b171e3325ee9ab1943e8552
+
+Added support for runtime detection of SPIRAM
+  firmwares built with SPIRAM support can now run on boards without SPIRAM
+
+Added 'GPS' module
+  collecting gps data from separate FreeRTOS task is supported
+
+Added built-in finction 'float_precision'
+  precision of floats can be now set at run time
+
+Added new method of initializing the 'array' objects
+  size of the array object can be specified, uses much less heap space
+
+Updated 'mqtt' module
+  uses new espmqtt library, new features and some bug fixes
+  mqtt over websockets is now supported
+
+Updated 'sys' module
+  added function 'espidf_info()', returns information about used esp-idf
+
+Updated 'gc' module
+  added function 'collectif()', conditional collect
+
+Updated 'upip' module
+  'pypy' URL updated
+
+Updated 'utimeq' module
+  fixed bugs in getting/setting time values
+
+Updated 'display' module
+  added 'text_x()' and 'text_y()'
+
+Fixed bug when 'mp_hal_ticks_base' was not updated afer soft resets
+
+Updated 'network' module
+  ap_if.status('clients') now returns client's mac address and IP address
+
+Updated 'uart' module
+  changes needed for 'gps' module, more reliable
+
+Updated 'sockets' module
+  from latest official MicroPython
+
+Updated 'rtc' module
+  fixed bug in setting time zone in 'ntp_sync()' function
+
+Using or not UNICODE can now be configured from 'menuconfig'
+
+Updated 'BUILD.sh'
+  added options  to select the comm port and/or baud rate
+
+Many bug fixes, stability improvements, ...

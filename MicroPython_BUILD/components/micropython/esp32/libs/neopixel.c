@@ -116,8 +116,8 @@ uint32_t np_get_pixel_color(pixel_settings_t *px, uint16_t idx, uint8_t *white)
 }
 
 // Set two levels of RMT output to the Neopixel value for bit value "1".
-//------------------------------------------------------------------------------
-static void IRAM_ATTR neopixel_mark(rmt_item32_t *pItem, pixel_settings_t *px) {
+//--------------------------------------------------------------------
+static void neopixel_mark(rmt_item32_t *pItem, pixel_settings_t *px) {
 	pItem->level0    = px->timings.mark.level0;
 	pItem->duration0 = px->timings.mark.duration0;
 	pItem->level1    = px->timings.mark.level1;
@@ -125,8 +125,8 @@ static void IRAM_ATTR neopixel_mark(rmt_item32_t *pItem, pixel_settings_t *px) {
 }
 
 // Set two levels of RMT output to the Neopixel value for bit value "0".
-//-------------------------------------------------------------------------------
-static void IRAM_ATTR neopixel_space(rmt_item32_t *pItem, pixel_settings_t *px) {
+//---------------------------------------------------------------------
+static void neopixel_space(rmt_item32_t *pItem, pixel_settings_t *px) {
 	pItem->level0    = px->timings.space.level0;
 	pItem->duration0 = px->timings.space.duration0;
 	pItem->level1    = px->timings.space.level1;
@@ -134,8 +134,8 @@ static void IRAM_ATTR neopixel_space(rmt_item32_t *pItem, pixel_settings_t *px) 
 }
 
 // Set levels and duration of RMT output to the Neopixel value for Reset.
-//------------------------------------------------------------------------------
-static void IRAM_ATTR rmt_terminate(rmt_item32_t *pItem, pixel_settings_t *px) {
+//--------------------------------------------------------------------
+static void rmt_terminate(rmt_item32_t *pItem, pixel_settings_t *px) {
 	pItem->level0    = px->timings.reset.level0;
 	pItem->duration0 = px->timings.reset.duration0;
 	pItem->level1    = px->timings.reset.level1;
@@ -143,8 +143,8 @@ static void IRAM_ATTR rmt_terminate(rmt_item32_t *pItem, pixel_settings_t *px) {
 }
 
 // Transfer pixels from buffer to Neopixel strip
-//-----------------------------------------
-static void IRAM_ATTR copyToRmtBlock_half()
+//-------------------------------
+static void copyToRmtBlock_half()
 {
 	// This fills half an RMT block
 	// When wrap around is happening, we want to keep the inactive half of the RMT block filled
@@ -207,8 +207,8 @@ static void IRAM_ATTR copyToRmtBlock_half()
 }
 
 // RMT interrupt handler
-//-------------------------------------------------------
-static void IRAM_ATTR neopixel_handleInterrupt(void *arg)
+//---------------------------------------------
+static void neopixel_handleInterrupt(void *arg)
 {
   portBASE_TYPE taskAwoken = 0;
 
@@ -237,10 +237,13 @@ int neopixel_init(int gpioNum, rmt_channel_t channel)
 	if (neopixel_sem == NULL) {
 		neopixel_sem = xSemaphoreCreateBinary();
 		if (neopixel_sem == NULL) return ESP_FAIL;
+		// Note: binary semaphores created using xSemaphoreCreateBinary() are created in a state
+		// such that the semaphore must first be 'given' before it can be 'taken' !
+		xSemaphoreGive(neopixel_sem);
+
+		DPORT_SET_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, DPORT_RMT_CLK_EN);
+		DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, DPORT_RMT_RST);
 	}
-	// Note: binary semaphores created using xSemaphoreCreateBinary() are created in a state
-	// such that the semaphore must first be 'given' before it can be 'taken' !
-	xSemaphoreGive(neopixel_sem);
 
 	// Allocate RMT interrupt if needed
 	if (rmt_intr_handle == NULL) {
@@ -252,9 +255,6 @@ int neopixel_init(int gpioNum, rmt_channel_t channel)
 
 	uint32_t tx_thr_event_mask = 0x01000000 << channel;
 	uint32_t tx_end_event_mask = 1 << (channel*3);
-
-	DPORT_SET_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, DPORT_RMT_CLK_EN);
-	DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, DPORT_RMT_RST);
 
 	res = rmt_set_pin(channel, RMT_MODE_TX, (gpio_num_t)gpioNum);
 	if (res != ESP_OK) {
@@ -321,20 +321,27 @@ void neopixel_deinit(rmt_channel_t channel)
 }
 
 // Start the transfer of Neopixel color bytes from buffer
-//=====================================================================
-void np_show(pixel_settings_t *px, rmt_channel_t channel, uint8_t wait)
+//=======================================================
+void np_show(pixel_settings_t *px, rmt_channel_t channel)
 {
 	// Wait for previous operation to finish
 	xSemaphoreTake(neopixel_sem, portMAX_DELAY);
 
 	RMTchannel = channel;
+	// Enable interrupt for neopixel RMT channel
+	uint32_t tx_thr_event_mask = 0x01000000 << channel;
+	uint32_t tx_end_event_mask = 1 << (channel*3);
+	RMT.int_ena.val = tx_thr_event_mask | tx_end_event_mask;
+
 	uint16_t blen = px->pixel_count * (px->nbits / 8);
 
+	// Allocate neopixel buffer if needed
 	if (neopixel_buffer == NULL) {
 		neopixel_buffer = (uint8_t *)malloc(blen);
 		if (neopixel_buffer == NULL) return;
 		neopixel_buf_len = blen;
 	}
+	// Resize neopixel buffer if needed
 	if (neopixel_buf_len < blen) {
 		// larger buffer needed
 		free(neopixel_buffer);
@@ -362,11 +369,11 @@ void np_show(pixel_settings_t *px, rmt_channel_t channel, uint8_t wait)
 	RMT.conf_ch[RMTchannel].conf1.mem_rd_rst = 1;
 	RMT.conf_ch[RMTchannel].conf1.tx_start = 1;
 
-	if (wait) {
-		// Wait for operation to finish
+	// Wait for operation to finish
+	if (xSemaphoreTake(neopixel_sem, 0) == pdTRUE) {
 		xSemaphoreTake(neopixel_sem, portMAX_DELAY);
-		xSemaphoreGive(neopixel_sem);
 	}
+	xSemaphoreGive(neopixel_sem);
 }
 
 // Clear the Neopixel color buffer

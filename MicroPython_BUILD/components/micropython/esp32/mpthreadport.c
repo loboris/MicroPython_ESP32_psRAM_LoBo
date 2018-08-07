@@ -34,6 +34,7 @@
 #include "sdkconfig.h"
 #include "esp_attr.h"
 #include "esp_log.h"
+#include "soc/cpu.h"
 
 #include "py/mpstate.h"
 #include "py/gc.h"
@@ -41,6 +42,7 @@
 #include "py/mphal.h"
 #include "mpthreadport.h"
 #include "modnetwork.h"
+#include "modmachine.h"
 
 #if defined(CONFIG_MICROPY_USE_TELNET) || defined(CONFIG_MICROPY_USE_FTPSERVER)
 #include "tcpip_adapter.h"
@@ -63,6 +65,7 @@ extern TaskHandle_t FtpTaskHandle;
 extern int MainTaskCore;
 
 TaskHandle_t MainTaskHandle = NULL;
+TaskHandle_t ReplTaskHandle = NULL;
 
 uint8_t main_accept_msg = 1;
 
@@ -73,8 +76,12 @@ typedef struct _thread_t {
     int ready;							// whether the thread is ready and running
     void *arg;							// thread Python args, a GC root pointer
     void *stack;						// pointer to the stack
+    void *curr_sp;						// current stack pointer
+    void *stack_top;					// stack top
     StaticTask_t *tcb;     				// pointer to the Task Control Block
     size_t stack_len;      				// number of words in the stack
+    void **ptrs;						// root pointers
+    size_t ptrs_len;					// length of root pointers
     char name[THREAD_NAME_MAX_SIZE];	// thread name
     QueueHandle_t threadQueue;			// queue used for inter thread communication
     int8_t allow_suspend;
@@ -89,36 +96,43 @@ typedef struct _thread_t {
 // the mutex controls access to the linked list
 STATIC mp_thread_mutex_t thread_mutex;
 STATIC thread_t thread_entry0;
-STATIC thread_t *thread; // root pointer, handled by mp_thread_gc_others
+STATIC thread_t *thread = NULL; // root pointer, handled by mp_thread_gc_others
 
-//-------------------------------
-void vPortCleanUpTCB(void *tcb) {
-    thread_t *prev = NULL;
-    mp_thread_mutex_lock(&thread_mutex, 1);
-    for (thread_t *th = thread; th != NULL; prev = th, th = th->next) {
-        // unlink the node from the list
-        if (th->tcb == tcb) {
-            if (prev != NULL) {
-                prev->next = th->next;
-            } else {
-                // move the start pointer
-                thread = th->next;
-            }
-            // explicitly release all its memory
-            if (th->tcb) free(th->tcb);
-            if (th->stack) free(th->stack);
-            //m_del(thread_t, th, 1);
-            free(th);
-            break;
-        }
-    }
-    mp_thread_mutex_unlock(&thread_mutex);
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void vPortCleanUpTCB(void *tcb)
+{
+	if ((MainTaskHandle) && (thread)) {
+		thread_t *prev = NULL;
+		mp_thread_mutex_lock(&thread_mutex, 1);
+		for (thread_t *th = thread; th != NULL; prev = th, th = th->next) {
+			// unlink the node from the list
+			if (th->tcb == tcb) {
+				if (prev != NULL) {
+					prev->next = th->next;
+				} else {
+					// move the start pointer
+					thread = th->next;
+				}
+				// explicitly release all its memory
+				if (th->tcb) free(th->tcb);
+				if (th->stack) free(th->stack);
+				//m_del(thread_t, th, 1);
+				free(th);
+				break;
+			}
+		}
+		mp_thread_mutex_unlock(&thread_mutex);
+	}
 }
 
 
 // === Initialize the main MicroPython thread ===
-//-------------------------------------------------------
-void mp_thread_preinit(void *stack, uint32_t stack_len) {
+//-----------------------------------------------------
+void mp_thread_preinit(void *stack, uint32_t stack_len)
+{
+    // Initialize threads mutex
+    mp_thread_mutex_init(&thread_mutex);
+
     mp_thread_set_state(&mp_state_ctx.thread);
     // create first entry in linked list of all threads
     thread = &thread_entry0;
@@ -126,6 +140,8 @@ void mp_thread_preinit(void *stack, uint32_t stack_len) {
     thread->ready = 1;
     thread->arg = NULL;
     thread->stack = stack;
+    thread->curr_sp = stack+stack_len;
+    thread->stack_top = stack+stack_len;
     thread->stack_len = stack_len;
     sprintf(thread->name, "MainThread");
     thread->threadQueue = xQueueCreate( THREAD_QUEUE_MAX_ITEMS, sizeof(thread_msg_t) );
@@ -137,30 +153,52 @@ void mp_thread_preinit(void *stack, uint32_t stack_len) {
     thread->type = THREAD_TYPE_MAIN;
     thread->next = NULL;
     MainTaskHandle = thread->id;
+
 }
 
-//-------------------------
-void mp_thread_init(void) {
-    mp_thread_mutex_init(&thread_mutex);
-}
-
-//------------------------------
-void mp_thread_gc_others(void) {
+//----------------------------------
+void mp_thread_gc_others(int flag) {
     mp_thread_mutex_lock(&thread_mutex, 1);
     for (thread_t *th = thread; th != NULL; th = th->next) {
-    	if (th->type == THREAD_TYPE_SERVICE) {
-    		continue;
-    	}
-        gc_collect_root((void**)&th, 1);
-        gc_collect_root(&th->arg, 1); // probably not needed
-        if (th->id == xTaskGetCurrentTaskHandle()) {
-            continue;
-        }
         if (!th->ready) {
             continue;
         }
-        //ToDo: Check if needed
-        gc_collect_root(th->stack, th->stack_len); // probably not needed
+    	if (th->type == THREAD_TYPE_SERVICE) continue;
+
+    	int n_marked;
+		if (th->arg) {
+			#if MICROPY_PY_GC_COLLECT_RETVAL
+			n_marked = MP_STATE_MEM(gc_marked);
+			#endif
+			// Mark the pointers on thread arguments
+			gc_collect_root(&th->arg, 1);
+			#if MICROPY_PY_GC_COLLECT_RETVAL
+			if (flag) printf("th_collect:    marked on arg: %d (%s)\n", MP_STATE_MEM(gc_marked) - n_marked, th->name);
+			#endif
+		}
+
+		if (th->id == xTaskGetCurrentTaskHandle()) continue;
+
+		#if MICROPY_PY_GC_COLLECT_RETVAL
+		n_marked = MP_STATE_MEM(gc_marked);
+		#endif
+		// Mark the thread root pointers
+	    gc_collect_root(th->ptrs, th->ptrs_len);
+        //gc_collect_root((void**)&th, 1);
+		#if MICROPY_PY_GC_COLLECT_RETVAL
+		if (flag) printf("th_collect:   marked on thrd: %d (%s)\n", MP_STATE_MEM(gc_marked) - n_marked, th->name);
+		#endif
+
+		#if MICROPY_PY_GC_COLLECT_RETVAL
+		n_marked = MP_STATE_MEM(gc_marked);
+		#endif
+		// Mark the pointers on thread stack
+		gc_collect_root(th->curr_sp, (th->stack_top - th->curr_sp) / sizeof(uint32_t));
+
+		#if MICROPY_PY_GC_COLLECT_RETVAL
+		if (flag) printf("th_collect:  marked on stack: %d (%s) [%p - %p]\n",
+				MP_STATE_MEM(gc_marked) - n_marked, th->name, th->curr_sp, th->stack_top);
+		#endif
     }
     mp_thread_mutex_unlock(&thread_mutex);
 }
@@ -197,66 +235,69 @@ STATIC void freertos_entry(void *arg) {
     vTaskDelete(NULL);
 }
 
-//------------------------------------------------------------------------------------------------------------------------------
-TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack_size, int priority, char *name, bool same_core)
+//---------------------------------------------------------------------------------------------------------------------------------
+TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *in_stack_size, int priority, char *name, bool same_core)
 {
-    // store thread entry function into a global variable so we can access it
+	size_t stack_size = *in_stack_size;
+	bool is_repl = (strcmp(name, "REPLthread") == 0);
+	if (is_repl) {
+		if (ReplTaskHandle) {
+	        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "REPL thread already started"));
+		}
+	}
+	// store thread entry function into a global variable so we can access it
     ext_thread_entry = entry;
 
     // Check thread stack size
-    if (*stack_size == 0) {
-    	*stack_size = MP_THREAD_DEFAULT_STACK_SIZE; //use default stack size
+    if (stack_size == 0) {
+    	stack_size = MP_THREAD_DEFAULT_STACK_SIZE; //use default stack size
     }
     else {
-        if (*stack_size < MP_THREAD_MIN_STACK_SIZE) *stack_size = MP_THREAD_MIN_STACK_SIZE;
-        else if (*stack_size > MP_THREAD_MAX_STACK_SIZE) *stack_size = MP_THREAD_MAX_STACK_SIZE;
+        if (stack_size < MP_THREAD_MIN_STACK_SIZE) stack_size = MP_THREAD_MIN_STACK_SIZE;
+        else if (stack_size > MP_THREAD_MAX_STACK_SIZE) stack_size = MP_THREAD_MAX_STACK_SIZE;
     }
+    stack_size &= 0x7FFFFFF8;
 
-    // allocate TCB, stack and linked-list node (must be outside thread_mutex lock)
-    //StaticTask_t *tcb = m_new(StaticTask_t, 1);
-    //StackType_t *stack = m_new(StackType_t, *stack_size / sizeof(StackType_t));
-
-    // ======================================================================
-    // We are NOT going to allocate thread tcb & stack on Micropython heap
-    // In case we are using SPI RAM, it can produce some problems and crashes
-    // ======================================================================
+    // === Allocate TCB, stack and linked-list node ===
     StaticTask_t *tcb = NULL;
     StackType_t *stack = NULL;
+    thread_t *th = NULL;
 
-    tcb = malloc(sizeof(StaticTask_t));
-    stack = malloc(*stack_size+256);
+	if (mpy_use_spiram) tcb = heap_caps_malloc(sizeof(StaticTask_t), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	else tcb = malloc(sizeof(StaticTask_t));
+    if (tcb == NULL) {
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread (tcb)"));
+    }
 
-    //thread_t *th = m_new_obj(thread_t);
-    thread_t *th = (thread_t *)malloc(sizeof(thread_t));
+	if (mpy_use_spiram) stack = heap_caps_malloc((stack_size * sizeof(StackType_t))+8, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	else stack = malloc((stack_size * sizeof(StackType_t))+8);;
+    if (stack == NULL) {
+    	free(tcb);
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread (stack)"));
+    }
+
+	if (mpy_use_spiram) th = heap_caps_malloc(sizeof(thread_t), MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	else th = malloc(sizeof(thread_t));
+    if (th == NULL) {
+    	free(stack);
+    	free(tcb);
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread (th)"));
+    }
+    memset(th, 0, sizeof(thread_t));
 
     mp_thread_mutex_lock(&thread_mutex, 1);
 
-    // === Create the thread task ===
-	#if CONFIG_MICROPY_USE_BOTH_CORES
-    TaskHandle_t id = xTaskCreateStatic(freertos_entry, name, *stack_size, arg, priority, stack, tcb);
-	#else
-    int run_on_core = MainTaskCore;
-	#if !CONFIG_FREERTOS_UNICORE
-    if (!same_core) run_on_core = MainTaskCore ^ 1;
-	#endif
-
-    TaskHandle_t id = xTaskCreateStaticPinnedToCore(freertos_entry, name, *stack_size, arg, priority, stack, tcb, run_on_core);
-	#endif
-    if (id == NULL) {
-        mp_thread_mutex_unlock(&thread_mutex);
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
-    }
-
     // adjust the stack_size to provide room to recover from hitting the limit
-    //*stack_size -= 1024;
+    //stack_size -= 1024;
 
     // add thread to linked list of all threads
-    th->id = id;
     th->ready = 0;
     th->arg = arg;
     th->stack = stack;
+    th->curr_sp = stack+stack_size;
+    th->stack_top = stack+stack_size;
     th->tcb = tcb;
-    th->stack_len = *stack_size;
+    th->stack_len = stack_size;
     th->next = thread;
     snprintf(th->name, THREAD_NAME_MAX_SIZE, name);
     th->threadQueue = xQueueCreate( THREAD_QUEUE_MAX_ITEMS, sizeof(thread_msg_t) );
@@ -265,10 +306,36 @@ TaskHandle_t mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack
     th->waiting = 0;
     th->deleted = 0;
     th->notifyed = 0;
-    th->type = THREAD_TYPE_PYTHON;
+    if (is_repl) th->type = THREAD_TYPE_REPL;
+    else th->type = THREAD_TYPE_PYTHON;
     thread = th;
 
-    mp_thread_mutex_unlock(&thread_mutex);
+    // === Create and start the thread task ===
+	#if CONFIG_MICROPY_USE_BOTH_CORES
+    	TaskHandle_t id = xTaskCreateStatic(freertos_entry, name, stack_size, arg, priority, stack, tcb);
+	#else
+		int run_on_core = MainTaskCore;
+		#if !CONFIG_FREERTOS_UNICORE
+		if (!same_core) run_on_core = MainTaskCore ^ 1;
+		#endif
+		TaskHandle_t id = xTaskCreateStaticPinnedToCore(freertos_entry, name, stack_size, arg, priority, stack, tcb, run_on_core);
+	#endif
+    if (id == NULL) {
+    	// Task not started, restore previous thread and clean-up
+    	thread = th->next;
+		if (th->threadQueue) vQueueDelete(th->threadQueue);
+    	free(th);
+    	free(stack);
+    	free(tcb);
+        mp_thread_mutex_unlock(&thread_mutex);
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "can't create thread"));
+    }
+
+    th->id = id;
+	if (is_repl) ReplTaskHandle = id;
+
+	mp_thread_mutex_unlock(&thread_mutex);
+    *in_stack_size = stack_size;
     return id;
 }
 
@@ -282,9 +349,9 @@ STATIC void mp_clean_thread(thread_t *th)
 {
 	if (th->threadQueue) {
 		int n = 1;
-		while (n) {
+		while (n > 0) {
 			n = uxQueueMessagesWaiting(th->threadQueue);
-			if (n) {
+			if (n > 0) {
 				thread_msg_t msg;
 				xQueueReceive(th->threadQueue, &msg, 0);
 				if (msg.strdata != NULL) free(msg.strdata);
@@ -322,24 +389,6 @@ int mp_thread_mutex_lock(mp_thread_mutex_t *mutex, int wait) {
 //-----------------------------------------------------
 void mp_thread_mutex_unlock(mp_thread_mutex_t *mutex) {
     xSemaphoreGive(mutex->handle);
-}
-
-// Terminate all Python threads
-// used before entering sleep/reset
-//---------------------------
-void mp_thread_deinit(void) {
-    mp_thread_mutex_lock(&thread_mutex, 1);
-    for (thread_t *th = thread; th != NULL; th = th->next) {
-        // don't delete the current task
-        if (th->id == xTaskGetCurrentTaskHandle()) {
-            continue;
-        }
-    	mp_clean_thread(th);
-        vTaskDelete(th->id);
-    }
-    mp_thread_mutex_unlock(&thread_mutex);
-    // allow FreeRTOS to clean-up the threads
-    vTaskDelay(2);
 }
 
 //--------------------------------------
@@ -414,6 +463,52 @@ int mp_thread_setblocked() {
     return res;
 }
 
+//-----------------------------------------
+int mp_thread_set_sp(void *sp, void *top) {
+	int res = 0;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+        if (th->id == xTaskGetCurrentTaskHandle()) {
+			th->curr_sp = sp;
+			th->stack_top = top;
+			res = 1;
+            break;
+        }
+    }
+    mp_thread_mutex_unlock(&thread_mutex);
+    return res;
+}
+
+//--------------------------
+int mp_thread_get_sp(void) {
+	int res = 0;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+        if (th->id == xTaskGetCurrentTaskHandle()) {
+			res = th->curr_sp;
+            break;
+        }
+    }
+    mp_thread_mutex_unlock(&thread_mutex);
+    return res;
+}
+
+//------------------------------------------------
+int mp_thread_set_ptrs(void **ptrs, size_t size) {
+	int res = 0;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+        if (th->id == xTaskGetCurrentTaskHandle()) {
+			th->ptrs = ptrs;
+			th->ptrs_len = size;
+			res = 1;
+            break;
+        }
+    }
+    mp_thread_mutex_unlock(&thread_mutex);
+    return res;
+}
+
 //-----------------------------
 int mp_thread_setnotblocked() {
 	int res = 0;
@@ -443,6 +538,17 @@ int mp_thread_notify(TaskHandle_t id, uint32_t value) {
         }
     }
     if (id == 0) res = 1;
+    mp_thread_mutex_unlock(&thread_mutex);
+    return res;
+}
+
+//---------------------------
+int mp_thread_num_threads() {
+	int res = 0;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+        if (th->id != xTaskGetCurrentTaskHandle()) res++;
+    }
     mp_thread_mutex_unlock(&thread_mutex);
     return res;
 }
@@ -691,6 +797,23 @@ int mp_thread_replAcceptMsg(int8_t accept) {
     mp_thread_mutex_lock(&thread_mutex, 1);
     for (thread_t *th = thread; th != NULL; th = th->next) {
     	 if (th->id == xTaskGetCurrentTaskHandle()) {
+    		 if ((th->id == ReplTaskHandle) && (accept >= 0)) {
+    			 main_accept_msg = accept & 1;
+    		 }
+			 break;
+    	 }
+    }
+    mp_thread_mutex_unlock(&thread_mutex);
+
+    return res;
+}
+
+//------------------------------------------
+int mp_thread_mainAcceptMsg(int8_t accept) {
+	int res = main_accept_msg;
+    mp_thread_mutex_lock(&thread_mutex, 1);
+    for (thread_t *th = thread; th != NULL; th = th->next) {
+    	 if (th->id == xTaskGetCurrentTaskHandle()) {
     		 if ((th->id == MainTaskHandle) && (accept >= 0)) {
     			 main_accept_msg = accept & 1;
     		 }
@@ -707,25 +830,20 @@ int mp_thread_replAcceptMsg(int8_t accept) {
 
 #if defined(CONFIG_MICROPY_USE_TELNET) || defined(CONFIG_MICROPY_USE_FTPSERVER)
 // Check if WiFi connection is available
-//----------------------
-static int _check_wifi()
+//-----------------------
+static bool _check_wifi()
 {
-    tcpip_adapter_if_t if_type;
-    tcpip_adapter_ip_info_t info;
+    if (wifi_network_state < 2) return false;
+
+    bool res = 0;
     wifi_mode_t wifi_mode;
 
-    esp_wifi_get_mode(&wifi_mode);
-    if (wifi_mode == WIFI_MODE_AP) if_type = TCPIP_ADAPTER_IF_AP;
-    else if (wifi_mode == WIFI_MODE_STA) if_type = TCPIP_ADAPTER_IF_STA;
-    else return 2;
-
-    tcpip_adapter_get_ip_info(if_type, &info);
-    if (info.ip.addr == 0) return 0;
-
-    if ((wifi_mode == WIFI_MODE_STA) && ((!wifi_sta_isconnected) || (!wifi_sta_has_ipaddress))) return 0;
-    else if ((wifi_mode == WIFI_MODE_AP) && (!wifi_ap_isconnected)) return 0;
-
-    return 1;
+    esp_err_t ret = esp_wifi_get_mode(&wifi_mode);
+    if (ret == ESP_OK) {
+		if ((wifi_mode & WIFI_MODE_STA) && ((wifi_sta_isconnected) && (wifi_sta_has_ipaddress))) res = true;
+		if ((wifi_mode & WIFI_MODE_AP) && wifi_ap_isconnected) res = true;
+    }
+    return res;
 }
 #endif
 
@@ -733,45 +851,40 @@ static int _check_wifi()
 //===================================
 void telnet_task (void *pvParameters)
 {
-    int res;
     // Initialize telnet, create rx buffer and mutex
     telnet_init();
 
     // Check if WiFi connection is available
-    res = _check_wifi();
-    while ( res == 0) {
+    while (!_check_wifi()) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        res = _check_wifi();
+        if (telnet_stop_requested()) goto exit;
     }
-    if (res == 2) goto exit;
 
     // We have WiFi connection, enable telnet
     telnet_enable();
 
     while (1) {
-        res = telnet_run();
+        int res = telnet_run();
         if ( res < 0) {
             if (res == -1) {
                 ESP_LOGD("[Telnet]", "\nRun Error");
             }
+            // -2 is returned if Telnet stop was requested by user
             break;
         }
 
         vTaskDelay(1);
 
         // ---- Check if WiFi is still available ----
-        res = _check_wifi();
-        if (res == 0) {
+        if (!_check_wifi()) {
             bool was_enabled = telnet_isenabled();
             telnet_disable();
-            while ( res == 0) {
+            while (!_check_wifi()) {
                 vTaskDelay(200 / portTICK_PERIOD_MS);
-                res = _check_wifi();
-                if (res == 2) goto exit;
+                if (telnet_stop_requested()) goto exit;
             }
             if (was_enabled) telnet_enable();
         }
-        else if (res == 2) break;
         // ------------------------------------------
     }
 exit:
@@ -805,17 +918,14 @@ uintptr_t mp_thread_createTelnetTask(size_t stack_size)
 //================================
 void ftp_task (void *pvParameters)
 {
-    int res;
     uint64_t elapsed, time_ms = mp_hal_ticks_ms();
     // Initialize ftp, create rx buffer and mutex
     ftp_init();
 
-    res = _check_wifi();
-    while ( res == 0) {
+    while (!_check_wifi()) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        res = _check_wifi();
+        if (ftp_stop_requested()) goto exit;
     }
-    if (res == 2) goto exit;
 
     // We have WiFi connection, enable ftp
     ftp_enable();
@@ -825,29 +935,27 @@ void ftp_task (void *pvParameters)
         elapsed = mp_hal_ticks_ms() - time_ms;
         time_ms = mp_hal_ticks_ms();
 
-        res = ftp_run(elapsed);
+        int res = ftp_run(elapsed);
         if (res < 0) {
             if (res == -1) {
                 ESP_LOGD("[Ftp]", "\nRun Error");
             }
+            // -2 is returned if Ftp stop was requested by user
             break;
         }
 
         vTaskDelay(1);
 
         // ---- Check if WiFi is still available ----
-        res = _check_wifi();
-        if (res == 0) {
+        if (!_check_wifi()) {
             bool was_enabled = ftp_isenabled();
             ftp_disable();
-            while ( res == 0) {
+            while (!_check_wifi()) {
                 vTaskDelay(200 / portTICK_PERIOD_MS);
-                res = _check_wifi();
-                if (res == 2) goto exit;
+                if (ftp_stop_requested()) goto exit;
             }
             if (was_enabled) ftp_enable();
         }
-        else if (res == 2) break;
         // ------------------------------------------
     }
 exit:

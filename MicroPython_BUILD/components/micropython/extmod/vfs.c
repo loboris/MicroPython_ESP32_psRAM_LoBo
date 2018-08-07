@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2017 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -126,8 +127,26 @@ mp_import_stat_t mp_vfs_import_stat(const char *path) {
     if (mp_obj_get_type(vfs->obj) == &mp_native_vfs_type) {
         return native_vfs_import_stat(MP_OBJ_TO_PTR(vfs->obj), path_out);
     }
-    // TODO delegate to vfs.stat() method
-    return MP_IMPORT_STAT_NO_EXIST;
+
+    // delegate to vfs.stat() method
+    mp_obj_t path_o = mp_obj_new_str(path_out, strlen(path_out));
+    mp_obj_t stat;
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0) {
+        stat = mp_vfs_proxy_call(vfs, MP_QSTR_stat, 1, &path_o);
+        nlr_pop();
+    } else {
+        // assume an exception means that the path is not found
+        return MP_IMPORT_STAT_NO_EXIST;
+    }
+    mp_obj_t *items;
+    mp_obj_get_array_fixed_n(stat, 10, &items);
+    mp_int_t st_mode = mp_obj_get_int(items[0]);
+    if (st_mode & MP_S_IFDIR) {
+        return MP_IMPORT_STAT_DIR;
+    } else {
+        return MP_IMPORT_STAT_FILE;
+    }
 }
 
 mp_obj_t mp_vfs_mount(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
@@ -257,7 +276,7 @@ mp_obj_t mp_vfs_chdir(mp_obj_t path_in) {
         // subsequent relative paths begin at the root of that VFS.
         for (vfs = MP_STATE_VM(vfs_mount_table); vfs != NULL; vfs = vfs->next) {
             if (vfs->len == 1) {
-                mp_obj_t root = mp_obj_new_str("/", 1, false);
+                mp_obj_t root = MP_OBJ_NEW_QSTR(MP_QSTR__slash_);
                 mp_vfs_proxy_call(vfs, MP_QSTR_chdir, 1, &root);
                 break;
             }
@@ -314,7 +333,7 @@ STATIC mp_obj_t mp_vfs_ilistdir_it_iternext(mp_obj_t self_in) {
         self->cur.vfs = vfs->next;
         if (vfs->len == 1) {
             // vfs is mounted at root dir, delegate to it
-            mp_obj_t root = mp_obj_new_str("/", 1, false);
+            mp_obj_t root = MP_OBJ_NEW_QSTR(MP_QSTR__slash_);
             self->is_iter = true;
             self->cur.iter = mp_vfs_proxy_call(vfs, MP_QSTR_ilistdir, 1, &root);
             return mp_iternext(self->cur.iter);
@@ -362,9 +381,7 @@ mp_obj_t mp_vfs_listdir(size_t n_args, const mp_obj_t *args) {
     mp_obj_t dir_list = mp_obj_new_list(0, NULL);
     mp_obj_t next;
     while ((next = mp_iternext(iter)) != MP_OBJ_STOP_ITERATION) {
-        mp_obj_t *items;
-        mp_obj_get_array_fixed_n(next, 3, &items);
-        mp_obj_list_append(dir_list, items[0]);
+        mp_obj_list_append(dir_list, mp_obj_subscr(next, MP_OBJ_NEW_SMALL_INT(0), MP_OBJ_SENTINEL));
     }
     return dir_list;
 }

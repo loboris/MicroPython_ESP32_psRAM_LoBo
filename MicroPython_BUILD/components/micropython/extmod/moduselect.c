@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -129,7 +130,7 @@ STATIC mp_obj_t select_select(uint n_args, const mp_obj_t *args) {
                 timeout = (mp_uint_t)(timeout_f * 1000);
             }
             #else
-            timeout = mp_obj_get_int(args[3]) * 1000;
+            timeout = mp_obj_get_int64(args[3]) * 1000;
             #endif
         }
     }
@@ -232,7 +233,7 @@ STATIC mp_uint_t poll_poll_internal(uint n_args, const mp_obj_t *args) {
     int flags = 0;
     if (n_args >= 2) {
         if (args[1] != mp_const_none) {
-            int64_t timeout_i = mp_obj_get_int(args[1]);
+            int64_t timeout_i = mp_obj_get_int64(args[1]);
             if (timeout_i >= 0) {
                 timeout = timeout_i;
             }

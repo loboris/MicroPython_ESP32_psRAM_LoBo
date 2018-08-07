@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,13 +36,14 @@
 #include "py/gc.h"
 #include "py/frozenmod.h"
 #include "py/mphal.h"
-#if defined(USE_DEVICE_MODE)
+#if MICROPY_HW_ENABLE_USB
 #include "irq.h"
 #include "usb.h"
 #endif
 #include "lib/mp-readline/readline.h"
 #include "lib/utils/pyexec.h"
 #include "mpversion.h"
+#include "modmachine.h"
 
 pyexec_mode_kind_t pyexec_mode_kind = PYEXEC_MODE_FRIENDLY_REPL;
 int pyexec_system_exit = 0;
@@ -138,7 +140,7 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
 
         #if MICROPY_ENABLE_GC
         // run collection and print GC info
-        gc_collect();
+        gc_collect(1);
         gc_dump_info();
         #endif
     }
@@ -346,6 +348,11 @@ raw_repl_reset:
                 vstr_reset(&line);
             } else if (c == CHAR_CTRL_D) {
                 // input finished
+                if (line.len == 0) {
+                	mp_hal_stdout_tx_str("soft reboot\r\n");
+                	vTaskDelay(1000);
+                    goto raw_repl_reset;
+                }
                 break;
             } else {
                 // let through any other raw 8-bit value
@@ -368,6 +375,7 @@ raw_repl_reset:
             return ret;
         }
     }
+    return 0;
 }
 
 int pyexec_friendly_repl(void) {
@@ -408,7 +416,7 @@ friendly_repl_reset:
     for (;;) {
     input_restart:
 
-        #if defined(USE_DEVICE_MODE)
+        #if MICROPY_HW_ENABLE_USB
         if (usb_vcp_is_enabled()) {
             // If the user gets to here and interrupts are disabled then
             // they'll never see the prompt, traceback etc. The USB REPL needs
@@ -442,7 +450,10 @@ friendly_repl_reset:
         } else if (ret == CHAR_CTRL_D) {
             // exit for a soft reset
             mp_hal_stdout_tx_str("\r\n");
-            vstr_clear(&line);
+            // No need to return, we can reset here
+            prepareSleepReset(0, "ESP32: soft reboot\r\n");
+            esp_restart(); // no return !!
+            //vstr_clear(&line);
             return PYEXEC_FORCED_EXIT;
         } else if (ret == CHAR_CTRL_E) {
             // paste mode
@@ -465,7 +476,7 @@ friendly_repl_reset:
                     if (c == '\r') {
                         mp_hal_stdout_tx_str("\r\n=== ");
                     } else {
-                        mp_hal_stdout_tx_strn(&c, 1);
+                        mp_hal_stdout_tx_strn((const char *)&c, 1);
                     }
                 }
             }
@@ -493,6 +504,7 @@ friendly_repl_reset:
             return ret;
         }
     }
+    return 0;
 }
 
 #endif // MICROPY_REPL_EVENT_DRIVEN

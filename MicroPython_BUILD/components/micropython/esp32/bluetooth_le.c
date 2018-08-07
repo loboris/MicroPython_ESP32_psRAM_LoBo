@@ -41,11 +41,11 @@
 #include "py/runtime0.h"
 
 // IDF
-#include "bt.h"
-#include "esp_bt_main.h"
-#include "esp_gap_ble_api.h"
-#include "esp_gatts_api.h"
-#include "esp_gattc_api.h"
+#include "esp_bt.h"
+#include "api/esp_bt_main.h"
+#include "api/esp_gap_ble_api.h"
+#include "api/esp_gatts_api.h"
+#include "api/esp_gattc_api.h"
 
 //extern bool bluetooth_enabled;
 
@@ -438,8 +438,8 @@ STATIC void gap_event_dump(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t 
         case ESP_GAP_BLE_READ_RSSI_COMPLETE_EVT:
             {
                 PRINT_STATUS(param->adv_data_cmpl.status);
-                NETWORK_BLUETOOTH_DEBUG_PRINTF( 
-                        ", rssi = %d, bda = %02X:%02X:%02X:%02X:%02X:%02X", 
+                NETWORK_BLUETOOTH_DEBUG_PRINTF(
+                        ", rssi = %d, bda = %02X:%02X:%02X:%02X:%02X:%02X",
                         param->read_rssi_cmpl.rssi,
                         param->read_rssi_cmpl.remote_addr[0],
                         param->read_rssi_cmpl.remote_addr[1],
@@ -453,7 +453,7 @@ STATIC void gap_event_dump(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t 
         case ESP_GAP_BLE_ADD_WHITELIST_COMPLETE_EVT:
             {
                 PRINT_STATUS(param->adv_data_cmpl.status);
-                NETWORK_BLUETOOTH_DEBUG_PRINTF( 
+                NETWORK_BLUETOOTH_DEBUG_PRINTF(
                         ", wl_opration = %s",
                         param->update_whitelist_cmpl.wl_opration == ESP_BLE_WHITELIST_ADD
                         ? "ADD" : "REMOVE");

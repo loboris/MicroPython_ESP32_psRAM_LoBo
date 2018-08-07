@@ -44,9 +44,13 @@
 #include "lib/berkeley-db-1.xx/include/mpool.h"
 
 #define	DEFMINKEYPAGE	(2)		/* Minimum keys per page */
+#ifndef	MINCACHE
 #define	MINCACHE	(5)		/* Minimum cached pages */
+#endif
 #define	MINPSIZE	(512)		/* Minimum page size */
+#ifndef	DEFPSIZE
 #define	DEFPSIZE	(4096)		/* Default page size */
+#endif
 
 /*
  * Page 0 of a btree file contains a copy of the meta-data.  This page is also

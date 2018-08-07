@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -79,7 +80,7 @@ STATIC mp_obj_t mp_vfs_native_ilistdir_it_iternext(mp_obj_t self_in) {
 		// make 3-tuple with info about this entry
 		mp_obj_tuple_t *t = MP_OBJ_TO_PTR(mp_obj_new_tuple(3, NULL));
 		if (self->is_str) {
-			t->items[0] = mp_obj_new_str(fn, strlen(fn), false);
+			t->items[0] = mp_obj_new_str(fn, strlen(fn));
 		} else {
 			t->items[0] = mp_obj_new_bytes((const byte*)fn, strlen(fn));
 		}

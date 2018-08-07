@@ -79,6 +79,7 @@ bool telnet_isenabled (void);
 bool telnet_reset (void);
 int telnet_getstate();
 bool telnet_terminate (void);
+bool telnet_stop_requested();
 int32_t telnet_get_maxstack (void);
 
 #endif

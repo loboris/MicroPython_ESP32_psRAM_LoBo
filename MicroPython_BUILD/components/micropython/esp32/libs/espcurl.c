@@ -46,8 +46,10 @@
 #include "esp_wifi_types.h"
 #include "tcpip_adapter.h"
 
+#include "modmachine.h"
 #include "py/mpthread.h"
 #include "py/nlr.h"
+
 
 //--------------------
 void checkConnection()
@@ -65,6 +67,7 @@ void checkConnection()
     }
 }
 
+
 #ifdef CONFIG_MICROPY_USE_CURL
 
 const char *CURL_TAG = "[Curl]";
@@ -76,14 +79,6 @@ uint16_t curl_timeout = 60;			// curl operations timeout in seconds
 uint32_t curl_maxbytes = 300000;	// limit download length
 uint8_t curl_initialized = 0;
 uint8_t curl_nodecode = 0;			// if set to 1, do not use compression in http transfers
-
-#if CONFIG_SPIRAM_SUPPORT
-int hdr_maxlen = 1024;
-int body_maxlen = 4096;
-#else
-int hdr_maxlen = 512;
-int body_maxlen = 1024;
-#endif
 
 static uint8_t curl_sim_fs = 0;
 
@@ -651,13 +646,6 @@ uint16_t ssh2_session_trace = 0;
 uint8_t ssh2_session_timeout = 8;
 uint32_t ssh2_maxbytes = 300000; // limit download length
 
-#if CONFIG_SPIRAM_SUPPORT
-int ssh2_hdr_maxlen = 1024;
-int ssh2_body_maxlen = 4096;
-#else
-int ssh2_hdr_maxlen = 512;
-int ssh2_body_maxlen = 1024;
-#endif
 
 // ==== LIBSSH2 functions ====
 

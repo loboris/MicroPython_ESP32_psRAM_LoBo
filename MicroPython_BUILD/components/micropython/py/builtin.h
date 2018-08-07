@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -75,7 +76,7 @@ MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(mp_builtin_sum_obj);
 // Defined by a port, but declared here for simplicity
 MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(mp_builtin_input_obj);
 MP_DECLARE_CONST_FUN_OBJ_KW(mp_builtin_open_obj);
-
+MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(mp_builtin_set_float_precision_obj); // LoBo
 MP_DECLARE_CONST_FUN_OBJ_2(mp_namedtuple_obj);
 
 MP_DECLARE_CONST_FUN_OBJ_2(mp_op_contains_obj);

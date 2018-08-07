@@ -194,16 +194,26 @@ STATIC mp_obj_t mdns_add_service(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
     }
 
     if (MP_OBJ_IS_TYPE(args[ARG_txdata].u_obj, &mp_type_dict)) {
-        mp_obj_dict_t *params = MP_OBJ_TO_PTR(args[ARG_txdata].u_obj);
-        mp_map_t *map = &params->map;
-        mp_map_elem_t *table = map->table;
-        if (map->used > 0) {
-			for (int i=0; i<map->used; i++) {
-				if (i > 7) break;
-				svctxdata[i].key = (char *)mp_obj_str_get_str(table[i].key);
-				svctxdata[i].value = (char *)mp_obj_str_get_str(table[i].value);
-            	ntxdata++;
-			}
+        mp_obj_dict_t *dict = MP_OBJ_TO_PTR(args[ARG_txdata].u_obj);
+        size_t max = dict->map.alloc;
+        mp_map_t *map = &dict->map;
+        mp_map_elem_t *next;
+        size_t cur = 0;
+        while (1) {
+            next = NULL;
+            for (size_t i = cur; i < max; i++) {
+                if (MP_MAP_SLOT_IS_FILLED(map, i)) {
+                    cur = i + 1;
+                    next = &(map->table[i]);
+                    break;
+                }
+            }
+            if (next == NULL) break;
+
+            svctxdata[ntxdata].key = (char *)mp_obj_str_get_str(next->key);
+            svctxdata[ntxdata].value = (char *)mp_obj_str_get_str(next->value);
+            ntxdata++;
+            if (ntxdata > 7) break;
         }
     }
 
@@ -270,7 +280,7 @@ STATIC mp_obj_t mdns_host_query(mp_uint_t n_args, const mp_obj_t *pos_args, mp_m
 	else if (res == ESP_ERR_NOT_FOUND) sprintf(tmps, "Host was not found!");
 	else sprintf(tmps, "Query Failed");
 
-    return mp_obj_new_str(tmps, strlen(tmps), false);;
+    return mp_obj_new_str(tmps, strlen(tmps));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mdns_host_query_obj, 2, mdns_host_query);
 
@@ -320,21 +330,21 @@ STATIC mp_obj_t mdns_service_query(mp_uint_t n_args, const mp_obj_t *pos_args, m
 		    while (r) {
 		    	// Interface type
 				sprintf(tmps, "%s",  if_str[r->tcpip_if]);
-				t->items[0] = mp_obj_new_str(tmps, strlen(tmps), false);
+				t->items[0] = mp_obj_new_str(tmps, strlen(tmps));
 
 				// Protocol, V4 or V6
 				sprintf(tmps, "%s",  ip_protocol_str[r->ip_protocol]);
-				t->items[1] = mp_obj_new_str(tmps, strlen(tmps), false);
+				t->items[1] = mp_obj_new_str(tmps, strlen(tmps));
 
 				// Instance name
 				if (r->instance_name) sprintf(tmps, "%s", r->instance_name);
 				else sprintf(tmps, "?");
-				t->items[2] = mp_obj_new_str(tmps, strlen(tmps), false);
+				t->items[2] = mp_obj_new_str(tmps, strlen(tmps));
 
 				// Host name & port
 				if(r->hostname) {
 					sprintf(tmps, "%s.local", r->hostname);
-					t->items[3] = mp_obj_new_str(tmps, strlen(tmps), false);
+					t->items[3] = mp_obj_new_str(tmps, strlen(tmps));
 					t->items[4] = mp_obj_new_int(r->port);
 				}
 				else {
@@ -353,7 +363,7 @@ STATIC mp_obj_t mdns_service_query(mp_uint_t n_args, const mp_obj_t *pos_args, m
 						else {
 							sprintf(tmps, IPSTR, IP2STR(&(a->addr.u_addr.ip4)));
 						}
-						mp_obj_list_append(addrlist, mp_obj_new_str(tmps, strlen(tmps), false));
+						mp_obj_list_append(addrlist, mp_obj_new_str(tmps, strlen(tmps)));
 			            a = a->next;
 					}
 					t->items[5] = addrlist;
@@ -364,7 +374,7 @@ STATIC mp_obj_t mdns_service_query(mp_uint_t n_args, const mp_obj_t *pos_args, m
 		        if(r->txt_count){
 		            mp_obj_dict_t *dct = mp_obj_new_dict(0);
 		            for(int i=0; i<r->txt_count; i++){
-		            	mp_obj_dict_store(dct,  mp_obj_new_str(r->txt[i].key, strlen(r->txt[i].key), false), mp_obj_new_str(r->txt[i].value, strlen(r->txt[i].key), false));
+		            	mp_obj_dict_store(dct,  mp_obj_new_str(r->txt[i].key, strlen(r->txt[i].key)), mp_obj_new_str(r->txt[i].value, strlen(r->txt[i].key)));
 		            }
 					t->items[6] = dct;
 		        }

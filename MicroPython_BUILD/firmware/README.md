@@ -19,8 +19,16 @@ Available firmwares:
 All firmwares are configured with 1 MB SPIFFS file system.<br>
 Telnet server, FTP server, mDNS and Mqtt are enabled.
 
-To flash, use **esptool.py**.
+To flash, use **esptool.py**.<br>
+If you don't have it installed, install it using `pip`:<br>
+`pip install esptool` or `pip3 install esptool`
 
-You can use the `flash.sh` script, run it in its directory.
+You can use the `flash.sh` script to flash the firmware:<br>
 
-**Edit the** `flash.sh` **and set the correct usb port for your board.**
+Change you working directory to the selected firmware directory (the one containing **MicroPython.bin**) and run:
+
+```
+../flash.sh -p <your_comm_port> -b <baud_rate>
+```
+
+`-p` & `-b` options are optional, default port is `/dev/ttyUSB0`, default baud rate is `460800`.

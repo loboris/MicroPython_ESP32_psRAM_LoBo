@@ -56,18 +56,22 @@
 #endif
 
 #if MPZ_DIG_SIZE > 16
+#define MPZ_DBL_DIG_SIZE (64)
 typedef uint32_t mpz_dig_t;
 typedef uint64_t mpz_dbl_dig_t;
 typedef int64_t mpz_dbl_dig_signed_t;
 #elif MPZ_DIG_SIZE > 8
+#define MPZ_DBL_DIG_SIZE (32)
 typedef uint16_t mpz_dig_t;
 typedef uint32_t mpz_dbl_dig_t;
 typedef int32_t mpz_dbl_dig_signed_t;
 #elif MPZ_DIG_SIZE > 4
+#define MPZ_DBL_DIG_SIZE (16)
 typedef uint8_t mpz_dig_t;
 typedef uint16_t mpz_dbl_dig_t;
 typedef int16_t mpz_dbl_dig_signed_t;
 #else
+#define MPZ_DBL_DIG_SIZE (8)
 typedef uint8_t mpz_dig_t;
 typedef uint8_t mpz_dbl_dig_t;
 typedef int8_t mpz_dbl_dig_signed_t;
@@ -135,7 +139,7 @@ static inline size_t mpz_max_num_bits(const mpz_t *z) { return z->len * MPZ_DIG_
 mp_int_t mpz_hash(const mpz_t *z);
 bool mpz_as_int_checked(const mpz_t *z, mp_int_t *value);
 bool mpz_as_uint_checked(const mpz_t *z, mp_uint_t *value);
-bool mpz_as_int64_checked(const mpz_t *i, uint64_t *value);
+bool mpz_as_int64_checked(const mpz_t *i, int64_t *value);
 bool mpz_as_uint64_checked(const mpz_t *i, uint64_t *value);
 void mpz_as_bytes(const mpz_t *z, bool big_endian, size_t len, byte *buf);
 #if MICROPY_PY_BUILTINS_FLOAT

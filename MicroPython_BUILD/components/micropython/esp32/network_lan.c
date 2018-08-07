@@ -38,6 +38,7 @@
 #include "eth_phy/phy_lan8720.h"
 #include "tcpip_adapter.h"
 
+#include "modmachine.h"
 #include "modnetwork.h"
 
 typedef struct _lan_if_obj_t {
@@ -117,9 +118,9 @@ STATIC mp_obj_t get_lan(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_ar
         }
     }
 
-    self->mdc_pin = machine_pin_get_id(args[ARG_mdc].u_obj);
-    self->mdio_pin = machine_pin_get_id(args[ARG_mdio].u_obj);
-    self->phy_power_pin = args[ARG_power].u_obj == mp_const_none ? -1 : machine_pin_get_id(args[ARG_power].u_obj);
+    self->mdc_pin = machine_pin_get_gpio(args[ARG_mdc].u_obj);
+    self->mdio_pin = machine_pin_get_gpio(args[ARG_mdio].u_obj);
+    self->phy_power_pin = args[ARG_power].u_obj == mp_const_none ? -1 : machine_pin_get_gpio(args[ARG_power].u_obj);
 
     if (args[ARG_phy_addr].u_int < 0x00 || args[ARG_phy_addr].u_int > 0x1f) {
         mp_raise_ValueError("invalid phy address");

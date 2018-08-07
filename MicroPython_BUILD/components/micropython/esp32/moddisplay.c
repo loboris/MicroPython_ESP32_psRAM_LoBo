@@ -674,6 +674,78 @@ STATIC mp_obj_t display_tft_drawRect(size_t n_args, const mp_obj_t *pos_args, mp
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(display_tft_drawRect_obj, 4, display_tft_drawRect);
 
+//--------------------------------------------------------------------------------------------------
+STATIC mp_obj_t display_tft_readScreen(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
+
+    const mp_arg_t allowed_args[] = {
+        { MP_QSTR_x,      MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_y,      MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_width,  MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_height, MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_buffer,                   MP_ARG_OBJ, { .u_obj = mp_const_none } },
+    };
+    display_tft_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
+    if (setupDevice(self)) return mp_const_none;
+
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    color_t color = _fg;
+	mp_int_t x = args[0].u_int;
+    mp_int_t y = args[1].u_int;
+	mp_int_t w = args[2].u_int;
+    mp_int_t h = args[3].u_int;
+
+	// clipping
+	if ((x >= _width) || (y > _height)) {
+		mp_raise_ValueError("Point (x,y) outside the display area");
+	}
+
+	if (x < 0) {
+		w -= (0 - x);
+		x = 0;
+	}
+	if (y < 0) {
+		h -= (0 - y);
+		y = 0;
+	}
+	if (w < 0) w = 0;
+	if (h < 0) h = 0;
+
+	if ((x + w) > (_width+1)) w = _width - x + 1;
+	if ((y + h) > (_height+1)) h = _height - y + 1;
+	if (w == 0) w = 1;
+	if (h == 0) h = 1;
+
+	int clr_len = h*w;
+	int buf_len = (clr_len*3) + 1;
+	uint8_t *buf = NULL;
+	vstr_t vstr;
+
+	if (args[4].u_obj == mp_const_none) {
+		vstr_init_len(&vstr, buf_len);
+		buf = (uint8_t *)vstr.buf;
+	}
+	else {
+	    mp_buffer_info_t bufinfo;
+	    mp_get_buffer_raise(args[4].u_obj, &bufinfo, MP_BUFFER_WRITE);
+	    if (bufinfo.len != buf_len) {
+			mp_raise_ValueError("Wrong buffer length");
+	    }
+		buf = (uint8_t *)bufinfo.buf;
+	}
+    memset(buf, 0, buf_len);
+
+	esp_err_t ret = read_data(x, y, x+w+1, y+h+1, (uint32_t)clr_len, buf, 1);
+
+	if (ret == ESP_OK) {
+		if (args[4].u_obj == mp_const_none) return mp_obj_new_str_from_vstr(&mp_type_bytes, &vstr);
+		else return mp_const_true;
+	}
+    return mp_const_false;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(display_tft_readScreen_obj, 4, display_tft_readScreen);
+
 //-----------------------------------------------------------------------------------------------------
 STATIC mp_obj_t display_tft_drawRoundRect(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
 
@@ -1450,6 +1522,55 @@ STATIC mp_obj_t display_tft_send_cmd_data(mp_obj_t self_in, mp_obj_t cmd_in, mp_
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(display_tft_send_cmd_data_obj, display_tft_send_cmd_data);
 
+//--------------------------------------------------
+STATIC mp_obj_t display_tft_get_bg(mp_obj_t self_in)
+{
+    int icolor = (int)((_bg.r << 16) | (_bg.g << 8) | _bg.b);
+    return mp_obj_new_int(icolor);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(display_tft_get_bg_obj, display_tft_get_bg);
+
+//--------------------------------------------------
+STATIC mp_obj_t display_tft_get_fg(mp_obj_t self_in)
+{
+    int icolor = (int)((_fg.r << 16) | (_fg.g << 8) | _fg.b);
+    return mp_obj_new_int(icolor);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(display_tft_get_fg_obj, display_tft_get_fg);
+
+//---------------------------------------------------------------------
+STATIC mp_obj_t display_tft_set_bg(mp_obj_t self_in, mp_obj_t color_in)
+{
+    color_t color = intToColor(mp_obj_get_int(color_in));
+    _bg = color;
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(display_tft_set_bg_obj, display_tft_set_bg);
+
+//---------------------------------------------------------------------
+STATIC mp_obj_t display_tft_set_fg(mp_obj_t self_in, mp_obj_t color_in)
+{
+    color_t color = intToColor(mp_obj_get_int(color_in));
+    _fg = color;
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(display_tft_set_fg_obj, display_tft_set_fg);
+
+//-------------------------------------------------
+STATIC mp_obj_t display_tft_get_X(mp_obj_t self_in)
+{
+	int x = TFT_X;
+    return mp_obj_new_int(x);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(display_tft_get_X_obj, display_tft_get_X);
+
+//-------------------------------------------------
+STATIC mp_obj_t display_tft_get_Y(mp_obj_t self_in)
+{
+	int y = TFT_Y;
+    return mp_obj_new_int(y);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(display_tft_get_Y_obj, display_tft_get_Y);
 
 
 //================================================================
@@ -1467,6 +1588,7 @@ STATIC const mp_rom_map_elem_t display_tft_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_arc),					MP_ROM_PTR(&display_tft_drawArc_obj) },
     { MP_ROM_QSTR(MP_QSTR_polygon),				MP_ROM_PTR(&display_tft_drawPoly_obj) },
     { MP_ROM_QSTR(MP_QSTR_rect),				MP_ROM_PTR(&display_tft_drawRect_obj) },
+    { MP_ROM_QSTR(MP_QSTR_readScreen),			MP_ROM_PTR(&display_tft_readScreen_obj) },
     { MP_ROM_QSTR(MP_QSTR_roundrect),			MP_ROM_PTR(&display_tft_drawRoundRect_obj) },
     { MP_ROM_QSTR(MP_QSTR_clear),				MP_ROM_PTR(&display_tft_fillScreen_obj) },
     { MP_ROM_QSTR(MP_QSTR_clearwin),			MP_ROM_PTR(&display_tft_fillWin_obj) },
@@ -1491,6 +1613,12 @@ STATIC const mp_rom_map_elem_t display_tft_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_getCalib),			MP_ROM_PTR(&display_tft_getCalib_obj) },
     { MP_ROM_QSTR(MP_QSTR_backlight),			MP_ROM_PTR(&display_tft_backlight_obj) },
     { MP_ROM_QSTR(MP_QSTR_getTouchType),		MP_ROM_PTR(&display_tft_touch_type_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get_fg),				MP_ROM_PTR(&display_tft_get_fg_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get_bg),				MP_ROM_PTR(&display_tft_get_bg_obj) },
+    { MP_ROM_QSTR(MP_QSTR_set_fg),				MP_ROM_PTR(&display_tft_set_fg_obj) },
+    { MP_ROM_QSTR(MP_QSTR_set_bg),				MP_ROM_PTR(&display_tft_set_bg_obj) },
+    { MP_ROM_QSTR(MP_QSTR_text_x),				MP_ROM_PTR(&display_tft_get_X_obj) },
+    { MP_ROM_QSTR(MP_QSTR_text_y),				MP_ROM_PTR(&display_tft_get_Y_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_tft_setspeed),		MP_ROM_PTR(&display_tft_set_speed_obj) },
     { MP_ROM_QSTR(MP_QSTR_tft_select),			MP_ROM_PTR(&display_tft_select_obj) },

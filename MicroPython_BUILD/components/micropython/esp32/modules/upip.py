@@ -1,3 +1,10 @@
+#
+# upip - Package manager for MicroPython
+#
+# Copyright (c) 2015-2018 Paul Sokolovsky
+#
+# Licensed under the MIT license.
+#
 import sys
 import gc
 import uos as os
@@ -5,7 +12,6 @@ import uerrno as errno
 import ujson as json
 import uzlib
 import upip_utarfile as tarfile
-gc.collect()
 
 
 debug = False
@@ -93,6 +99,11 @@ def install_tar(f, prefix):
                 save_file(outfname, subf)
     return meta
 
+def expandhome(s):
+    if "~/" in s:
+        h = os.getenv("HOME")
+        s = s.replace("~/", h + "/")
+    return s
 
 import ussl
 import usocket
@@ -105,16 +116,16 @@ def url_open(url):
 
     proto, _, host, urlpath = url.split('/', 3)
     try:
-        ai = usocket.getaddrinfo(host, 443)
+        ai = usocket.getaddrinfo(host, 443, 0, usocket.SOCK_STREAM)
     except OSError as e:
         fatal("Unable to resolve %s (no Internet?)" % host, e)
     #print("Address infos:", ai)
-    addr = ai[0][4]
+    ai = ai[0]
 
-    s = usocket.socket(ai[0][0])
+    s = usocket.socket(ai[0], ai[1], ai[2])
     try:
         #print("Connect address:", addr)
-        s.connect(addr)
+        s.connect(ai[-1])
 
         if proto == "https:":
             s = ussl.wrap_socket(s, server_hostname=host)
@@ -144,7 +155,7 @@ def url_open(url):
 
 
 def get_pkg_metadata(name):
-    f = url_open("https://pypi.python.org/pypi/%s/json" % name)
+    f = url_open("https://pypi.org/pypi/%s/json" % name)
     try:
         return json.load(f)
     finally:
@@ -181,6 +192,7 @@ def install_pkg(pkg_spec, install_path):
     return meta
 
 def install(to_install, install_path=None):
+    gc.collect()
     # Calculate gzip dictionary size to use
     global gzdict_sz
     sz = gc.mem_free() + gc.mem_alloc()
@@ -215,12 +227,14 @@ def install(to_install, install_path=None):
         print("Error installing '{}': {}, packages may be partially installed".format(
                 pkg_spec, e),
             file=sys.stderr)
+    gc.collect()
 
 def get_install_path():
     global install_path
     if install_path is None:
         # sys.path[0] is current module's path
         install_path = sys.path[1]
+    install_path = expandhome(install_path)
     return install_path
 
 def cleanup():

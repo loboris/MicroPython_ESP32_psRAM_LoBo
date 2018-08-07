@@ -395,7 +395,7 @@ static void state(struct connectdata *conn, sshstate nowstate)
   sshc->state = nowstate;
 }
 
-
+/*
 // ==== LoBo ===============================================
 
 int access (const char *file, int type)
@@ -446,7 +446,7 @@ return 0;
 }
 
 // ==== LoBo ===============================================
-
+*/
 
 #ifdef HAVE_LIBSSH2_KNOWNHOST_API
 static int sshkeycallback(struct Curl_easy *easy,

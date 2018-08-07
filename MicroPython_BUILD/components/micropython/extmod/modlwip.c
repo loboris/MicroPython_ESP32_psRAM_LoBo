@@ -6,6 +6,7 @@
  * Copyright (c) 2013, 2014 Damien P. George
  * Copyright (c) 2015 Galen Hazelwood
  * Copyright (c) 2015-2017 Paul Sokolovsky
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -498,6 +499,11 @@ STATIC mp_uint_t lwip_tcp_send(lwip_socket_obj_t *socket, const byte *buf, mp_ui
 
     err_t err = tcp_write(socket->pcb.tcp, buf, write_len, TCP_WRITE_FLAG_COPY);
 
+    // If the output buffer is getting full then send the data to the lower layers
+    if (err == ERR_OK && tcp_sndbuf(socket->pcb.tcp) < TCP_SND_BUF / 4) {
+        err = tcp_output(socket->pcb.tcp);
+    }
+
     if (err != ERR_OK) {
         *_errno = error_lookup_table[-err];
         return MP_STREAM_ERROR;
@@ -631,42 +637,6 @@ STATIC mp_obj_t lwip_socket_make_new(const mp_obj_type_t *type, size_t n_args, s
     socket->recv_offset = 0;
     return socket;
 }
-
-STATIC mp_obj_t lwip_socket_close(mp_obj_t self_in) {
-    lwip_socket_obj_t *socket = self_in;
-    bool socket_is_listener = false;
-
-    if (socket->pcb.tcp == NULL) {
-        return mp_const_none;
-    }
-    switch (socket->type) {
-        case MOD_NETWORK_SOCK_STREAM: {
-            if (socket->pcb.tcp->state == LISTEN) {
-                socket_is_listener = true;
-            }
-            if (tcp_close(socket->pcb.tcp) != ERR_OK) {
-                DEBUG_printf("lwip_close: had to call tcp_abort()\n");
-                tcp_abort(socket->pcb.tcp);
-            }
-            break;
-        }
-        case MOD_NETWORK_SOCK_DGRAM: udp_remove(socket->pcb.udp); break;
-        //case MOD_NETWORK_SOCK_RAW: raw_remove(socket->pcb.raw); break;
-    }
-    socket->pcb.tcp = NULL;
-    socket->state = _ERR_BADF;
-    if (socket->incoming.pbuf != NULL) {
-        if (!socket_is_listener) {
-            pbuf_free(socket->incoming.pbuf);
-        } else {
-            tcp_abort(socket->incoming.connection);
-        }
-        socket->incoming.pbuf = NULL;
-    }
-
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(lwip_socket_close_obj, lwip_socket_close);
 
 STATIC mp_obj_t lwip_socket_bind(mp_obj_t self_in, mp_obj_t addr_in) {
     lwip_socket_obj_t *socket = self_in;
@@ -1163,7 +1133,8 @@ STATIC mp_uint_t lwip_socket_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_
             ret |= MP_STREAM_POLL_RD;
         }
 
-        if (flags & MP_STREAM_POLL_WR && tcp_sndbuf(socket->pcb.tcp) > 0) {
+        // Note: pcb.tcp==NULL if state<0, and in this case we can't call tcp_sndbuf
+        if (flags & MP_STREAM_POLL_WR && socket->pcb.tcp != NULL && tcp_sndbuf(socket->pcb.tcp) > 0) {
             ret |= MP_STREAM_POLL_WR;
         }
 
@@ -1172,7 +1143,46 @@ STATIC mp_uint_t lwip_socket_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_
             // return EOF, write - error. Without this poll will hang on a
             // socket which was closed by peer.
             ret |= flags & (MP_STREAM_POLL_RD | MP_STREAM_POLL_WR);
+        } else if (socket->state == ERR_RST) {
+            // Socket was reset by peer, a write will return an error
+            ret |= flags & (MP_STREAM_POLL_WR | MP_STREAM_POLL_HUP);
+        } else if (socket->state < 0) {
+            // Socket in some other error state, use catch-all ERR flag
+            // TODO: may need to set other return flags here
+            ret |= flags & MP_STREAM_POLL_ERR;
         }
+
+    } else if (request == MP_STREAM_CLOSE) {
+        bool socket_is_listener = false;
+
+        if (socket->pcb.tcp == NULL) {
+            return 0;
+        }
+        switch (socket->type) {
+            case MOD_NETWORK_SOCK_STREAM: {
+                if (socket->pcb.tcp->state == LISTEN) {
+                    socket_is_listener = true;
+                }
+                if (tcp_close(socket->pcb.tcp) != ERR_OK) {
+                    DEBUG_printf("lwip_close: had to call tcp_abort()\n");
+                    tcp_abort(socket->pcb.tcp);
+                }
+                break;
+            }
+            case MOD_NETWORK_SOCK_DGRAM: udp_remove(socket->pcb.udp); break;
+            //case MOD_NETWORK_SOCK_RAW: raw_remove(socket->pcb.raw); break;
+        }
+        socket->pcb.tcp = NULL;
+        socket->state = _ERR_BADF;
+        if (socket->incoming.pbuf != NULL) {
+            if (!socket_is_listener) {
+                pbuf_free(socket->incoming.pbuf);
+            } else {
+                tcp_abort(socket->incoming.connection);
+            }
+            socket->incoming.pbuf = NULL;
+        }
+        ret = 0;
 
     } else {
         *errcode = MP_EINVAL;
@@ -1183,8 +1193,8 @@ STATIC mp_uint_t lwip_socket_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_
 }
 
 STATIC const mp_rom_map_elem_t lwip_socket_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&lwip_socket_close_obj) },
-    { MP_ROM_QSTR(MP_QSTR_close), MP_ROM_PTR(&lwip_socket_close_obj) },
+    { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&mp_stream_close_obj) },
+    { MP_ROM_QSTR(MP_QSTR_close), MP_ROM_PTR(&mp_stream_close_obj) },
     { MP_ROM_QSTR(MP_QSTR_bind), MP_ROM_PTR(&lwip_socket_bind_obj) },
     { MP_ROM_QSTR(MP_QSTR_listen), MP_ROM_PTR(&lwip_socket_listen_obj) },
     { MP_ROM_QSTR(MP_QSTR_accept), MP_ROM_PTR(&lwip_socket_accept_obj) },
@@ -1291,13 +1301,32 @@ STATIC void lwip_getaddrinfo_cb(const char *name, ip_addr_t *ipaddr, void *arg) 
 
 // lwip.getaddrinfo
 STATIC mp_obj_t lwip_getaddrinfo(size_t n_args, const mp_obj_t *args) {
-    if (n_args > 2) {
-        mp_warning("getaddrinfo constraints not supported");
-    }
-
     mp_obj_t host_in = args[0], port_in = args[1];
     const char *host = mp_obj_str_get_str(host_in);
     mp_int_t port = mp_obj_get_int(port_in);
+
+    // If constraints were passed then check they are compatible with the supported params
+    if (n_args > 2) {
+        mp_int_t family = mp_obj_get_int(args[2]);
+        mp_int_t type = 0;
+        mp_int_t proto = 0;
+        mp_int_t flags = 0;
+        if (n_args > 3) {
+            type = mp_obj_get_int(args[3]);
+            if (n_args > 4) {
+                proto = mp_obj_get_int(args[4]);
+                if (n_args > 5) {
+                    flags = mp_obj_get_int(args[5]);
+                }
+            }
+        }
+        if (!((family == 0 || family == MOD_NETWORK_AF_INET)
+            && (type == 0 || type == MOD_NETWORK_SOCK_STREAM)
+            && proto == 0
+            && flags == 0)) {
+            mp_warning("unsupported getaddrinfo constraints");
+        }
+    }
 
     getaddrinfo_state_t state;
     state.status = 0;

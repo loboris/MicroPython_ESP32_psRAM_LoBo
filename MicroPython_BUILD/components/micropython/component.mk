@@ -7,7 +7,7 @@
 COMPONENT_ADD_INCLUDEDIRS := .  genhdr py esp32 lib lib/utils lib/mp-readline extmod extmod/crypto-algorithms lib/netutils drivers/dht \
 							 lib/timeutils  lib/berkeley-db-1.xx/include lib/berkeley-db-1.xx/btree \
 							 lib/berkeley-db-1.xx/db lib/berkeley-db-1.xx/hash lib/berkeley-db-1.xx/man lib/berkeley-db-1.xx/mpool lib/berkeley-db-1.xx/recno \
-							 ../curl/include ../curl/lib ../zlib ../libssh2/include ../espmqtt/include
+							 ../curl/include ../curl/lib ../zlib ../libssh2/include ../espmqtt/include ../espmqtt/lib/include ../littlefs
 
 COMPONENT_PRIV_INCLUDEDIRS := .  genhdr py esp32 lib
 
@@ -49,6 +49,8 @@ MP_EXTRA_INC += -I$(PROJECT_PATH)/components/curl/include
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/libssh2/include
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/zlib
 MP_EXTRA_INC += -I$(PROJECT_PATH)/components/espmqtt/include
+MP_EXTRA_INC += -I$(PROJECT_PATH)/components/espmqtt/lib/include
+MP_EXTRA_INC += -I$(PROJECT_PATH)/components/littlefs
 MP_EXTRA_INC += -I$(COMPONENT_PATH)/py
 MP_EXTRA_INC += -I$(COMPONENT_PATH)/lib/mp-readline
 MP_EXTRA_INC += -I$(COMPONENT_PATH)/lib/netutils
@@ -81,7 +83,7 @@ MP_EXTRA_INC += -I$(ESPCOMP)/tcpip_adapter/include
 MP_EXTRA_INC += -I$(ESPCOMP)/lwip/include/lwip
 MP_EXTRA_INC += -I$(ESPCOMP)/lwip/include/lwip/port
 MP_EXTRA_INC += -I$(ESPCOMP)/lwip/include/lwip/posix
-MP_EXTRA_INC += -I$(ESPCOMP)/mbedtls/include
+MP_EXTRA_INC += -I$(ESPCOMP)/mbedtls/mbedtls/include
 MP_EXTRA_INC += -I$(ESPCOMP)/mbedtls/port/include
 MP_EXTRA_INC += -I$(ESPCOMP)/spi_flash/include
 MP_EXTRA_INC += -I$(ESPCOMP)/wear_levelling/include
@@ -103,6 +105,20 @@ MP_EXTRA_INC += -I$(ESPCOMP)/mdns/include
 ifdef CONFIG_MICROPY_USE_BLUETOOTH
 MP_EXTRA_INC += -I$(ESPCOMP)/bt/include
 MP_EXTRA_INC += -I$(ESPCOMP)/bt/bluedroid/api/include
+else
+ifdef CONFIG_MICROPY_USE_RFCOMM
+MP_EXTRA_INC += -I$(ESPCOMP)/bt/include
+MP_EXTRA_INC += -I$(ESPCOMP)/bt/bluedroid/api/include
+endif
+endif
+
+ifdef CONFIG_MICROPY_USE_GPS
+MP_EXTRA_INC += -I$(PROJECT_PATH)/components/libnmea/src/nmea
+MP_EXTRA_INC += -I$(PROJECT_PATH)/components/libnmea/src/parsers
+endif
+
+ifdef CONFIG_MICROPY_USE_REQUESTS
+MP_EXTRA_INC += -I$(ESPCOMP)/esp_http_client/include/
 endif
 
 # CPP macro
@@ -130,7 +146,7 @@ MP_CLEAN_EXTRA += $(COMPONENT_PATH)/genhdr/qstrdefs.generated.h
 # --------------------------------
 include $(COMPONENT_PATH)/py/py.mk
 
-#CFLAGS += -std=gnu99
+#CFLAGS += -DESP_PLATFORM
 CFLAGS += $(CFLAGS_MOD)
 
 
@@ -176,6 +192,14 @@ ifdef CONFIG_MICROPY_USE_CURL
 SRC_C += esp32/modcurl.c
 endif
 
+ifdef CONFIG_MICROPY_USE_REQUESTS
+SRC_C += esp32/modrequests.c
+endif
+
+ifdef CONFIG_MICROPY_USE_GPS
+SRC_C += esp32/machine_gps.c
+endif
+
 ifdef CONFIG_MICROPY_USE_SSH
 SRC_C += esp32/modssh.c
 endif
@@ -205,29 +229,15 @@ SRC_C += esp32/bluetooth_le.c
 SRC_C += esp32/modbluetooth.c
 endif
 
+ifdef CONFIG_MICROPY_USE_RFCOMM
+SRC_C += esp32/machine_rfcomm.c
+endif
+
 EXTMOD_SRC_C = $(addprefix extmod/,\
 	modbtree.c \
 	)
 
 LIB_SRC_C = $(addprefix lib/,\
-	libm/math.c \
-	libm/fmodf.c \
-	libm/roundf.c \
-	libm/ef_sqrt.c \
-	libm/kf_rem_pio2.c \
-	libm/kf_sin.c \
-	libm/kf_cos.c \
-	libm/kf_tan.c \
-	libm/ef_rem_pio2.c \
-	libm/sf_sin.c \
-	libm/sf_cos.c \
-	libm/sf_tan.c \
-	libm/sf_frexp.c \
-	libm/sf_modf.c \
-	libm/sf_ldexp.c \
-	libm/asinfacosf.c \
-	libm/atanf.c \
-	libm/atan2f.c \
 	mp-readline/readline.c \
 	netutils/netutils.c \
 	timeutils/timeutils.c \
@@ -248,6 +258,7 @@ LIBS_SRC_C = $(addprefix esp32/libs/,\
 	ow/owb_rmt.c \
 	ow/owb.c \
 	ow/ds18b20.c \
+	littleflash.c \
 	)
 
 ifdef CONFIG_MICROPY_USE_DISPLAY

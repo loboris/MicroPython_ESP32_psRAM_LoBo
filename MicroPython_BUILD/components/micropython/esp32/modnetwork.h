@@ -24,14 +24,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 #ifndef MICROPY_INCLUDED_ESP32_MODNETWORK_H
 #define MICROPY_INCLUDED_ESP32_MODNETWORK_H
+
+#include "esp_wifi_types.h"
+
+#define WIFI_STATE_NOTINIT	-1
+#define WIFI_STATE_INIT		0
+#define WIFI_STATE_STOPPED	1
+#define WIFI_STATE_STARTED	2
 
 enum { PHY_LAN8720, PHY_TLK110 };
 
 typedef struct _wlan_if_obj_t {
     mp_obj_base_t base;
     int if_id;
+    wifi_mode_t wifi_mode;
 } wlan_if_obj_t;
 
 typedef void (*wifi_sta_rx_probe_req_t)(const uint8_t *frame, int len, int rssi);
@@ -39,10 +48,12 @@ extern esp_err_t esp_wifi_set_sta_rx_probe_req(wifi_sta_rx_probe_req_t cb);
 
 extern const mp_obj_type_t wlan_if_type;
 
+extern int wifi_network_state;
 extern bool wifi_sta_isconnected;
 extern bool wifi_sta_has_ipaddress;
 extern bool wifi_sta_changed_ipaddress;
 extern bool wifi_ap_isconnected;
+extern bool wifi_ap_sta_isconnected;
 
 #ifdef CONFIG_MICROPY_USE_ETHERNET
 MP_DECLARE_CONST_FUN_OBJ_KW(get_lan_obj);

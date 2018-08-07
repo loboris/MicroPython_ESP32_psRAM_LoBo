@@ -30,21 +30,28 @@
 #include "freertos/FreeRTOS.h"
 #include "sdkconfig.h"
 
+#include "driver/i2c.h"
+#include "driver/gpio.h"
+#include "driver/periph_ctrl.h"
+#include "esp_log.h"
+
 #include "py/mpstate.h"
 #include "py/runtime.h"
 #include "py/obj.h"
 
-#include "machine_pin.h"
-#include "driver/i2c.h"
-#include "driver/gpio.h"
-#include "driver/periph_ctrl.h"
+#include "modmachine.h"
 
 #define I2C_ACK_CHECK_EN            (1)
 #define I2C_RX_MAX_BUFF_LEN			2048	// maximum low level commands receive buffer length
-#define I2C_SLAVE_MAX_BUFF_LEN		2048	// maximum slave buffer length (max 4096 !)
 #define I2C_SLAVE_DEFAULT_BUFF_LEN	256		// default slave buffer length
 #define I2C_SLAVE_ADDR_DEFAULT		32		// default slave address
 #define I2C_SLAVE_MUTEX_TIMEOUT		(500 / portTICK_PERIOD_MS)
+#define I2C_SLAVE_TASK_STACK_SIZE   832
+
+#define I2C_SLAVE_CBTYPE_NONE       0
+#define I2C_SLAVE_CBTYPE_ADDR       1
+#define I2C_SLAVE_CBTYPE_DATA_RX    2
+#define I2C_SLAVE_CBTYPE_DATA_TX    4
 
 typedef struct _mp_machine_i2c_obj_t {
     mp_obj_base_t base;
@@ -59,25 +66,28 @@ typedef struct _mp_machine_i2c_obj_t {
     uint8_t *rx_data;			// low level commands receive buffer
     int8_t slave_addr;			// slave only, slave 8-bit address
     uint16_t slave_buflen;		// slave only, data buffer length
-    uint8_t *slave_data;		// slave only, data buffer
-    uint32_t *slave_cb_read;	// slave only, slave callback function for read data
-    uint32_t *slave_cb_write;	// slave only, slave callback function for write data
-    uint32_t *slave_cb_data;	// slave only, slave callback function for data
+    uint16_t slave_rolen;       // slave only, read only buffer area length
+    uint32_t *slave_cb;	        // slave only, slave callback function
+    bool slave_busy;
+    uint8_t slave_cbtype;
 } mp_machine_i2c_obj_t;
 
+
+extern int MainTaskCore;
 
 const mp_obj_type_t machine_hw_i2c_type;
 
 static int i2c_used[I2C_MODE_MAX] = { -1, -1 };
-static QueueHandle_t slave_mutex = NULL;
-static TaskHandle_t i2c_slave_task_handle[I2C_MODE_MAX] = { NULL, NULL };
+static QueueHandle_t slave_mutex[I2C_MODE_MAX] = { NULL, NULL };
+static TaskHandle_t i2c_slave_task_handle = NULL;
+static i2c_slave_state_t slave_state;
 
 
 // ============================================================================================
 // === Low level I2C functions using esp-idf i2c-master driver ================================
 // ============================================================================================
 
-//---------------------------------------------------------
+//--------------------------------------------------------------
 STATIC esp_err_t i2c_init_master (mp_machine_i2c_obj_t *i2c_obj)
 {
     i2c_config_t conf;
@@ -90,11 +100,11 @@ STATIC esp_err_t i2c_init_master (mp_machine_i2c_obj_t *i2c_obj)
     conf.master.clk_speed = i2c_obj->speed;
 
     i2c_param_config(i2c_obj->bus_id, &conf);
-    return i2c_driver_install(i2c_obj->bus_id, I2C_MODE_MASTER, 0, 0, 0);
+    return i2c_driver_install(i2c_obj->bus_id, I2C_MODE_MASTER, 0, 0, false, ESP_INTR_FLAG_IRAM);
 }
 
-//--------------------------------------------------------
-STATIC esp_err_t i2c_init_slave (mp_machine_i2c_obj_t *i2c_obj)
+//------------------------------------------------------------------------
+STATIC esp_err_t i2c_init_slave (mp_machine_i2c_obj_t *i2c_obj, bool busy)
 {
     i2c_config_t conf;
 
@@ -107,11 +117,11 @@ STATIC esp_err_t i2c_init_slave (mp_machine_i2c_obj_t *i2c_obj)
     conf.slave.slave_addr = i2c_obj->slave_addr;
 
     i2c_param_config(i2c_obj->bus_id, &conf);
-    return i2c_driver_install(i2c_obj->bus_id, conf.mode, i2c_obj->slave_buflen + 8, i2c_obj->slave_buflen + 8, 0);
+    return i2c_driver_install(i2c_obj->bus_id, conf.mode, i2c_obj->slave_buflen, i2c_obj->slave_rolen, busy, ESP_INTR_FLAG_IRAM);
 }
 
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------
-STATIC void mp_i2c_master_write(mp_machine_i2c_obj_t *i2c_obj, uint16_t slave_addr, uint8_t memwrite, uint32_t memaddr, uint8_t *data, uint16_t len, bool stop)
+//------------------------------------------------------------------------------------------------------------------------------------------------------------
+STATIC int mp_i2c_master_write(mp_machine_i2c_obj_t *i2c_obj, uint16_t slave_addr, uint8_t memwrite, uint32_t memaddr, uint8_t *data, uint16_t len, bool stop)
 {
 	esp_err_t ret = ESP_FAIL;
 
@@ -128,7 +138,9 @@ STATIC void mp_i2c_master_write(mp_machine_i2c_obj_t *i2c_obj, uint16_t slave_ad
     }
 
     // send data
-    if (i2c_master_write(cmd, data, len, I2C_ACK_CHECK_EN) != ESP_OK) {ret=5; goto error;};
+    if ((data) && (len > 0)) {
+        if (i2c_master_write(cmd, data, len, I2C_ACK_CHECK_EN) != ESP_OK) {ret=5; goto error;};
+    }
     if (stop) {
         if (i2c_master_stop(cmd) != ESP_OK) {ret=6; goto error;};
     }
@@ -138,15 +150,11 @@ STATIC void mp_i2c_master_write(mp_machine_i2c_obj_t *i2c_obj, uint16_t slave_ad
 error:
     i2c_cmd_link_delete(cmd);
 
-    if (ret != ESP_OK) {
-    	char errs[32];
-    	sprintf(errs, "I2C bus error (%d)", ret);
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, errs));
-    }
+    return ret;
 }
 
-//-----------------------------------------------------------------------------------------------------------------------------------------------------------
-STATIC void mp_i2c_master_read(mp_machine_i2c_obj_t *i2c_obj, uint16_t slave_addr, uint8_t memread, uint32_t memaddr, uint8_t *data, uint16_t len, bool stop)
+//----------------------------------------------------------------------------------------------------------------------------------------------------------
+STATIC int mp_i2c_master_read(mp_machine_i2c_obj_t *i2c_obj, uint16_t slave_addr, uint8_t memread, uint32_t memaddr, uint8_t *data, uint16_t len, bool stop)
 {
 	esp_err_t ret = ESP_FAIL;
 
@@ -198,11 +206,7 @@ STATIC void mp_i2c_master_read(mp_machine_i2c_obj_t *i2c_obj, uint16_t slave_add
 error:
     i2c_cmd_link_delete(cmd);
 
-    if (ret != ESP_OK) {
-    	char errs[32];
-    	sprintf(errs, "I2C bus error (%d)", ret);
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, errs));
-    }
+    return ret;
 }
 
 //----------------------------------------------------------------------------------
@@ -223,127 +227,163 @@ error:
     return (ret == ESP_OK) ? true : false;
 }
 
-
-// ============================================================================================
-// === I2C MicroPython bindings ===============================================================
-// ============================================================================================
-
-enum { ARG_id, ARG_mode, ARG_speed, ARG_freq, ARG_sda, ARG_scl, ARG_slaveaddr, ARG_slavebuflen };
-
-//----------------------------------------------------------
-STATIC const mp_arg_t mp_machine_i2c_init_allowed_args[] = {
-		{ MP_QSTR_id,                                                    MP_ARG_INT, {.u_int = -1} },
-		{ MP_QSTR_mode,				    	                             MP_ARG_INT, {.u_int = -1} },
-		{ MP_QSTR_speed,			MP_ARG_KW_ONLY                     | MP_ARG_INT, {.u_int = -1} },
-		{ MP_QSTR_freq,				MP_ARG_KW_ONLY                     | MP_ARG_INT, {.u_int = -1} },
-		{ MP_QSTR_sda,				MP_ARG_KW_ONLY  | MP_ARG_REQUIRED  | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
-		{ MP_QSTR_scl,				MP_ARG_KW_ONLY  | MP_ARG_REQUIRED  | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
-		{ MP_QSTR_slave_addr,		MP_ARG_KW_ONLY                     | MP_ARG_INT, {.u_int = -1} },
-		{ MP_QSTR_slave_bufflen,	MP_ARG_KW_ONLY                     | MP_ARG_INT, {.u_int = -1} },
-};
-
-//---------------------------------------------------------------------------------------
-STATIC void _sched_callback(mp_obj_t function, int cmd, int addr, int len, uint8_t *sarg)
+//---------------------------------------------------------------------------------------------------
+STATIC void _sched_callback(mp_obj_t function, int cbtype, int addr, int len, int ovf, uint8_t *data)
 {
-	mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_TUPLE);
-	if (carg == NULL) return;
-	if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_INT, cmd, NULL, NULL)) return;
-	if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_INT, addr, NULL, NULL)) return;
-	if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_INT, len, NULL, NULL)) return;
-	if (sarg) {
-		if (!make_carg_entry(carg, 3, MP_SCHED_ENTRY_TYPE_BYTES, len, sarg, NULL)) return;
-	}
-	else {
-		if (!make_carg_entry(carg, 3, MP_SCHED_ENTRY_TYPE_NONE, 0, NULL, NULL)) return;
-	}
-	mp_sched_schedule(function, mp_const_none, carg);
+    mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_TUPLE);
+    if (carg == NULL) return;
+    if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_INT, cbtype, NULL, NULL)) return;
+    if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_INT, addr, NULL, NULL)) return;
+    if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_INT, len, NULL, NULL)) return;
+    if (!make_carg_entry(carg, 3, MP_SCHED_ENTRY_TYPE_INT, ovf, NULL, NULL)) return;
+    if (data) {
+        if (!make_carg_entry(carg, 4, MP_SCHED_ENTRY_TYPE_BYTES, len, data, NULL)) return;
+    }
+    else {
+        if (!make_carg_entry(carg, 4, MP_SCHED_ENTRY_TYPE_NONE, 0, NULL, NULL)) return;
+    }
+    mp_sched_schedule(function, mp_const_none, carg);
 }
 
 //--------------------------------------------
 STATIC void i2c_slave_task(void *pvParameters)
 {
-	mp_machine_i2c_obj_t *i2c_obj = (mp_machine_i2c_obj_t *)pvParameters;
+    mp_machine_i2c_obj_t *i2c_obj = (mp_machine_i2c_obj_t *)pvParameters;
 
-	int rd_len;
-	uint8_t cmd;
-	int16_t mem_addr, mem_len;
-	uint32_t trans_size = 0;
-	int notify_res = 0;
-	if (i2c_obj->slave_data == NULL) goto exit;
+    int len, ovf, rdlen, addr;
+    uint8_t cb_type;
+    uint32_t notify_val = 0;
+    int notify_res = 0;
+    uint8_t *data;
 
-	if (i2c_slave_add_task(i2c_obj->bus_id, &i2c_slave_task_handle[i2c_obj->bus_id]) != ESP_OK) goto exit;
+    if (i2c_obj->slave_buflen == 0) goto exit;
 
+    if (i2c_slave_add_task(i2c_obj->bus_id, &i2c_slave_task_handle, &slave_state) != ESP_OK) goto exit;
+
+    //ESP_LOGD("[I2C]", "Slave task started");
     while (1) {
-    	// === Wait for transaction data ===
-    	trans_size = 0;
-    	notify_res = xTaskNotifyWait(0, ULONG_MAX, &trans_size, portMAX_DELAY);
-    	if ((notify_res != pdPASS) || (trans_size < 1)) continue;
+        // === Wait for notification from I2C interrupt routine ===
+        notify_val = 0;
+        notify_res = xTaskNotifyWait(0, ULONG_MAX, &notify_val, 1000 / portTICK_RATE_MS);
 
-    	// === Check if the i2c object is still initialized ===
-    	if (slave_mutex) xSemaphoreTake(slave_mutex, I2C_SLAVE_MUTEX_TIMEOUT);
-    	if (i2c_obj->bus_id < 0) {
-        	if (slave_mutex) xSemaphoreGive(slave_mutex);
-    		break;
-    	}
-    	if (i2c_obj->slave_data == NULL) {
-        	if (slave_mutex) xSemaphoreGive(slave_mutex);
-    		break;
-    	}
-    	if (slave_mutex) xSemaphoreGive(slave_mutex);
+        if (slave_mutex[i2c_obj->bus_id]) xSemaphoreTake(slave_mutex[i2c_obj->bus_id], I2C_SLAVE_MUTEX_TIMEOUT);
+        if (notify_res != pdPASS) {
+            if ((i2c_used[0] != I2C_MODE_SLAVE) && (i2c_used[1] != I2C_MODE_SLAVE)) {
+                //ESP_LOGD("[I2C]", "all i2c slave instances deleted");
+                if (slave_mutex[i2c_obj->bus_id]) xSemaphoreGive(slave_mutex[i2c_obj->bus_id]);
+                break;
+            }
+            if (slave_mutex[i2c_obj->bus_id]) xSemaphoreGive(slave_mutex[i2c_obj->bus_id]);
+            continue;
+        }
 
-    	// Allocate the transaction data buffer
-    	uint8_t *data = malloc(trans_size);
-		if (data) {
-			// Read the transaction data
-			rd_len = i2c_slave_read_buffer(i2c_obj->bus_id, data, trans_size, 0);
-			if (rd_len > 0) {
-				if (slave_mutex) xSemaphoreTake(slave_mutex, I2C_SLAVE_MUTEX_TIMEOUT);
-				// --- Analyze the received data based on first byte received ---
-				cmd = data[0] & 0xF0;	// 4-bit command id
+        // *** notification received
+        // Check if task exit requested or all i2c instances are deinitialized
+        if (notify_val == I2C_SLAVE_DRIVER_DELETED) {
+            //ESP_LOGD("[I2C]", "i2c driver deleted (%d)", i2c_obj->bus_id);
+        }
+        if ((notify_val == I2C_SLAVE_DRIVER_DELETED) && ((i2c_used[0] != I2C_MODE_SLAVE) && (i2c_used[1] != I2C_MODE_SLAVE))) {
+            if (slave_mutex[i2c_obj->bus_id]) xSemaphoreGive(slave_mutex[i2c_obj->bus_id]);
+            break;
+        }
+        if ((i2c_used[0] != I2C_MODE_SLAVE) && (i2c_used[1] != I2C_MODE_SLAVE)) {
+            //ESP_LOGD("[I2C]", "all i2c slave instances deleted");
+            if (slave_mutex[i2c_obj->bus_id]) xSemaphoreGive(slave_mutex[i2c_obj->bus_id]);
+            break;
+        }
 
-				if ((cmd == 0x00) && (rd_len == 4)) {
-					// READ data from buffer, 4 bytes received are buffer address & read length
-					mem_addr = ((data[0] << 8) | data[1]) & 0x0FFF;	// 12-bit address
-					mem_len = ((data[2] << 8) | data[3]) & 0x0FFF;	// 12-bit length
-					if ((mem_addr + mem_len) > i2c_obj->slave_buflen) mem_len = i2c_obj->slave_buflen - mem_addr;
-					if ((mem_addr < i2c_obj->slave_buflen) && (mem_len > 0)) {
-						// Put the response data into i2c transmit buffer
-						i2c_slave_write_buffer(i2c_obj->bus_id, i2c_obj->slave_data + mem_addr, mem_len, 500 / portTICK_PERIOD_MS);
-						if (i2c_obj->slave_cb_read) {
-							_sched_callback(i2c_obj->slave_cb_read, cmd>>4, mem_addr, mem_len, i2c_obj->slave_data + mem_addr);
-						}
-					}
-				}
-				else if ((cmd == 0x10) && (rd_len > 2)) {
-					// WRITE data to buffer, first 2 bytes are buffer address
-					mem_addr = ((data[0] << 8) | data[1]) & 0x0FFF;	// 12-bit address
-					mem_len = rd_len - 2;
-					if ((mem_addr + mem_len) > i2c_obj->slave_buflen) mem_len = i2c_obj->slave_buflen - mem_addr;
-					if ((mem_addr < i2c_obj->slave_buflen) && (mem_len > 0)) {
-						// Save the received data to the i2c data buffer
-						memcpy(i2c_obj->slave_data + mem_addr, data + 2, mem_len);
-						if (i2c_obj->slave_cb_write) {
-							_sched_callback(i2c_obj->slave_cb_write, cmd>>4, mem_addr, mem_len, i2c_obj->slave_data + mem_addr);
-						}
-					}
-				}
-				else if ((cmd >= 0x20) && (cmd <= 0xF0)) {
-					// COMMAND, optionally with DATA to pass to the callback function
-					if (i2c_obj->slave_cb_data) {
-						uint8_t *dataptr = NULL;
-						if (rd_len > 1) dataptr = data+1;
-						_sched_callback(i2c_obj->slave_cb_data, data[0], trans_size, rd_len-1, dataptr);
-					}
-				}
-				if (slave_mutex) xSemaphoreGive(slave_mutex);
-			}
-			free(data);
-		}
-	}
+        if ((slave_state.rxptr == 0) && (slave_state.txptr == 0)) {
+            // address received from master
+            cb_type = I2C_SLAVE_CBTYPE_ADDR;
+            ovf = 0;
+            len = 0;
+            addr = slave_state.rxaddr;
+        }
+        else if (slave_state.status & 0x02) {
+            // read transaction, data sent to master
+            cb_type = I2C_SLAVE_CBTYPE_DATA_TX;
+            ovf = slave_state.txovf;
+            len = slave_state.txptr;
+            addr = slave_state.txaddr;
+        }
+        else {
+            // write transaction, data received from master
+            cb_type = I2C_SLAVE_CBTYPE_DATA_RX;
+            ovf = slave_state.rxovf;
+            len = slave_state.rxptr;
+            addr = slave_state.rxaddr;
+        }
+        cb_type &= i2c_obj->slave_cbtype; // mask allowed callback types
+
+        if ((cb_type) && (i2c_obj->slave_cb)) {
+            data = NULL;
+            if (len > 0) {
+               data = malloc(len);
+               if (data) {
+                   rdlen = i2c_slave_read_buffer(i2c_obj->bus_id, data, addr, len, I2C_SLAVE_MUTEX_TIMEOUT);
+                   if (rdlen != len) {
+                       free(data);
+                       data = NULL;
+                   }
+               }
+            }
+            _sched_callback(i2c_obj->slave_cb, cb_type, addr, len, ovf, data);
+            if (data) free(data);
+        }
+        if (slave_mutex[i2c_obj->bus_id]) xSemaphoreGive(slave_mutex[i2c_obj->bus_id]);
+    }
+
 exit:
-	i2c_slave_remove_task(i2c_obj->bus_id);
-    i2c_slave_task_handle[i2c_obj->bus_id] = NULL;
-	vTaskDelete(NULL);
+    i2c_slave_remove_task(i2c_obj->bus_id);
+    //ESP_LOGD("[I2C]", "Slave task deleted");
+    i2c_slave_task_handle = NULL;
+    vTaskDelete(NULL);
+}
+
+
+// ============================================================================================
+// === I2C MicroPython bindings ===============================================================
+// ============================================================================================
+
+enum { ARG_id, ARG_mode, ARG_speed, ARG_freq, ARG_sda, ARG_scl, ARG_slaveaddr, ARG_slavebuflen, ARG_rolen, ARG_busy };
+
+// Arguments for new object and init method
+//----------------------------------------------------------
+STATIC const mp_arg_t mp_machine_i2c_init_allowed_args[] = {
+		{ MP_QSTR_id,                                MP_ARG_INT, {.u_int = -1} },
+		{ MP_QSTR_mode,				    	         MP_ARG_INT, {.u_int = -1} },
+		{ MP_QSTR_speed,			MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
+		{ MP_QSTR_freq,				MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
+		{ MP_QSTR_sda,				MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+		{ MP_QSTR_scl,				MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+		{ MP_QSTR_slave_addr,		MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
+		{ MP_QSTR_slave_bufflen,	MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
+        { MP_QSTR_slave_rolen,      MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
+        { MP_QSTR_slave_busy,       MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
+};
+
+//----------------------------------------------
+static uint8_t * get_buffer(void *buff, int len)
+{
+    if (len > 0) {
+        uint8_t *buf = heap_caps_malloc(len, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+        if (buf == NULL) {
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error allocating I2C data buffer"));
+        }
+        memcpy(buf, buff, len);
+        return buf;
+    }
+    return NULL;
+}
+
+//----------------------------------
+static void i2c_check_error(int err)
+{
+    if (err != ESP_OK) {
+        char errs[32];
+        sprintf(errs, "I2C bus error (%d)", err);
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, errs));
+    }
 }
 
 //----------------------------------
@@ -378,12 +418,11 @@ STATIC void mp_machine_i2c_print(const mp_print_t *print, mp_obj_t self_in, mp_p
 		if (self->mode == I2C_MODE_MASTER)
 			mp_printf(print, "I2C (Port=%u, Mode=MASTER, Speed=%u Hz, sda=%d, scl=%d)", self->bus_id, self->speed, self->sda, self->scl);
 		else {
-			mp_printf(print, "I2C (Port=%u, Mode=SLAVE, Speed=%u Hz, sda=%d, scl=%d, addr=%d, buffer=%d B)",
-					self->bus_id, self->speed, self->sda, self->scl, self->slave_addr, self->slave_buflen);
-			mp_printf(print, "\n     ReadCB=%s, WriteCB=%s, DataCB=%s",
-					self->slave_cb_read ? "True" : "False", self->slave_cb_write ? "True" : "False", self->slave_cb_data ? "True" : "False");
-		    if (i2c_slave_task_handle[self->bus_id]) {
-		    	mp_printf(print, "\n     I2C task minimum free stack: %u", uxTaskGetStackHighWaterMark(i2c_slave_task_handle[self->bus_id]));
+			mp_printf(print, "I2C (Port=%u, Mode=SLAVE, Speed=%u Hz, sda=%d, scl=%d, addr=%d, buffer=%d B, read-only=%d B)",
+					self->bus_id, self->speed, self->sda, self->scl, self->slave_addr, self->slave_buflen, self->slave_rolen);
+			mp_printf(print, "\n     Callback=%s (%d)", self->slave_cb ? "True" : "False", self->slave_cbtype);
+		    if (i2c_slave_task_handle) {
+		    	mp_printf(print, "\n     I2C task minimum free stack: %u", uxTaskGetStackHighWaterMark(i2c_slave_task_handle));
 		    }
 		}
     }
@@ -419,9 +458,12 @@ mp_obj_t mp_machine_i2c_make_new(const mp_obj_type_t *type, size_t n_args, size_
     int mode = args[ARG_mode].u_int;
     if (mode < 0) mode = I2C_MODE_MASTER;
     if ((mode != I2C_MODE_MASTER) && (mode != I2C_MODE_SLAVE)) {
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "MASTER or SLAVE mode must be selected"));
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "MASTER or SLAVE mode must be selected"));
     }
 
+    if ((args[ARG_sda].u_obj == MP_OBJ_NULL) || (args[ARG_sda].u_obj == MP_OBJ_NULL)) {
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "sda & scl must be given"));
+    }
     sda = machine_pin_get_gpio(args[ARG_sda].u_obj);
     scl = machine_pin_get_gpio(args[ARG_scl].u_obj);
 
@@ -438,11 +480,11 @@ mp_obj_t mp_machine_i2c_make_new(const mp_obj_type_t *type, size_t n_args, size_
 	self->rx_bufidx = 0;
 	self->rx_data = NULL;
 	self->slave_buflen = 0;
+	self->slave_rolen = 0;
 	self->slave_addr = 0;
-	self->slave_data = NULL;
-	self->slave_cb_read = NULL;
-	self->slave_cb_write = NULL;
-	self->slave_cb_data = NULL;
+	self->slave_cb = NULL;
+	self->slave_busy = false;
+	self->slave_cbtype = I2C_SLAVE_CBTYPE_NONE;
 
 	if (mode == I2C_MODE_MASTER) {
 		// Setup I2C master
@@ -451,8 +493,10 @@ mp_obj_t mp_machine_i2c_make_new(const mp_obj_type_t *type, size_t n_args, size_
 		}
     }
     else {
-    	if (slave_mutex == NULL) {
-    		slave_mutex = xSemaphoreCreateMutex();
+        if (args[ARG_busy].u_int == 1) self->slave_busy = true;
+
+        if (slave_mutex[self->bus_id] == NULL) {
+    		slave_mutex[self->bus_id] = xSemaphoreCreateMutex();
     	}
 		// Set I2C slave address
     	if (args[ARG_slaveaddr].u_int > 0) {
@@ -462,24 +506,29 @@ mp_obj_t mp_machine_i2c_make_new(const mp_obj_type_t *type, size_t n_args, size_
     	else self->slave_addr = I2C_SLAVE_ADDR_DEFAULT;
 
     	// Set I2C slave buffers
-    	if ((args[ARG_slavebuflen].u_int > I2C_SLAVE_DEFAULT_BUFF_LEN) && (args[ARG_slavebuflen].u_int <= I2C_SLAVE_MAX_BUFF_LEN))
+    	if ((args[ARG_slavebuflen].u_int >= I2C_SLAVE_MIN_BUFFER_LENGTH) && (args[ARG_slavebuflen].u_int <= I2C_SLAVE_MAX_BUFFER_LENGTH))
     		self->slave_buflen = args[ARG_slavebuflen].u_int;
     	else self->slave_buflen = I2C_SLAVE_DEFAULT_BUFF_LEN;
 
-    	self->slave_data = malloc(self->slave_buflen);
-    	if (self->slave_data == NULL) {
-            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error allocating slave data buffer"));
-    	}
-    	memset(self->slave_data, 0, self->slave_buflen);
+    	if ((args[ARG_rolen].u_int > 0) && (args[ARG_rolen].u_int < (self->slave_buflen / 2)))
+            self->slave_rolen = args[ARG_rolen].u_int;
+        else self->slave_rolen = 0;
+    	if ((self->slave_busy) && (self->slave_rolen == 0)) self->slave_rolen = 1;
 
-    	if (i2c_init_slave(self) != ESP_OK) {
-    		free(self->slave_data);
-    		self->slave_data = NULL;
+    	if (i2c_init_slave(self, self->slave_busy) != ESP_OK) {
 	        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error installing I2C driver"));
     	}
 
-    	if (i2c_slave_task_handle[self->bus_id] == NULL) {
-    		xTaskCreate(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+4, &i2c_slave_task_handle[self->bus_id]);
+    	if (i2c_slave_task_handle == NULL) {
+			#if CONFIG_MICROPY_USE_BOTH_CORES
+    		int res = xTaskCreate(i2c_slave_task, "i2c_slave_task", I2C_SLAVE_TASK_STACK_SIZE, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &i2c_slave_task_handle);
+			#else
+    		int res = xTaskCreatePinnedToCore(i2c_slave_task, "i2c_slave_task", I2C_SLAVE_TASK_STACK_SIZE, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &i2c_slave_task_handle, MainTaskCore);
+			#endif
+    		if (res != pdPASS) {
+                nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error installing I2C driver"));
+    		}
+    		vTaskDelay(100 / portTICK_PERIOD_MS);
     	}
     }
 
@@ -496,11 +545,10 @@ STATIC mp_obj_t mp_machine_i2c_init(mp_uint_t n_args, const mp_obj_t *pos_args, 
 	mp_arg_val_t args[MP_ARRAY_SIZE(mp_machine_i2c_init_allowed_args)];
     mp_arg_parse_all(n_args-1, pos_args+1, kw_args, MP_ARRAY_SIZE(mp_machine_i2c_init_allowed_args), mp_machine_i2c_init_allowed_args, args);
 
-    int8_t sda;
-    int8_t scl;
-    int8_t slave_addr;
+    int8_t sda, scl, slave_addr;
     int32_t speed;
     uint8_t changed = 0;
+    int buff_len, ro_len;
 
     int8_t old_bus_id = self->bus_id;
     int8_t bus_id = args[ARG_id].u_int;
@@ -526,6 +574,9 @@ STATIC mp_obj_t mp_machine_i2c_init(mp_uint_t n_args, const mp_obj_t *pos_args, 
 
     scl = self->scl;
     sda = self->sda;
+    buff_len = self->slave_buflen;
+    ro_len = self->slave_rolen;
+    slave_addr = self->slave_addr;
 
     if (args[ARG_sda].u_obj != MP_OBJ_NULL) {
         sda = machine_pin_get_gpio(args[ARG_sda].u_obj);
@@ -540,21 +591,51 @@ STATIC mp_obj_t mp_machine_i2c_init(mp_uint_t n_args, const mp_obj_t *pos_args, 
     if (self->scl != scl) changed++;
     if (self->sda != sda) changed++;
 
-    if (args[ARG_slaveaddr].u_int > 0) {
-		_checkAddr(args[ARG_slaveaddr].u_int);
-		slave_addr = args[ARG_slaveaddr].u_int;
-    	changed++;
-	}
-	else slave_addr = self->slave_addr;
+    if (mode == I2C_MODE_SLAVE) {
+        if (args[ARG_busy].u_int >= 0) {
+            if (self->slave_busy != ((args[ARG_busy].u_int == 1) ? true : false)) {
+                self->slave_busy = (args[ARG_busy].u_int == 1) ? true : false;
+                if ((self->slave_busy) && (self->slave_rolen == 0)) self->slave_rolen = 1;
+                changed++;
+            }
+        }
+        if (args[ARG_slaveaddr].u_int > 0) {
+            _checkAddr(args[ARG_slaveaddr].u_int);
+            if (args[ARG_slaveaddr].u_int != slave_addr) {
+                slave_addr = args[ARG_slaveaddr].u_int;
+                changed++;
+            }
+        }
+        if ((args[ARG_slavebuflen].u_int >= I2C_SLAVE_MIN_BUFFER_LENGTH) && (args[ARG_slavebuflen].u_int <= I2C_SLAVE_MAX_BUFFER_LENGTH)) {
+            if (args[ARG_slavebuflen].u_int != buff_len) {
+                buff_len = args[ARG_slavebuflen].u_int;
+                changed++;
+            }
+        }
+        if ((args[ARG_rolen].u_int > 0) && (args[ARG_rolen].u_int < (buff_len/2))) {
+            if (args[ARG_rolen].u_int != ro_len) {
+                ro_len = args[ARG_rolen].u_int;
+                if ((self->slave_busy) && (self->slave_rolen == 0)) self->slave_rolen = 1;
+                changed++;
+            }
+        }
+    }
 
     if (changed) {
-    	if ((self->mode == I2C_MODE_SLAVE) && (slave_mutex)) xSemaphoreTake(slave_mutex, I2C_SLAVE_MUTEX_TIMEOUT);
     	if (i2c_used[old_bus_id] >= 0) {
+    	    // Delete old driver, if it was a slave, the task will be stopped
+            i2c_used[old_bus_id] = -1;
     		i2c_driver_delete(old_bus_id);
-    		i2c_used[old_bus_id] = -1;
+    		vTaskDelay(100 / portTICK_PERIOD_MS);
+    	}
+    	if (self->mode == I2C_MODE_SLAVE) {
+            if (slave_mutex[self->bus_id] == NULL) {
+                slave_mutex[self->bus_id] = xSemaphoreCreateMutex();
+            }
+            if (slave_mutex[self->bus_id]) xSemaphoreTake(slave_mutex[self->bus_id], I2C_SLAVE_MUTEX_TIMEOUT);
     	}
         if (i2c_used[bus_id] >= 0) {
-        	if ((self->mode == I2C_MODE_SLAVE) && (slave_mutex)) xSemaphoreGive(slave_mutex);
+        	if ((self->mode == I2C_MODE_SLAVE) && (slave_mutex[self->bus_id])) xSemaphoreGive(slave_mutex[self->bus_id]);
             nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "I2C bus already used"));
         }
 
@@ -570,18 +651,32 @@ STATIC mp_obj_t mp_machine_i2c_init(mp_uint_t n_args, const mp_obj_t *pos_args, 
 	    else {
 			// Setup I2C slave
 	    	self->slave_addr = slave_addr;
-	    	if (i2c_init_slave(self) != ESP_OK) {
-	    		if (self->slave_data) free(self->slave_data);
-	    		self->slave_data = NULL;
-	        	if (slave_mutex) xSemaphoreGive(slave_mutex);
+	    	self->slave_buflen = buff_len;
+            self->slave_rolen = ro_len;
+	    	if (i2c_init_slave(self, self->slave_busy) != ESP_OK) {
+	        	if (slave_mutex[self->bus_id]) xSemaphoreGive(slave_mutex[self->bus_id]);
 		        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error installing I2C driver"));
 	    	}
-	    	if (i2c_slave_task_handle[self->bus_id] == NULL) {
-	    		xTaskCreate(i2c_slave_task, "i2c_slave_task", 1024, (void *)self, CONFIG_MICROPY_TASK_PRIORITY+4, &i2c_slave_task_handle[self->bus_id]);
+	    	if (i2c_slave_task_handle == NULL) {
+				#if CONFIG_MICROPY_USE_BOTH_CORES
+				int res = xTaskCreate(i2c_slave_task, "i2c_slave_task", I2C_SLAVE_TASK_STACK_SIZE, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &i2c_slave_task_handle);
+				#else
+				int res = xTaskCreatePinnedToCore(i2c_slave_task, "i2c_slave_task", I2C_SLAVE_TASK_STACK_SIZE, (void *)self, CONFIG_MICROPY_TASK_PRIORITY, &i2c_slave_task_handle, MainTaskCore);
+				#endif
+	            if (res != pdPASS) {
+                    ESP_LOGE("[I2C]", "Error creating slave task");
+	            }
+	            vTaskDelay(100 / portTICK_PERIOD_MS);
+	    	}
+	    	else {
+	    	    if (i2c_slave_add_task(self->bus_id, &i2c_slave_task_handle, &slave_state) != ESP_OK) {
+	    	        ESP_LOGW("[I2C]", "Error adding slave task");
+	    	    }
 	    	}
 	    }
 		i2c_used[bus_id] = mode;
-    	if ((self->mode == I2C_MODE_SLAVE) && (slave_mutex)) xSemaphoreGive(slave_mutex);
+    	if ((self->mode == I2C_MODE_SLAVE) && (slave_mutex[self->bus_id])) xSemaphoreGive(slave_mutex[self->bus_id]);
+        self->mode = mode;
     }
 
     return mp_const_none;
@@ -607,6 +702,19 @@ STATIC mp_obj_t mp_machine_i2c_scan(mp_obj_t self_in)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_machine_i2c_scan_obj, mp_machine_i2c_scan);
 
+//-------------------------------------------------------------------------
+STATIC mp_obj_t mp_machine_i2c_is_ready(mp_obj_t self_in, mp_obj_t addr_in)
+{
+    mp_machine_i2c_obj_t *self = self_in;
+    _checkMaster(self);
+
+    int addr = mp_obj_get_int(addr_in);
+    _checkAddr(addr);
+
+    return hw_i2c_slave_detect(self, addr) ? mp_const_true : mp_const_false;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(mp_machine_i2c_is_ready_obj, mp_machine_i2c_is_ready);
+
 //----------------------------------------------------------------------------------------------------
 STATIC mp_obj_t mp_machine_i2c_readfrom(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
@@ -624,12 +732,24 @@ STATIC mp_obj_t mp_machine_i2c_readfrom(mp_uint_t n_args, const mp_obj_t *pos_ar
 
     _checkAddr(args[0].u_int);
 
-    vstr_t vstr;
-    vstr_init_len(&vstr, args[1].u_int);
-    mp_i2c_master_read(self, args[0].u_int, false, 0, (uint8_t*)vstr.buf, vstr.len, false);
-
-    // Return read data as string
-    return mp_obj_new_str_from_vstr(&mp_type_bytes, &vstr);
+    if (args[1].u_int > 0) {
+        uint8_t *buf = heap_caps_malloc(args[1].u_int, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+        if (buf == NULL) {
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error allocating I2C data buffer"));
+        }
+        int ret = mp_i2c_master_read(self, args[0].u_int, false, 0, buf, args[1].u_int, false);
+        if (ret != ESP_OK) {
+            free(buf);
+            i2c_check_error(ret);
+        }
+        vstr_t vstr;
+        vstr_init_len(&vstr, args[1].u_int);
+        memcpy(vstr.buf, buf, args[1].u_int);
+        free(buf);
+        // Return read data as string
+        return mp_obj_new_str_from_vstr(&mp_type_bytes, &vstr);
+    }
+    return mp_const_empty_bytes;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mp_machine_i2c_readfrom_obj, 1, mp_machine_i2c_readfrom);
 
@@ -653,8 +773,16 @@ STATIC mp_obj_t mp_machine_i2c_readfrom_into(mp_uint_t n_args, const mp_obj_t *p
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(args[1].u_obj, &bufinfo, MP_BUFFER_WRITE);
 
-    mp_i2c_master_read(self, args[0].u_int, false, 0, bufinfo.buf, bufinfo.len, false);
-
+    uint8_t *buf = get_buffer(bufinfo.buf, bufinfo.len);
+    if (buf) {
+        int ret = mp_i2c_master_read(self, args[0].u_int, false, 0, buf, bufinfo.len, false);
+        if (ret != ESP_OK) {
+            free(buf);
+            i2c_check_error(ret);
+        }
+        memcpy(bufinfo.buf, buf, bufinfo.len);
+        free(buf);
+    }
     // Return read length
     return mp_obj_new_int(bufinfo.len);
 }
@@ -681,13 +809,18 @@ STATIC mp_obj_t mp_machine_i2c_writeto(mp_uint_t n_args, const mp_obj_t *pos_arg
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(args[1].u_obj, &bufinfo, MP_BUFFER_READ);
 
-    mp_i2c_master_write(self, args[0].u_int, 0, 0, bufinfo.buf, bufinfo.len, args[2].u_bool);
+    uint8_t *buf = get_buffer(bufinfo.buf, bufinfo.len);
+    if (buf) {
+        int ret = mp_i2c_master_write(self, args[0].u_int, 0, 0, buf, bufinfo.len, args[2].u_bool);
+        free(buf);
+        i2c_check_error(ret);
+    }
 
     return mp_obj_new_int(bufinfo.len);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mp_machine_i2c_writeto_obj, 1, mp_machine_i2c_writeto);
 
-
+// Arguments for memory read/write methods
 //---------------------------------------------------------
 STATIC const mp_arg_t mp_machine_i2c_mem_allowed_args[] = {
     { MP_QSTR_addr,			MP_ARG_REQUIRED | MP_ARG_INT,  {.u_int = 0} },
@@ -729,12 +862,20 @@ STATIC mp_obj_t mp_machine_i2c_readfrom_mem(size_t n_args, const mp_obj_t *pos_a
     if (n > 0) {
     	uint32_t addr = (uint32_t)mp_obj_get_int64(args[ARG_memaddr].u_obj);
     	uint8_t memlen = getMemAdrLen(args[ARG_memlen].u_int, addr);
-        // Create the data output buffer
+
+        uint8_t *buf = heap_caps_malloc(n, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+        if (buf == NULL) {
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error allocating I2C data buffer"));
+        }
+        int ret = mp_i2c_master_read(self, args[ARG_addr].u_int, memlen, addr, buf, n, args[ARG_stop].u_bool);
+        if (ret != ESP_OK) {
+            free(buf);
+            i2c_check_error(ret);
+        }
         vstr_t vstr;
         vstr_init_len(&vstr, n);
-
-        // Transfer data
-        mp_i2c_master_read(self, args[ARG_addr].u_int, memlen, addr, (uint8_t *)vstr.buf, vstr.len, args[ARG_stop].u_bool);
+        memcpy(vstr.buf, buf, n);
+        free(buf);
         // Return read data as string
         return mp_obj_new_str_from_vstr(&mp_type_bytes, &vstr);
     }
@@ -763,8 +904,18 @@ STATIC mp_obj_t mp_machine_i2c_readfrom_mem_into(size_t n_args, const mp_obj_t *
     if (bufinfo.len > 0) {
     	uint32_t addr = (uint32_t)mp_obj_get_int64(args[ARG_memaddr].u_obj);
     	uint8_t memlen = getMemAdrLen(args[ARG_memlen].u_int, addr);
-        // Transfer data into buffer
-        mp_i2c_master_read(self, args[ARG_addr].u_int, memlen, addr, bufinfo.buf, bufinfo.len, args[ARG_stop].u_bool);
+
+        uint8_t *buf = get_buffer(bufinfo.buf, bufinfo.len);
+        if (buf) {
+            // Transfer data into buffer
+            int ret = mp_i2c_master_read(self, args[ARG_addr].u_int, memlen, addr, buf, bufinfo.len, args[ARG_stop].u_bool);
+            if (ret != ESP_OK) {
+                free(buf);
+                i2c_check_error(ret);
+            }
+            memcpy(bufinfo.buf, buf, bufinfo.len);
+            free(buf);
+        }
     }
     return mp_obj_new_int(bufinfo.len);
 }
@@ -783,16 +934,24 @@ STATIC mp_obj_t mp_machine_i2c_writeto_mem(size_t n_args, const mp_obj_t *pos_ar
 
     _checkAddr(args[ARG_addr].u_int);
 
-    // Get the input data buffer
-    mp_buffer_info_t bufinfo;
-    mp_get_buffer_raise(args[ARG_buf].u_obj, &bufinfo, MP_BUFFER_READ);
+    uint32_t addr = (uint32_t)mp_obj_get_int64(args[ARG_memaddr].u_obj);
+    uint8_t memlen = getMemAdrLen(args[ARG_memlen].u_int, addr);
 
-	uint32_t addr = (uint32_t)mp_obj_get_int64(args[ARG_memaddr].u_obj);
-	uint8_t memlen = getMemAdrLen(args[ARG_memlen].u_int, addr);
-    // Transfer data from buffer
-    mp_i2c_master_write(self, args[ARG_addr].u_int, memlen, addr, bufinfo.buf, bufinfo.len, true);
+    uint8_t *buf = NULL;
+    int len = 0;
+    if (args[ARG_buf].u_obj != mp_const_none) {
+        // Get the input data buffer
+        mp_buffer_info_t bufinfo;
+        mp_get_buffer_raise(args[ARG_buf].u_obj, &bufinfo, MP_BUFFER_READ);
+        buf = get_buffer(bufinfo.buf, bufinfo.len);
+        len = bufinfo.len;
+    }
 
-    return mp_obj_new_int(bufinfo.len);
+    // Transfer address and data
+    int ret = mp_i2c_master_write(self, args[ARG_addr].u_int, memlen, addr, buf, len, true);
+    if (buf) free(buf);
+    i2c_check_error(ret);
+    return mp_obj_new_int(len);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mp_machine_i2c_writeto_mem_obj, 1, mp_machine_i2c_writeto_mem);
 
@@ -801,14 +960,12 @@ STATIC mp_obj_t mp_machine_i2c_deinit(mp_obj_t self_in) {
     mp_machine_i2c_obj_t *self = self_in;
 
     if (i2c_used[self->bus_id] >= 0) {
-    	if ((self->mode == I2C_MODE_SLAVE) && (slave_mutex)) xSemaphoreTake(slave_mutex, I2C_SLAVE_MUTEX_TIMEOUT);
+    	if ((self->mode == I2C_MODE_SLAVE) && (slave_mutex[self->bus_id])) xSemaphoreTake(slave_mutex[self->bus_id], I2C_SLAVE_MUTEX_TIMEOUT);
 
-    	i2c_driver_delete(self->bus_id);
         i2c_used[self->bus_id] = -1;
-        if (self->slave_data) free(self->slave_data);
-		self->slave_data = NULL;
+    	i2c_driver_delete(self->bus_id);
 
-        if ((self->mode == I2C_MODE_SLAVE) && (slave_mutex)) xSemaphoreGive(slave_mutex);
+        if ((self->mode == I2C_MODE_SLAVE) && (slave_mutex[self->bus_id])) xSemaphoreGive(slave_mutex[self->bus_id]);
     }
 
     return mp_const_none;
@@ -847,7 +1004,8 @@ STATIC mp_obj_t mp_machine_i2c_begin(mp_obj_t self_in, mp_obj_t rxlen_in) {
     if (self->rx_data) free(self->rx_data);
     self->rx_data = NULL;
     if (rxbuflen) {
-		self->rx_data = malloc(rxbuflen);
+		//self->rx_data = malloc(rxbuflen);
+		self->rx_data = heap_caps_malloc(rxbuflen, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
 		if (self->rx_data == NULL) {
 			nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error allocating rx buffer"));
 		}
@@ -1032,26 +1190,19 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_machine_i2c_end_obj, mp_machine_i2c_end);
 // ==== I2C slave functions ===================================================================
 // ============================================================================================
 
-
-//---------------------------------------------------------------------------
-STATIC mp_obj_t mp_machine_i2c_slave_write(mp_obj_t self_in, mp_obj_t buf_in)
+//-----------------------------------------------------------------
+void _check_addr_len(mp_machine_i2c_obj_t *self, int addr, int len)
 {
-    mp_machine_i2c_obj_t *self = self_in;
-    _checkSlave(self);
-
-    mp_buffer_info_t bufinfo;
-    mp_get_buffer_raise(buf_in, &bufinfo, MP_BUFFER_READ);
-
-	if (slave_mutex) xSemaphoreTake(slave_mutex, I2C_SLAVE_MUTEX_TIMEOUT);
-
-	int res = i2c_slave_write_buffer(self->bus_id, bufinfo.buf, bufinfo.len, 500 / portTICK_PERIOD_MS);
-
-	if (slave_mutex) xSemaphoreGive(slave_mutex);
-
-	if (res < 0) return mp_const_false;
-    return mp_obj_new_int(res);
+    if ((len < 1) || (len > self->slave_buflen)) {
+        mp_raise_ValueError("Length out of range");
+    }
+    if (addr >= self->slave_buflen) {
+        mp_raise_ValueError("Address not in slave data buffer");
+    }
+    if ((addr + len) > self->slave_buflen) {
+        mp_raise_ValueError("Data outside buffer");
+    }
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(mp_machine_i2c_slave_write_obj, mp_machine_i2c_slave_write);
 
 //-----------------------------------------------------------------------------------------------
 STATIC mp_obj_t mp_machine_i2c_slave_setdata(mp_obj_t self_in, mp_obj_t buf_in, mp_obj_t addr_in)
@@ -1062,24 +1213,35 @@ STATIC mp_obj_t mp_machine_i2c_slave_setdata(mp_obj_t self_in, mp_obj_t buf_in, 
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(buf_in, &bufinfo, MP_BUFFER_READ);
     int addr = mp_obj_get_int(addr_in);
+    _check_addr_len(self, addr, bufinfo.len);
 
-    if (addr >= self->slave_buflen) {
-    	nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Address not in slave data buffer"));
-    }
+	if (slave_mutex[self->bus_id]) xSemaphoreTake(slave_mutex[self->bus_id], I2C_SLAVE_MUTEX_TIMEOUT);
 
-    if ((addr + bufinfo.len) > self->slave_buflen) {
-    	nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Data does not fit into slave data buffer"));
-	}
+    int res = i2c_slave_write_buffer(self->bus_id, bufinfo.buf, addr, bufinfo.len, I2C_SLAVE_MUTEX_TIMEOUT);
 
-	if (slave_mutex) xSemaphoreTake(slave_mutex, I2C_SLAVE_MUTEX_TIMEOUT);
+	if (slave_mutex[self->bus_id]) xSemaphoreGive(slave_mutex[self->bus_id]);
 
-	memcpy(self->slave_data + addr, bufinfo.buf, bufinfo.len);
-
-	if (slave_mutex) xSemaphoreGive(slave_mutex);
-
-    return mp_const_none;
+	if (res <= 0) return mp_const_false;
+    return mp_const_true;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(mp_machine_i2c_slave_setdata_obj, mp_machine_i2c_slave_setdata);
+
+//---------------------------------------------------------------
+STATIC mp_obj_t mp_machine_i2c_slave_reset_busy(mp_obj_t self_in)
+{
+    mp_machine_i2c_obj_t *self = self_in;
+    _checkSlave(self);
+
+    if (slave_mutex[self->bus_id]) xSemaphoreTake(slave_mutex[self->bus_id], I2C_SLAVE_MUTEX_TIMEOUT);
+
+    int res = i2c_slave_reset_busy(self->bus_id, I2C_SLAVE_MUTEX_TIMEOUT);
+
+    if (slave_mutex[self->bus_id]) xSemaphoreGive(slave_mutex[self->bus_id]);
+
+    if (res <= 0) return mp_const_false;
+    return mp_const_true;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_machine_i2c_slave_reset_busy_obj, mp_machine_i2c_slave_reset_busy);
 
 //-----------------------------------------------------------------------------------------------
 STATIC mp_obj_t mp_machine_i2c_slave_getdata(mp_obj_t self_in, mp_obj_t addr_in, mp_obj_t len_in)
@@ -1089,65 +1251,144 @@ STATIC mp_obj_t mp_machine_i2c_slave_getdata(mp_obj_t self_in, mp_obj_t addr_in,
 
     int addr = mp_obj_get_int(addr_in);
     int len = mp_obj_get_int(len_in);
+    _check_addr_len(self, addr, len);
 
-    if (addr >= self->slave_buflen) {
-    	nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Address not in slave data buffer"));
+    uint8_t *databuf = malloc(len);
+    if (databuf == NULL) {
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error allocating data buffer"));
     }
 
-    if ((addr + len) > self->slave_buflen) {
-    	nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Requested data outside buffer"));
-	}
+    mp_obj_t data;
+    if (slave_mutex[self->bus_id]) xSemaphoreTake(slave_mutex[self->bus_id], I2C_SLAVE_MUTEX_TIMEOUT);
 
-	if (slave_mutex) xSemaphoreTake(slave_mutex, I2C_SLAVE_MUTEX_TIMEOUT);
+    int res = i2c_slave_read_buffer(self->bus_id, databuf, addr, len, I2C_SLAVE_MUTEX_TIMEOUT);
+    if (res > 0) data = mp_obj_new_bytes(databuf, res);
+    else data = mp_const_empty_bytes;
 
-    mp_obj_t data = mp_obj_new_bytes(self->slave_data + addr, len);
+    if (slave_mutex[self->bus_id]) xSemaphoreGive(slave_mutex[self->bus_id]);
 
-	if (slave_mutex) xSemaphoreGive(slave_mutex);
-
+    free(databuf);
     // Return read data as byte array
     return data;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(mp_machine_i2c_slave_getdata_obj, mp_machine_i2c_slave_getdata);
 
 //----------------------------------------------------------------------------------------------
-STATIC mp_obj_t mp_machine_i2c_slave_callback(mp_obj_t self_in, mp_obj_t type_in, mp_obj_t func)
+STATIC mp_obj_t mp_machine_i2c_slave_callback(mp_obj_t self_in, mp_obj_t func, mp_obj_t type_in)
 {
     mp_machine_i2c_obj_t *self = self_in;
     _checkSlave(self);
 
+    int type = mp_obj_get_int(type_in);
+
     if ((!MP_OBJ_IS_FUN(func)) && (!MP_OBJ_IS_METH(func)) && (func != mp_const_none)) {
     	nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Function argument required"));
     }
-    int ftype = mp_obj_get_int(type_in);
-    if ((ftype < 1) || (ftype > 3)) {
-    	nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Wrong callback type"));
+    if ((type < 0) || (type > 7)) {
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Invalid callback type"));
     }
 
-	if (slave_mutex) xSemaphoreTake(slave_mutex, I2C_SLAVE_MUTEX_TIMEOUT);
+	if (slave_mutex[self->bus_id]) xSemaphoreTake(slave_mutex[self->bus_id], I2C_SLAVE_MUTEX_TIMEOUT);
 
-	if (func == mp_const_none) {
-		if (ftype == 1) self->slave_cb_read = NULL;
-		else if (ftype == 2) self->slave_cb_write = NULL;
-		else if (ftype == 3) self->slave_cb_data = NULL;
-	}
-	else {
-		if (ftype == 1) self->slave_cb_read = func;
-		else if (ftype == 2) self->slave_cb_write = func;
-		else if (ftype == 3) self->slave_cb_data = func;
-	}
+	if (func == mp_const_none) self->slave_cb = NULL;
+	else self->slave_cb = func;
+	self->slave_cbtype = type;
 
-	if (slave_mutex) xSemaphoreGive(slave_mutex);
+	if (slave_mutex[self->bus_id]) xSemaphoreGive(slave_mutex[self->bus_id]);
 
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(mp_machine_i2c_slave_callback_obj, mp_machine_i2c_slave_callback);
 
 
+//----------------------------------------------------------------------------------
+STATIC mp_obj_t mp_machine_i2c_timing(size_t n_args, const mp_obj_t *args, int type)
+{
+    mp_machine_i2c_obj_t *self = args[0];
+
+    int setup_time = -1;
+    int hold_time = -1;
+    if (n_args == 3) {
+        setup_time = mp_obj_get_int(args[1]);
+        hold_time = mp_obj_get_int(args[2]);
+        if (type == 1) i2c_set_start_timing(self->bus_id, setup_time, hold_time);
+        else if (type == 2) i2c_set_stop_timing(self->bus_id, setup_time, hold_time);
+        else if (type == 3) i2c_set_data_timing(self->bus_id, setup_time, hold_time);
+        else if (type == 4) i2c_set_period(self->bus_id, setup_time, hold_time);
+    }
+    if (type == 1) i2c_get_start_timing(self->bus_id, &setup_time, &hold_time);
+    else if (type == 2) i2c_get_stop_timing(self->bus_id, &setup_time, &hold_time);
+    else if (type == 3) i2c_get_data_timing(self->bus_id, &setup_time, &hold_time);
+    else if (type == 4) i2c_get_period(self->bus_id, &setup_time, &hold_time);
+
+    mp_obj_t tuple[2];
+
+    tuple[0] = mp_obj_new_int(setup_time);
+    tuple[1] = mp_obj_new_int(hold_time);
+    return mp_obj_new_tuple(2, tuple);
+}
+
+//------------------------------------------------------------------------------
+STATIC mp_obj_t mp_machine_i2c_start_timing(size_t n_args, const mp_obj_t *args)
+{
+    mp_obj_t res = mp_machine_i2c_timing(n_args, args, 1);
+    return res;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_machine_i2c_start_timing_obj, 1, 3, mp_machine_i2c_start_timing);
+
+//-----------------------------------------------------------------------------
+STATIC mp_obj_t mp_machine_i2c_stop_timing(size_t n_args, const mp_obj_t *args)
+{
+    mp_obj_t res = mp_machine_i2c_timing(n_args, args, 2);
+    return res;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_machine_i2c_stop_timing_obj, 1, 3, mp_machine_i2c_stop_timing);
+
+//-----------------------------------------------------------------------------
+STATIC mp_obj_t mp_machine_i2c_data_timing(size_t n_args, const mp_obj_t *args)
+{
+    mp_obj_t res = mp_machine_i2c_timing(n_args, args, 3);
+    return res;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_machine_i2c_data_timing_obj, 1, 3, mp_machine_i2c_data_timing);
+
+//------------------------------------------------------------------------------
+STATIC mp_obj_t mp_machine_i2c_clock_timing(size_t n_args, const mp_obj_t *args)
+{
+    mp_obj_t res = mp_machine_i2c_timing(n_args, args, 4);
+    return res;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_machine_i2c_clock_timing_obj, 1, 3, mp_machine_i2c_clock_timing);
+
+//-------------------------------------------------------------------------
+STATIC mp_obj_t mp_machine_i2c_timeout(size_t n_args, const mp_obj_t *args)
+{
+    mp_machine_i2c_obj_t *self = args[0];
+    _checkMaster(self);
+
+    int tmo = -1;
+    if (n_args == 2) {
+        tmo = mp_obj_get_int(args[1]);
+        i2c_set_timeout(self->bus_id, tmo * 80);
+    }
+    i2c_get_timeout(self->bus_id, &tmo);
+    tmo /= 80;
+
+    return mp_obj_new_int(tmo);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_machine_i2c_timeout_obj, 1, 2, mp_machine_i2c_timeout);
+
 //===================================================================
 STATIC const mp_rom_map_elem_t mp_machine_i2c_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_init),                (mp_obj_t)&mp_machine_i2c_init_obj },
     { MP_ROM_QSTR(MP_QSTR_deinit),              (mp_obj_t)&mp_machine_i2c_deinit_obj },
     { MP_ROM_QSTR(MP_QSTR_scan),                (mp_obj_t)&mp_machine_i2c_scan_obj },
+    { MP_ROM_QSTR(MP_QSTR_is_ready),            (mp_obj_t)&mp_machine_i2c_is_ready_obj },
+    { MP_ROM_QSTR(MP_QSTR_start_timing),        (mp_obj_t)&mp_machine_i2c_start_timing_obj },
+    { MP_ROM_QSTR(MP_QSTR_stop_timing),         (mp_obj_t)&mp_machine_i2c_stop_timing_obj },
+    { MP_ROM_QSTR(MP_QSTR_data_timing),         (mp_obj_t)&mp_machine_i2c_data_timing_obj },
+    { MP_ROM_QSTR(MP_QSTR_clock_timing),        (mp_obj_t)&mp_machine_i2c_clock_timing_obj },
+    { MP_ROM_QSTR(MP_QSTR_timeout),             (mp_obj_t)&mp_machine_i2c_timeout_obj },
 
     // Standard methods
     { MP_ROM_QSTR(MP_QSTR_readfrom),            (mp_obj_t)&mp_machine_i2c_readfrom_obj },
@@ -1155,7 +1396,7 @@ STATIC const mp_rom_map_elem_t mp_machine_i2c_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_writeto),             (mp_obj_t)&mp_machine_i2c_writeto_obj },
     { MP_ROM_QSTR(MP_QSTR_setdata),       		(mp_obj_t)&mp_machine_i2c_slave_setdata_obj },
     { MP_ROM_QSTR(MP_QSTR_getdata),       		(mp_obj_t)&mp_machine_i2c_slave_getdata_obj },
-    { MP_ROM_QSTR(MP_QSTR_slavewrite),    		(mp_obj_t)&mp_machine_i2c_slave_write_obj },
+    { MP_ROM_QSTR(MP_QSTR_resetbusy),           (mp_obj_t)&mp_machine_i2c_slave_reset_busy_obj },
     { MP_ROM_QSTR(MP_QSTR_callback),            (mp_obj_t)&mp_machine_i2c_slave_callback_obj },
 
     // Memory methods
@@ -1179,9 +1420,10 @@ STATIC const mp_rom_map_elem_t mp_machine_i2c_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_SLAVE),           MP_OBJ_NEW_SMALL_INT(I2C_MODE_SLAVE) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_READ),            MP_OBJ_NEW_SMALL_INT(I2C_MASTER_READ) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_WRITE),           MP_OBJ_NEW_SMALL_INT(I2C_MASTER_WRITE) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_CB_READ),         MP_OBJ_NEW_SMALL_INT(1) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_CB_WRITE),        MP_OBJ_NEW_SMALL_INT(2) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_CB_DATA),         MP_OBJ_NEW_SMALL_INT(3) },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_CBTYPE_NONE),     MP_OBJ_NEW_SMALL_INT(I2C_SLAVE_CBTYPE_NONE) },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_CBTYPE_ADDR),     MP_OBJ_NEW_SMALL_INT(I2C_SLAVE_CBTYPE_ADDR) },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_CBTYPE_RXDATA),   MP_OBJ_NEW_SMALL_INT(I2C_SLAVE_CBTYPE_DATA_RX) },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_CBTYPE_TXDATA),   MP_OBJ_NEW_SMALL_INT(I2C_SLAVE_CBTYPE_DATA_TX) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(mp_machine_i2c_locals_dict, mp_machine_i2c_locals_dict_table);

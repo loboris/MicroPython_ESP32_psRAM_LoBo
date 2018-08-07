@@ -59,7 +59,7 @@ extern mp_dynamic_compiler_t mp_dynamic_compiler;
 typedef struct _mp_sched_item_t {
     mp_obj_t func;
     mp_obj_t arg;
-    void 	 *carg;
+    void     *carg;
 } mp_sched_item_t;
 
 // This structure hold information about the memory allocation system.
@@ -80,13 +80,13 @@ typedef struct _mp_state_mem_t {
 
     int gc_stack_overflow;
     size_t gc_stack[MICROPY_ALLOC_GC_STACK_SIZE];
-    size_t *gc_sp;
     uint16_t gc_lock_depth;
 
     // This variable controls auto garbage collection.  If set to 0 then the
     // GC won't automatically run when gc_alloc can't find enough blocks.  But
     // you can still allocate/free memory and also explicitly call gc_collect.
     uint16_t gc_auto_collect_enabled;
+    uint16_t gc_auto_collect_debug;
 
     #if MICROPY_GC_ALLOC_THRESHOLD
     size_t gc_alloc_amount;
@@ -95,9 +95,8 @@ typedef struct _mp_state_mem_t {
 
     size_t gc_last_free_atb_index;
 
-    #if MICROPY_PY_GC_COLLECT_RETVAL
     size_t gc_collected;
-    #endif
+    size_t gc_marked;
 
     #if MICROPY_PY_THREAD
     // This is a global mutex used to make the GC thread-safe.
@@ -108,10 +107,11 @@ typedef struct _mp_state_mem_t {
 // This structure hold runtime and VM information.  It includes a section
 // which contains root pointers that must be scanned by the GC.
 typedef struct _mp_state_vm_t {
-    ////////////////////////////////////////////////////////////
-    // START ROOT POINTER SECTION
-    // everything that needs GC scanning must go here
-    // this must start at the start of this structure
+    //
+    // CONTINUE ROOT POINTER SECTION
+    // This must start at the start of this structure and follows
+    // the state in the mp_state_thread_t structure, continuing
+    // the root pointer section from there.
     //
 
     qstr_pool_t *last_pool;
@@ -142,8 +142,6 @@ typedef struct _mp_state_vm_t {
     volatile mp_obj_t mp_pending_exception;
 
     #if MICROPY_ENABLE_SCHEDULER
-    volatile int16_t sched_state;
-    uint16_t sched_sp;
     mp_sched_item_t sched_stack[MICROPY_SCHEDULER_DEPTH];
     #endif
 
@@ -168,6 +166,10 @@ typedef struct _mp_state_vm_t {
     MICROPY_PORT_ROOT_POINTERS
 
     // root pointers for extmod
+
+    #if MICROPY_REPL_EVENT_DRIVEN
+    vstr_t *repl_line;
+    #endif
 
     #if MICROPY_PY_OS_DUPTERM
     mp_obj_t dupterm_objs[MICROPY_PY_OS_DUPTERM];
@@ -198,11 +200,18 @@ typedef struct _mp_state_vm_t {
     mp_thread_mutex_t qstr_mutex;
     #endif
 
+    #if MICROPY_ENABLE_COMPILER
     mp_uint_t mp_optimise_value;
+    #endif
 
     // size of the emergency exception buf, if it's dynamically allocated
     #if MICROPY_ENABLE_EMERGENCY_EXCEPTION_BUF && MICROPY_EMERGENCY_EXCEPTION_BUF_SIZE == 0
     mp_int_t mp_emergency_exception_buf_size;
+    #endif
+
+    #if MICROPY_ENABLE_SCHEDULER
+    volatile int16_t sched_state;
+    uint16_t sched_sp;
     #endif
 
     #if MICROPY_PY_THREAD_GIL
@@ -215,24 +224,33 @@ typedef struct _mp_state_vm_t {
 // This structure holds state that is specific to a given thread.
 // Everything in this structure is scanned for root pointers.
 typedef struct _mp_state_thread_t {
-    mp_obj_dict_t *dict_locals;
-    mp_obj_dict_t *dict_globals;
-
-    // Note: nlr asm code has the offset of this hard-coded
-    nlr_buf_t *nlr_top; // ROOT POINTER
-
     // Stack top at the start of program
     char *stack_top;
 
     #if MICROPY_STACK_CHECK
     size_t stack_limit;
     #endif
+
+    #if MICROPY_ENABLE_PYSTACK
+    uint8_t *pystack_start;
+    uint8_t *pystack_end;
+    uint8_t *pystack_cur;
+    #endif
+
+    ////////////////////////////////////////////////////////////
+    // START ROOT POINTER SECTION
+    // Everything that needs GC scanning must start here, and
+    // is followed by state in the mp_state_vm_t structure.
+    //
+
+    mp_obj_dict_t *dict_locals;
+    mp_obj_dict_t *dict_globals;
+
+    nlr_buf_t *nlr_top;
 } mp_state_thread_t;
 
 // This structure combines the above 3 structures.
 // The order of the entries are important for root pointer scanning in the GC to work.
-// Note: if this structure changes then revisit all nlr asm code since they
-// have the offset of nlr_top hard-coded.
 typedef struct _mp_state_ctx_t {
     mp_state_thread_t thread;
     mp_state_vm_t vm;

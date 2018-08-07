@@ -936,7 +936,7 @@ int ppposInit(int tx, int rx, int rts, int cts, int bdr, char *user, char *pass,
 			tcpip_adapter_initialized = 1;
 		}
 		#if CONFIG_MICROPY_USE_BOTH_CORES
-		xTaskCreate(&pppos_client_task, "GSM_PPPoS", PPPOS_CLIENT_STACK_SIZE, NULL, CONFIG_MICROPY_TASK_PRIORITY+1, &PPPoSTaskHandle);
+		xTaskCreate(&pppos_client_task, "GSM_PPPoS", PPPOS_CLIENT_STACK_SIZE, NULL, CONFIG_MICROPY_TASK_PRIORITY, &PPPoSTaskHandle);
 		#else
 		// Select GSM task core
 		int task_core = MainTaskCore;
@@ -945,7 +945,7 @@ int ppposInit(int tx, int rx, int rts, int cts, int bdr, char *user, char *pass,
 		else task_core = 0;
 		#endif
 
-		xTaskCreatePinnedToCore(&pppos_client_task, "GSM_PPPoS", PPPOS_CLIENT_STACK_SIZE, NULL, CONFIG_MICROPY_TASK_PRIORITY+1, &PPPoSTaskHandle, task_core);
+		xTaskCreatePinnedToCore(&pppos_client_task, "GSM_PPPoS", PPPOS_CLIENT_STACK_SIZE, NULL, CONFIG_MICROPY_TASK_PRIORITY, &PPPoSTaskHandle, task_core);
 		#endif
 		if (PPPoSTaskHandle == NULL) return -2;
 

@@ -20,23 +20,28 @@
 #   makefatfs         - create FatFS image
 #   flashfatfs        - create and flash FatFS image to ESP32
 #   copyfatfs         - flash prebuilt FatFS image to ESP32
+#   makelfsfs         - create LittleFS image
+#   flashlfsfs        - create and flash LittleFS image to ESP32
+#   copylfsfs         - flash prebuilt LittleFS image to ESP32
 #   size              - display static memory footprint of the firmware
 #   size-components   - display detailed memory footprint of the firmware
 #   size-files        - display detailed memory footprint of the firmware
 
 # Options:
 #   -jN                                           - make with multicore option, N should be the number of cores used 
-#   -v            | --verbose                     - enable verbose output, default: quiet output
-#   -f8           | --flashsize8                  - declare the Flash size of 8 MB
-#   -f16          | --flashsize16                 - declare the Flash size of 16 MB
-#   -fs <FS_size> | --fssize=<FS_size>            - declare the size of Flash file system in KB
+#   -v             | --verbose                    - enable verbose output, default: quiet output
+#   -f8            | --flashsize8                 - declare the Flash size of 8 MB
+#   -f16           | --flashsize16                - declare the Flash size of 16 MB
+#   -fs <FS_size>  | --fssize=<FS_size>           - declare the size of Flash file system in KB
 #                                                   default: fit the Flash size
-#   -a <app_size> | --appsize=<app_size>          - declare the size of application partition in KB
+#   -a <app_size>  | --appsize=<app_size>         - declare the size of application partition in KB
 #                                                   default: auto detect needed size
 #                                                   the actual size will be 128 KB smaller then the declared size
+#   -p <comm_port> | --port=<comm_port>           - overwritte configured comm port, use the specified instead
+#   -b <bdrate>    | --bdrate=<bdrate>            - overwritte configured baud rate, use the specified instead
 
 # Note:
-#   Multiple commands can be given
+#   Multiple options and commands can be given
 
 
 # #################################################################
@@ -45,7 +50,8 @@
 
 
 #=======================
-TOOLS_VER=ver20180228.id
+TOOLS_VER=ver20180628.id
+BUILD_VER=ver20180628.id
 #=======================
 
 # -----------------------------
@@ -61,6 +67,8 @@ FORCE_3PART="no"
 POSITIONAL_ARGS=()
 BUILD_TYPE=""
 BUILD_BASE_DIR=${PWD}
+BUILD_COMPORT=""
+BUILD_BDRATE=""
 
 # ---------------------------------------
 # Include functions used in build process
@@ -87,6 +95,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Goto base repository directory
 cd ../
 
 # -----------------------------------
@@ -173,10 +182,20 @@ export CROSS_COMPILE=xtensa-esp32-elf-
 
 for arg in "${POSITIONAL_ARGS[@]}"
 do
-    if [ "${arg}" == "all" ] || [ "${arg}" == "flash" ] || [ "${arg}" == "makefs" ] || [ "${arg}" == "flashfs" ] || [ "${arg}" == "makefatfs" ] || [ "${arg}" == "flashfatfs" ]; then
+    if [ "${arg}" == "menuconfig" ]; then
+        check_config
+        result=$?
+        if [ $result -eq 1 ]; then
+            make menuconfig 2>/dev/null
+        fi
+    fi
+    if [ "${arg}" == "all" ] || [ "${arg}" == "flash" ] || [ "${arg}" == "makefs" ] || [ "${arg}" == "flashfs" ] || [ "${arg}" == "makefatfs" ] || [ "${arg}" == "flashfatfs" ] || [ "${arg}" == "makelfsfs" ] || [ "${arg}" == "flashlfsfs" ]; then
         set_partitions ${APP_SIZE}
         if [ $? -ne 0 ]; then
             exit 1
+        fi
+        if [ "${arg}" == "all" ] || [ "${arg}" == "flash" ]; then
+            check_config
         fi
     fi
 
@@ -206,6 +225,7 @@ do
     if [ $result -eq 0 ]; then
         echo "OK."
         if [ "${arg}" == "all" ]; then
+            set_partitions ${APP_SIZE}
             echo "--------------------------------"
             echo "Build complete."
             echo "You can now run ./BUILD.sh flash"

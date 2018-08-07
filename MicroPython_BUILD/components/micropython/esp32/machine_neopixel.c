@@ -64,8 +64,11 @@ STATIC void machine_neopixel_print(const mp_print_t *print, mp_obj_t self_in, mp
     machine_neopixel_obj_t *self = self_in;
 
     if (self->px.pixels != NULL) {
-		mp_printf(print, "Neopixel(Pin=%d, Pixels: %d, bit/pix=%d, RMTChannel=%d, PixBufLen=%u, Color order: %s\n",
-				self->gpio_num, self->px.pixel_count, self->px.nbits, self->channel, sizeof(uint32_t) * self->px.pixel_count, self->px.color_order);
+        char colorder[5];
+        sprintf(colorder, self->px.color_order);
+        if (self->px.nbits == 24) colorder[3] = '\0';
+		mp_printf(print, "Neopixel(Pin=%d, Pixels: %d, bit/pix=%d, RMTChannel=%d, PixBufLen=%u, Color order: '%s'\n",
+				self->gpio_num, self->px.pixel_count, self->px.nbits, self->channel, sizeof(uint32_t) * self->px.pixel_count, colorder);
 		mp_printf(print, "         Timings (ns): T1H=%d, T1L=%d, T0H=%d, T0L=%d, Treset=%d\n)",
 				self->px.timings.mark.duration0 * RMT_PERIOD_NS, self->px.timings.mark.duration1 * RMT_PERIOD_NS,
 				self->px.timings.space.duration0 * RMT_PERIOD_NS, self->px.timings.space.duration1 * RMT_PERIOD_NS,
@@ -95,9 +98,7 @@ STATIC mp_obj_t machine_neopixel_make_new(const mp_obj_type_t *type, size_t n_ar
     	mp_raise_ValueError("Cannot acquire RMT channel");
     }
 
-    int8_t pin;
-    if (MP_OBJ_IS_INT(args[ARG_pin].u_obj)) pin = mp_obj_get_int(args[ARG_pin].u_obj);
-    else pin = machine_pin_get_id(args[ARG_pin].u_obj);
+    int8_t pin = machine_pin_get_gpio(args[ARG_pin].u_obj);
 
     int pixels = args[ARG_pixels].u_int;
     int wstype = args[ARG_type].u_int;
@@ -160,7 +161,7 @@ STATIC mp_obj_t machine_neopixel_make_new(const mp_obj_type_t *type, size_t n_ar
     self->base.type = &machine_neopixel_type;
 
 	np_clear(&self->px);
-	np_show(&self->px, self->channel, 1);
+	np_show(&self->px, self->channel);
 
     return MP_OBJ_FROM_PTR(self);
 
@@ -180,7 +181,7 @@ STATIC mp_obj_t machine_neopixel_deinit(mp_obj_t self_in)
     np_check(self);
 
 	np_clear(&self->px);
-	np_show(&self->px, self->channel, 1);
+	np_show(&self->px, self->channel);
 
     neopixel_deinit(self->channel);
 
@@ -201,7 +202,7 @@ STATIC mp_obj_t machine_neopixel_clear(mp_obj_t self_in)
 
 	np_clear(&self->px);
    	MP_THREAD_GIL_EXIT();
-	np_show(&self->px, self->channel, 0);
+	np_show(&self->px, self->channel);
    	MP_THREAD_GIL_ENTER();
     return mp_const_none;
 }
@@ -214,7 +215,7 @@ STATIC mp_obj_t machine_neopixel_show(mp_obj_t self_in)
     np_check(self);
 
    	MP_THREAD_GIL_EXIT();
-	np_show(&self->px, self->channel, 0);
+	np_show(&self->px, self->channel);
    	MP_THREAD_GIL_ENTER();
     return mp_const_none;
 }
@@ -254,7 +255,7 @@ STATIC mp_obj_t machine_neopixel_set(size_t n_args, const mp_obj_t *pos_args, mp
 
 	if (args[4].u_bool) {
 	   	MP_THREAD_GIL_EXIT();
-		np_show(&self->px, self->channel, 0);
+		np_show(&self->px, self->channel);
 	   	MP_THREAD_GIL_ENTER();
 	}
 
@@ -295,7 +296,7 @@ STATIC mp_obj_t machine_neopixel_set_white(size_t n_args, const mp_obj_t *pos_ar
 
 		if (args[3].u_bool) {
 			MP_THREAD_GIL_EXIT();
-			np_show(&self->px, self->channel, 0);
+			np_show(&self->px, self->channel);
 			MP_THREAD_GIL_ENTER();
 		}
     }
@@ -341,7 +342,7 @@ STATIC mp_obj_t machine_neopixel_setHSB(size_t n_args, const mp_obj_t *pos_args,
 
 	if (args[5].u_bool) {
 	   	MP_THREAD_GIL_EXIT();
-		np_show(&self->px, self->channel, 0);
+		np_show(&self->px, self->channel);
 	   	MP_THREAD_GIL_ENTER();
 	}
 
@@ -392,7 +393,7 @@ STATIC mp_obj_t machine_neopixel_setHSB_int(size_t n_args, const mp_obj_t *pos_a
 
 	if (args[5].u_bool) {
 	   	MP_THREAD_GIL_EXIT();
-		np_show(&self->px, self->channel, 0);
+		np_show(&self->px, self->channel);
 	   	MP_THREAD_GIL_ENTER();
 	}
 
@@ -400,32 +401,56 @@ STATIC mp_obj_t machine_neopixel_setHSB_int(size_t n_args, const mp_obj_t *pos_a
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(machine_neopixel_setHSB_int_obj, 5, machine_neopixel_setHSB_int);
 
-//---------------------------------------------------------------------
-STATIC mp_obj_t machine_neopixel_get(mp_obj_t self_in, mp_obj_t pos_in)
+//-----------------------------------------------------------------------
+STATIC mp_obj_t machine_neopixel_get(size_t n_args, const mp_obj_t *args)
 {
-    machine_neopixel_obj_t *self = self_in;
+    machine_neopixel_obj_t *self = args[0];
     np_check(self);
 
-    int pos = mp_obj_get_int(pos_in);
+	uint8_t white;
+	uint32_t icolor;
+    int pos = mp_obj_get_int(args[1]);
     if (pos < 1) pos = 1;
     if (pos > self->px.pixel_count) pos = self->px.pixel_count;
+    int cnt = 0;
+    if (n_args > 2) {
+    	cnt  = mp_obj_get_int(args[2]);
+    	if (cnt < 1) cnt = 1;
+    	if ((cnt + pos - 1) > self->px.pixel_count) cnt = self->px.pixel_count - pos + 1;
+    }
+    if (cnt < 2) {
+		icolor = np_get_pixel_color(&self->px, pos-1, &white);
+		if (self->px.nbits == 24) {
+			return mp_obj_new_int(icolor);
+		}
+		else {
+			mp_obj_t tuple[2];
 
-    uint8_t white;
-    uint32_t icolor = np_get_pixel_color(&self->px, pos-1, &white);
-    if (self->px.nbits == 24) {
-        return mp_obj_new_int(icolor);
+			tuple[0] = mp_obj_new_int(icolor);
+			tuple[1] = mp_obj_new_int(white);
+
+			return mp_obj_new_tuple(2, tuple);
+		}
     }
     else {
-        mp_obj_t tuple[2];
+		mp_obj_t pix_tuple[cnt];
+		mp_obj_t tuple[2];
+		for (int i=0; i<cnt; i++) {
+			icolor = np_get_pixel_color(&self->px, pos+i-1, &white);
+			if (self->px.nbits == 24) {
+				pix_tuple[i] = mp_obj_new_int(icolor);
+			}
+			else {
+				tuple[0] = mp_obj_new_int(icolor);
+				tuple[1] = mp_obj_new_int(white);
 
-        tuple[0] = mp_obj_new_int(icolor);
-        tuple[1] = mp_obj_new_int(white);
-
-        return mp_obj_new_tuple(2, tuple);
+				pix_tuple[i] = mp_obj_new_tuple(2, tuple);
+			}
+		}
+		return mp_obj_new_tuple(cnt, pix_tuple);
     }
-
 }
-MP_DEFINE_CONST_FUN_OBJ_2(machine_neopixel_get_obj, machine_neopixel_get);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_neopixel_get_obj, 2, 3, machine_neopixel_get);
 
 //-----------------------------------------------------------------------------------------------------
 STATIC mp_obj_t machine_neopixel_brightness(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
@@ -444,7 +469,7 @@ STATIC mp_obj_t machine_neopixel_brightness(size_t n_args, const mp_obj_t *pos_a
     	self->px.brightness = bright & 0xFF;
     	if (args[1].u_bool) {
     	   	MP_THREAD_GIL_EXIT();
-    		np_show(&self->px, self->channel, 0);
+    		np_show(&self->px, self->channel);
     	   	MP_THREAD_GIL_ENTER();
     	}
     }
@@ -569,7 +594,7 @@ STATIC mp_obj_t machine_neopixel_corder(size_t n_args, const mp_obj_t *pos_args,
     }
     sprintf(colorder, self->px.color_order);
     if (self->px.nbits == 24) colorder[3] = '\0';
-    return mp_obj_new_str(colorder, strlen(colorder), 0);
+    return mp_obj_new_str(colorder, strlen(colorder));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(machine_neopixel_corder_obj, 0, machine_neopixel_corder);
 
@@ -661,11 +686,35 @@ STATIC mp_obj_t machine_neopixel_rainbow(mp_obj_t self_in, mp_obj_t pos_in, mp_o
 		np_set_pixel_color(&self->px, i, color);
     }
    	MP_THREAD_GIL_EXIT();
-	np_show(&self->px, self->channel, 0);
+	np_show(&self->px, self->channel);
    	MP_THREAD_GIL_ENTER();
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_3(machine_neopixel_rainbow_obj, machine_neopixel_rainbow);
+
+//-----------------------------------------------------
+STATIC mp_obj_t machine_neopixel_info(mp_obj_t self_in)
+{
+    machine_neopixel_obj_t *self = self_in;
+    np_check(self);
+
+    char colorder[5];
+    sprintf(colorder, self->px.color_order);
+    if (self->px.nbits == 24) colorder[3] = '\0';
+
+    mp_obj_t tuple[6];
+
+	tuple[0] = mp_obj_new_int(self->gpio_num);
+	tuple[1] = mp_obj_new_int(self->px.pixel_count);
+	tuple[2] = mp_obj_new_int(self->px.nbits);
+	tuple[3] = mp_obj_new_int(self->channel);
+	tuple[4] = mp_obj_new_int(sizeof(uint32_t) * self->px.pixel_count);
+	tuple[5] = mp_obj_new_str(colorder, strlen(colorder));
+
+	return mp_obj_new_tuple(6, tuple);
+
+}
+MP_DEFINE_CONST_FUN_OBJ_1(machine_neopixel_info_obj, machine_neopixel_info);
 
 
 //=====================================================================
@@ -685,6 +734,7 @@ STATIC const mp_rom_map_elem_t machine_neopixel_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_timings),    (mp_obj_t)&machine_neopixel_timings_obj },
     { MP_ROM_QSTR(MP_QSTR_color_order),(mp_obj_t)&machine_neopixel_corder_obj },
     { MP_ROM_QSTR(MP_QSTR_rainbow),    (mp_obj_t)&machine_neopixel_rainbow_obj },
+    { MP_ROM_QSTR(MP_QSTR_info),	   (mp_obj_t)&machine_neopixel_info_obj },
 
 	{ MP_ROM_QSTR(MP_QSTR_BLACK),		MP_ROM_INT(0x000000) },
 	{ MP_ROM_QSTR(MP_QSTR_WHITE),		MP_ROM_INT(0xFFFFFF) },

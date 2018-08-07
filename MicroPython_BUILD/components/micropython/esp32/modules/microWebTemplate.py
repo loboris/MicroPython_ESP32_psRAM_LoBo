@@ -1,3 +1,7 @@
+"""
+The MIT License (MIT)
+Copyright © 2018 Jean-Christophe Bos & HC² (www.hc2.fr)
+"""
 
 import re
 
@@ -18,14 +22,16 @@ class MicroWebTemplate :
 	INSTRUCTION_ELSE		= 'else'
 	INSTRUCTION_FOR			= 'for'
 	INSTRUCTION_END			= 'end'
+	INSTRUCTION_INCLUDE		= 'include'
 
     # ============================================================================
     # ===( Constructor )==========================================================
     # ============================================================================
 
-	def __init__(self, code, escapeStrFunc=None) :
+	def __init__(self, code, escapeStrFunc=None, filepath='') :
 		self._code   		= code
 		self._escapeStrFunc	= escapeStrFunc
+		self._filepath		= filepath
 		self._pos    		= 0
 		self._endPos 		= len(code)-1
 		self._line   		= 1
@@ -40,6 +46,7 @@ class MicroWebTemplate :
 			MicroWebTemplate.INSTRUCTION_ELSE 	: self._processInstructionELSE,
 			MicroWebTemplate.INSTRUCTION_FOR 	: self._processInstructionFOR,
 			MicroWebTemplate.INSTRUCTION_END	: self._processInstructionEND,
+			MicroWebTemplate.INSTRUCTION_INCLUDE: self._processInstructionINCLUDE,
 		}
 
     # ============================================================================
@@ -81,7 +88,7 @@ class MicroWebTemplate :
 		while self._pos <= self._endPos :
 			c = self._code[self._pos]
 			if c == MicroWebTemplate.TOKEN_OPEN[0] and \
-			   self._code[ self._pos : self._pos + MicroWebTemplate.TOKEN_OPEN_LEN ] == MicroWebTemplate.TOKEN_OPEN :
+			    self._code[ self._pos : self._pos + MicroWebTemplate.TOKEN_OPEN_LEN ] == MicroWebTemplate.TOKEN_OPEN :
 				self._pos    += MicroWebTemplate.TOKEN_OPEN_LEN
 				tokenContent  = ''
 				x 			  = self._pos
@@ -264,7 +271,7 @@ class MicroWebTemplate :
 						try :
 							result = eval(expression, self._pyGlobalVars, self._pyLocalVars)
 						except :
-							raise Exception('%s (line %s)' % (str(ex), self._line))
+							raise Exception('%s (line %s)' % (str(expression), self._line))
 					if execute and len(result) > 0 :
 						for x in result :
 							self._pyLocalVars[identifier] = x
@@ -293,6 +300,21 @@ class MicroWebTemplate :
 			raise Exception( 'Instruction "%s" is invalid (line %s)'
 							 % (MicroWebTemplate.INSTRUCTION_END, self._line) )
 		return MicroWebTemplate.INSTRUCTION_END
+
+	# ----------------------------------------------------------------------------
+
+	def _processInstructionINCLUDE(self, instructionBody, execute) :
+		if not instructionBody :
+			raise Exception( '"%s" alone is an incomplete syntax (line %s)' % (MicroWebTemplate.INSTRUCTION_INCLUDE, self._line) )
+		filename = instructionBody.replace('"','').replace("'",'').strip()
+		idx = self._filepath.rindex('/')
+		if idx >= 0 :
+			filename = self._filepath[:idx+1] + filename
+		with open(filename, 'r') as file :
+			includeCode = file.read()
+
+			self._code = self._code[:self._pos] + includeCode + self._code[self._pos:]
+			self._endPos += len(includeCode)
 
     # ============================================================================
     # ============================================================================
