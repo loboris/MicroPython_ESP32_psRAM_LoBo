@@ -251,10 +251,10 @@
 #define mp_type_textio                      nativefs_type_textio
 
 // internal flash file system configuration
-#ifdef CONFIG_MICROPY_INTERNALFS_ENCRIPTED
-#define MICROPY_INTERNALFS_ENCRIPTED        (1)	// use encription on filesystem (UNTESTED!)
+#ifdef CONFIG_MICROPY_INTERNALFS_ENCRYPTED
+#define MICROPY_INTERNALFS_ENCRYPTED        (1)	// use encryption on filesystem (UNTESTED!)
 #else
-#define MICROPY_INTERNALFS_ENCRIPTED        (0) // do not use encription on filesystem
+#define MICROPY_INTERNALFS_ENCRYPTED        (0) // do not use encryption on filesystem
 #endif
 
 // === sdcard using ESP32 sdmmc driver configuration ===
