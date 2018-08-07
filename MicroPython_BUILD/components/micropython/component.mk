@@ -121,6 +121,12 @@ ifdef CONFIG_MICROPY_USE_REQUESTS
 MP_EXTRA_INC += -I$(ESPCOMP)/esp_http_client/include/
 endif
 
+ifdef CONFIG_MICROPY_USE_SGP30_SENSOR
+MP_EXTRA_INC += -I$(COMPONENT_PATH)/esp32/libs/sgp/sgp30
+MP_EXTRA_INC += -I$(COMPONENT_PATH)/esp32/libs/sgp/embedded-common
+MP_EXTRA_INC += -I$(COMPONENT_PATH)/esp32/libs/sgp/sgp-common
+endif
+
 # CPP macro
 # ------------
 CPP = $(CC) -E
@@ -186,6 +192,10 @@ SRC_C =  $(addprefix esp32/,\
 
 ifdef CONFIG_MICROPY_USE_DISPLAY
 SRC_C += esp32/moddisplay.c
+endif
+
+ifdef CONFIG_MICROPY_USE_SGP30_SENSOR
+SRC_C += esp32/modsgp30.c
 endif
 
 ifdef CONFIG_MICROPY_USE_CURL
@@ -274,6 +284,13 @@ LIBS_SRC_C += \
 	esp32/libs/tft/tooney32.c \
 	esp32/libs/tft/Ubuntu16.c \
 	esp32/libs/tft/def_small.c
+endif
+
+ifdef CONFIG_MICROPY_USE_SGP30_SENSOR
+LIBS_SRC_C += \
+	esp32/libs/sgp/sgp30/sgp30.c \
+	esp32/libs/sgp/sgp30/sgp30_featureset.c \
+	esp32/libs/sgp/embedded-common/sensirion_common.c
 endif
 
 ifdef CONFIG_MICROPY_USE_EVE

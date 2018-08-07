@@ -323,6 +323,12 @@ menu "MicroPython"
             help
                 Include Display module into build
                 Display module includes support for various SPI TFT displays
+                
+        config MICROPY_USE_SGP30_SENSOR
+            bool "Use SGP30 sensor"
+            default n
+            help
+                Include sensor driver SGP30 into build 
 
         config MICROPY_USE_EVE
             bool "Use EVE display module (experimental, do not enable)"
