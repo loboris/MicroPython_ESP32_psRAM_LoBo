@@ -63,7 +63,7 @@ _GYRO_SO_500DPS = 62.5
 _GYRO_SO_1000DPS = 32.8
 _GYRO_SO_2000DPS = 16.4
 
-# Used for enablind and disabling the i2c bypass access
+# Used for enabling and disabling the i2c bypass access
 _I2C_BYPASS_MASK = const(0b00000010)
 _I2C_BYPASS_EN = const(0b00000010)
 _I2C_BYPASS_DIS = const(0b00000000)

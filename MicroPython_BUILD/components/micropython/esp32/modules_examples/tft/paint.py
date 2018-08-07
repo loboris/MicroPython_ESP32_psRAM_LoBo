@@ -10,7 +10,7 @@ p = paint.Paint(tft)
 To run the program:
   execute: 'p.start()' to start the program
   or
-  execute: 'p.start(tft.LANDSCAPE)' to set the orientation andstart the program
+  execute: 'p.start(tft.LANDSCAPE)' to set the orientation and start the program
 
 Program can also be run in the thread:
   'paint_th = _thread.start("Paint", p.start, ())'

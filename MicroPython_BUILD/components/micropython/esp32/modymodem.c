@@ -526,7 +526,7 @@ int Ymodem_Transmit (char* sendFileName, unsigned int sizeFile, FILE *ffd, char 
   /* When the receiving program receives this block and successfully
    * opened the output file, it shall acknowledge this block with an ACK
    * character and then proceed with a normal YMODEM file transfer
-   * beginning with a "C" or NAK tranmsitted by the receiver.
+   * beginning with a "C" or NAK transmitted by the receiver.
    */
   Ymodem_PrepareIntialPacket(packet_data, sendFileName, sizeFile);
   do 

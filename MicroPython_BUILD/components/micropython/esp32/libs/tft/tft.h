@@ -185,9 +185,9 @@ extern const color_t TFT_PINK;
  *       x: horizontal position
  *       y: vertical position
  *   color: pixel color
- *     sel: if not 0 activate CS before and deactivat after sending pixel data to display
+ *     sel: if not 0 activate CS before and deactivate after sending pixel data to display
  *          when sending multiple pixels it is faster to activate the CS first,
- *          send all pixels an deactivate CS after all pixela was sent
+ *          send all pixels and deactivate CS after all pixels have been sent
 */
 //-------------------------------------------------------------------
 void TFT_drawPixel(int16_t x, int16_t y, color_t color, uint8_t sel);
@@ -246,7 +246,7 @@ void TFT_drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, color_t color)
 
 /*
  * Draw line on screen from (x,y) point at given angle
- * Line drawing angle starts at lower right quadrant of the screen and is offseted by
+ * Line drawing angle starts at lower right quadrant of the screen and is offset by
  * '_angleOffset' global variable (default: -90 degrees)
  *
  * Params:
@@ -429,7 +429,7 @@ void TFT_fillEllipse(uint16_t x0, uint16_t y0, uint16_t rx, uint16_t ry, color_t
 
 /*
  * Draw circle arc on screen
- * Arc drawing angle starts at lower right quadrant of the screen and is offseted by
+ * Arc drawing angle starts at lower right quadrant of the screen and is offset by
  * '_angleOffset' global variable (default: -90 degrees)
  *
  * Params:
@@ -477,7 +477,7 @@ void TFT_drawPolygon(int cx, int cy, int sides, int diameter, color_t color, col
  *
  * Params:
  *			 font: font number; use defined font names
- *		font_file: pointer to font file name; NULL for embeded fonts
+ *		font_file: pointer to font file name; NULL for embedded fonts
  */
 //----------------------------------------------------
 void TFT_setFont(uint8_t font, const char *font_file);
@@ -531,7 +531,7 @@ int TFT_getfontheight();
 void TFT_print(char *st, int x, int y);
 
 /*
- * Set atributes for 7 segment vector font
+ * Set attributes for 7 segment vector font
  * == 7 segment font must be the current font to this function to have effect ==
  *
  * Params:

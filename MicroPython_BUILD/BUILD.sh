@@ -37,8 +37,8 @@
 #   -a <app_size>  | --appsize=<app_size>         - declare the size of application partition in KB
 #                                                   default: auto detect needed size
 #                                                   the actual size will be 128 KB smaller then the declared size
-#   -p <comm_port> | --port=<comm_port>           - overwritte configured comm port, use the specified instead
-#   -b <bdrate>    | --bdrate=<bdrate>            - overwritte configured baud rate, use the specified instead
+#   -p <comm_port> | --port=<comm_port>           - overwrite configured comm port, use the specified instead
+#   -b <bdrate>    | --bdrate=<bdrate>            - overwrite configured baud rate, use the specified instead
 
 # Note:
 #   Multiple options and commands can be given

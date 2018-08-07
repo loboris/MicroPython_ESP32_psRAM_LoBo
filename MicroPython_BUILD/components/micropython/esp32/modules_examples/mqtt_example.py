@@ -33,7 +33,7 @@ mqtt.start()
 # Wait until status is: (1, 'Connected')
 
 mqtt.subscribe('test')
-mqtt.publish('test', 'Hi from Micropython')
+mqtt.publish('test', 'Hi from MicroPython')
 
 mqtt.stop()
 

@@ -50,17 +50,17 @@ This way many features not available in standard ESP32 MicroPython are enabled, 
 
 ### Features
 
-* MicroPython core based on latest build from [main Micropython repository](https://github.com/micropython/micropython)
+* MicroPython core based on latest build from [main MicroPython repository](https://github.com/micropython/micropython)
 * added changes needed to build for ESP32 with psRAM
 * Default configuration has **2MB** of MicroPython heap, **20KB** of MicroPython stack, **~200KB** of free DRAM heap for C modules and functions
 * MicroPython can be built in **unicore** (FreeRTOS & MicroPython task running only on the first ESP32 core, or **dualcore** configuration (MicroPython task running on ESP32 **App** core)
 * ESP32 Flash can be configured in any mode, **QIO**, **QOUT**, **DIO**, **DOUT**
 * **BUILD.sh** script is provided to make **building** MicroPython firmware as **easy** as possible
-* Internal Fat filesystem is built with esp-idf **wear leveling** driver, so there is less danger of damaging the flash with frequent writes.
+* Internal Fat filesystem is built with esp-idf **wear levelling** driver, so there is less danger of damaging the flash with frequent writes.
 * **SPIFFS** filesystem is supported and can be used instead of FatFS in SPI Flash. Configurable via **menuconfig**
 * Flexible automatic and/or manual filesystem configuration
-* **sdcard** support is included which uses esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For imformation on how to connect sdcard see the documentation.
-* Files **timestamp** is correctly set to system time both on internal fat filesysten and on sdcard
+* **sdcard** support is included which uses esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For information on how to connect sdcard see the documentation.
+* Files **timestamp** is correctly set to system time both on internal fat filesystem and on sdcard
 * **Native ESP32 VFS** support for spi Flash & sdcard filesystems.
 * **RTC Class** is added to machine module, including methods for synchronization of system time to **ntp** server, **deepsleep**, **wakeup** from deepsleep **on external pin** level, ...
 * **Time zone** can be configured via **menuconfig** and is used when syncronizing time from NTP server

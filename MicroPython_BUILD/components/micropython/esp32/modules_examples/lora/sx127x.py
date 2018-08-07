@@ -130,7 +130,7 @@ class SX127x:
         self.standby()
         self.implicitHeaderMode(implicitHeaderMode)
 
-        # reset FIFO address and paload length
+        # reset FIFO address and payload length
         self.writeRegister(REG_FIFO_ADDR_PTR, FifoTxBaseAddr)
         self.writeRegister(REG_PAYLOAD_LENGTH, 0)
 

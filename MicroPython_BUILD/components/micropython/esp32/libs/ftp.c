@@ -1173,7 +1173,7 @@ int ftp_run (uint32_t elapsed)
                     ftp_data.loggin.passvalid = false;
                     strcpy (ftp_path, "/");
                     ESP_LOGI(FTP_TAG, "Connected.");
-                    ftp_send_reply (220, "Micropython FTP Server");
+                    ftp_send_reply (220, "MicroPython FTP Server");
                     break;
                 }
             }

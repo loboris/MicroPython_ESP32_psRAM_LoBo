@@ -303,7 +303,7 @@ def roundrectDemo(sec=5, dofill=False):
             break
     tft.resetwin()
 
-# Fisplay all demos
+# Display all demos
 #--------------------------------------
 def fullDemo(sec=5, rot=tft.LANDSCAPE):
     tft.orient(rot)
