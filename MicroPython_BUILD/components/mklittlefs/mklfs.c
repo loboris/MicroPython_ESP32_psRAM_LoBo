@@ -105,7 +105,7 @@ int addFile(char* name, const char* path)
 
     lfs_file_t *file = (lfs_file_t *) malloc(sizeof(lfs_file_t));
     if (file == NULL) {
-        printf("error: failed to open lfs file '%s' for writting\r\n", name);
+        printf("error: failed to open lfs file '%s' for writing\r\n", name);
         return 2;
     }
 
@@ -308,7 +308,7 @@ int lfs_img_mount(void)
 
     err = lfs_format(&lfs, &config);
     if (err) {
-        printf("Error formating image (%d)\r\n", err);
+        printf("Error formatting image (%d)\r\n", err);
         return err;
     }
 

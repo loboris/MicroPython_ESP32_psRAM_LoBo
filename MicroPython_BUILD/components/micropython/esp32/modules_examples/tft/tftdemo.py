@@ -1,5 +1,5 @@
 """
-Demo program demonstrating the capabities of the MicroPython display module
+Demo program demonstrating the capabilities of the MicroPython display module
 Author:	LoBo (https://github/loboris)
 Date:	08/10/2017
 
