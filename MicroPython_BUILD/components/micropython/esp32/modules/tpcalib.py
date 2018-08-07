@@ -1,4 +1,4 @@
-# Touch pannel calibration for ILI9341 based displays
+# Touch panel calibration for ILI9341 based displays
 
 
 import display, math, machine, utime

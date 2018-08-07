@@ -161,7 +161,7 @@ utime.sleep(1)
 machine.heap_info()
 _thread.list()
 
-# Set neopixel brightnes (%)
+# Set neopixel brightness (%)
 #_thread.notify(npth, 20)
 # Get counter value from Neopixel thread
 #_thread.notify(npth, 1000)

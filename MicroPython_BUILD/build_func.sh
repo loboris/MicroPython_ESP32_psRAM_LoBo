@@ -361,9 +361,9 @@ check_Environment() {
 
 
     cd Tools
-    # -----------------------------------------
-    # _psram directories are not needed anymore
-    # -----------------------------------------
+    # ------------------------------------------
+    # _psram directories are not needed any more
+    # ------------------------------------------
     if [ -d "esp-idf_psram" ]; then
         rm -rf esp-idf_psram/ > /dev/null 2>&1
         rmdir esp-idf_psram > /dev/null 2>&1

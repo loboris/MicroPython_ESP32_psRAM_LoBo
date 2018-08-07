@@ -158,13 +158,13 @@ srv.WebSocketThreaded       = ws_run_in_thread
 #    For this example 4096 should be enough, for more complex
 #    webSocket handling you may need to increase this size
 # If WebSocketS is NOT running in thread, and WebServer IS running in thread
-# make shure WebServer has enough stack size to handle also the WebSocket requests
+# make sure WebServer has enough stack size to handle also the WebSocket requests
 srv.WebSocketStackSize      = 4096
 srv.AcceptWebSocketCallback = _acceptWebSocketCallback
 # ------------------------------------------------------
 
 # If WebSocketS used and NOT running in thread, and WebServer IS running in thread
-# make shure WebServer has enough stack size to handle also the WebSocket requests
+# make sure WebServer has enough stack size to handle also the WebSocket requests
 srv.Start(threaded=srv_run_in_thread, stackSize=8192)
 
 # ----------------------------------------------------------------------------

@@ -181,7 +181,7 @@ class MicroWebSrv :
         self._started       = False
         self.thID           = None
         self.isThreaded     = False
-        self._state         = "Stoped"
+        self._state         = "Stopped"
 
         self.MaxWebSocketRecvLen     = 1024
         self.WebSocketThreaded       = True
@@ -236,7 +236,7 @@ class MicroWebSrv :
                 break
             self._client(self, client, cliAddr)
         self._started = False
-        self._state = "Stoped"
+        self._state = "Stopped"
         self.thID = None
 
     # ============================================================================
@@ -870,7 +870,7 @@ class MicroWebSrv :
                   'The server cannot process the request due to a high load'),
             504: ('Gateway Timeout',
                   'The gateway server did not receive a timely response'),
-            505: ('HTTP Version Not Supported', 'Cannot fulfill request.'),
+            505: ('HTTP Version Not Supported', 'Cannot fulfil request.'),
         }
 
     # ============================================================================

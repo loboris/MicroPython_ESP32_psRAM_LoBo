@@ -5,7 +5,7 @@
 
 **MicroPython core** is synchronized with [main MicroPython repository](https://github.com/micropython/micropython)
 
-**Commit:** bcfff4fc98a73c5ad9b7d3e338649955e861ada4
+**Commit:** [bcfff4fc98a73c5ad9b7d3e338649955e861ada4](https://github.com/micropython/micropython/commit/bcfff4fc98a73c5ad9b7d3e338649955e861ada4)
 
 <br>
 

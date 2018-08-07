@@ -233,7 +233,7 @@ STATIC void machine_pin_print(const mp_print_t *print, mp_obj_t self_in, mp_prin
         else if (pin_irq_type == GPIO_INTR_LOW_LEVEL) sprintf(sirq, "IRQ_LOLEVEL");
         else if (pin_irq_type == GPIO_INTR_HIGH_LEVEL) sprintf(sirq, "IRQ_HILEVEL");
         else sprintf(sirq, "Unknown");
-    	mp_printf(print, ", irq=%s, debounce=%u, actTimel=%d", sirq, self->irq_debounce, self->irq_active_time);
+    	mp_printf(print, ", irq=%s, debounce=%u, actTime=%d", sirq, self->irq_debounce, self->irq_active_time);
     }
 }
 

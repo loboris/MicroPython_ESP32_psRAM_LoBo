@@ -335,7 +335,7 @@ uint64_t mp_hal_ticks_us(void) {
 }
 
 /*
- * Delay specified number of milli seconds
+ * Delay specified number of milliseconds
  * For the delay time up to 10 ms the function is blocking
  * For delay times greater than 10 ms, the function
  * does not block the execution of the other threads.

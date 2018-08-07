@@ -22,6 +22,7 @@ Currently, there are several modules & development boards which incorporates **4
 * **WiPy 3.0** _board_ from [Pycom](https://pycom.io/product/wipy-3/).
 * **TTGO TAudio** _board_ ([eBay](https://www.ebay.com/itm/TTGO-TAudio-V1-0-ESP32-WROVER-SD-Card-Slot-Bluetooth-WI-FI-Module-MPU9250/152835010520?hash=item2395ad2fd8:g:Jt8AAOSwR2RaOdEp))
 * **Lolin32 Pro** _board_ from [Wemos](https://wiki.wemos.cc/products:lolin32:lolin32_pro) - **`no longer available`** ([Schematic](https://wiki.wemos.cc/_media/products:lolin32:sch_lolin32_pro_v1.0.0.pdf)).
+* **Lolin D32 Pro** _board_ from [Wemos](https://wiki.wemos.cc/products:d32:d32_pro) available on [AliExpress](https://www.aliexpress.com/store/product/LOLIN-D32-Pro-V2-0-0-wifi-bluetooth-board-based-ESP-32-esp32-Rev1-ESP32-WROVER/1331105_32883116057.html)
 * **ESP-WROVER** _module_ from Espressif, available from [ElectroDragon](http://www.electrodragon.com/product/esp32-wrover-v4-module-based-esp32/) and many other vendors.
 * **ALB32-WROVER** _module_ (4 MB SPIRAM & 4/8/16 MB Flash) from [AnalogLamb](https://www.analoglamb.com/product/alb32-wrover-esp32-module-with-64mb-flash-and-32mb-psram/).
 * **S01**, **L01** and **G01** _OEM modules_ from [Pycom](https://pycom.io/webshop#oem-products).
@@ -50,17 +51,17 @@ This way many features not available in standard ESP32 MicroPython are enabled, 
 
 ### Features
 
-* MicroPython core based on latest build from [main Micropython repository](https://github.com/micropython/micropython)
+* MicroPython core based on latest build from [main MicroPython repository](https://github.com/micropython/micropython)
 * added changes needed to build for ESP32 with psRAM
 * Default configuration has **2MB** of MicroPython heap, **20KB** of MicroPython stack, **~200KB** of free DRAM heap for C modules and functions
 * MicroPython can be built in **unicore** (FreeRTOS & MicroPython task running only on the first ESP32 core, or **dualcore** configuration (MicroPython task running on ESP32 **App** core)
 * ESP32 Flash can be configured in any mode, **QIO**, **QOUT**, **DIO**, **DOUT**
 * **BUILD.sh** script is provided to make **building** MicroPython firmware as **easy** as possible
-* Internal Fat filesystem is built with esp-idf **wear leveling** driver, so there is less danger of damaging the flash with frequent writes.
+* Internal Fat filesystem is built with esp-idf **wear levelling** driver, so there is less danger of damaging the flash with frequent writes.
 * **SPIFFS** filesystem is supported and can be used instead of FatFS in SPI Flash. Configurable via **menuconfig**
 * Flexible automatic and/or manual filesystem configuration
-* **sdcard** support is included which uses esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For imformation on how to connect sdcard see the documentation.
-* Files **timestamp** is correctly set to system time both on internal fat filesysten and on sdcard
+* **sdcard** support is included which uses esp-idf **sdmmc** driver and can work in **SD mode** (*1-bit* and *4-bit*) or in **SPI mode** (sd card can be connected to any pins). For information on how to connect sdcard see the documentation.
+* Files **timestamp** is correctly set to system time both on internal fat filesystem and on sdcard
 * **Native ESP32 VFS** support for spi Flash & sdcard filesystems.
 * **RTC Class** is added to machine module, including methods for synchronization of system time to **ntp** server, **deepsleep**, **wakeup** from deepsleep **on external pin** level, ...
 * **Time zone** can be configured via **menuconfig** and is used when syncronizing time from NTP server

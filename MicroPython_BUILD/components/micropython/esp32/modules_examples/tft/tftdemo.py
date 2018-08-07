@@ -1,5 +1,5 @@
 """
-Demo program demonstrating the capabities of the MicroPython display module
+Demo program demonstrating the capabilities of the MicroPython display module
 Author:	LoBo (https://github/loboris)
 Date:	08/10/2017
 
@@ -303,7 +303,7 @@ def roundrectDemo(sec=5, dofill=False):
             break
     tft.resetwin()
 
-# Fisplay all demos
+# Display all demos
 #--------------------------------------
 def fullDemo(sec=5, rot=tft.LANDSCAPE):
     tft.orient(rot)

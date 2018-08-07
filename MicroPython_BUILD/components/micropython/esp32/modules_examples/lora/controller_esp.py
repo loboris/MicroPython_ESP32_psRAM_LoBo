@@ -146,7 +146,7 @@ class Controller(controller.Controller):
                 pin_ss.low()
 
                 spi.write(bytes([address])) # write register address
-                spi.write_readinto(bytes([value]), response) # write or read register walue
+                spi.write_readinto(bytes([value]), response) # write or read register value
                 #spi.write_readinto(bytes([address]), response)
 
                 pin_ss.high()

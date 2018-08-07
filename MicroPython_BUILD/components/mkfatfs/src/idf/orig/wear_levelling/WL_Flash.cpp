@@ -113,7 +113,7 @@ esp_err_t WL_Flash::init()
     WL_RESULT_CHECK(result);
 
     int check_size = sizeof(wl_state_t) - sizeof(uint32_t);
-    // Chech CRC and recover state
+    // Check CRC and recover state
     uint32_t crc1 = crc32::crc32_le(WL_CFG_CRC_CONST, (uint8_t *)&this->state, check_size);
     uint32_t crc2 = crc32::crc32_le(WL_CFG_CRC_CONST, (uint8_t *)state_copy, check_size);
 
