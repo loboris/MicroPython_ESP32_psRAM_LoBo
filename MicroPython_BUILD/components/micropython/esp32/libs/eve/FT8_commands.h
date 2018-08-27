@@ -32,213 +32,150 @@
 #ifndef FT8_COMMANDS_H_
 #define FT8_COMMANDS_H_
 
+#include "sdkconfig.h"
+
+#if CONFIG_MICROPY_USE_EVE
+
 #include <stdint.h>
+#include "esp_err.h"
+//#include "tft/tftspi.h"
+#include "driver/spi_master_utils.h"
 
-/* switch over to FT81x */
+
+#define MAX_USER_FONTS          15
+//#define EVE_STATIC_LIST         0
+//#define EVE_STATIC_LIST_SIZE    8192
+//#define EVE_FONT_IMG_START      8192
+#define EVE_FONT_METRICS_SIZE   148
+#define EVE_FONT_WIDTHS_SIZE    128
+
+#ifdef CONFIG_MICROPY_EVE_FT81X
 #define FT8_81X_ENABLE
-
-
-/* select the settings for the TFT attached */
-#if 0
-	#define FT8_VM800B35A
-	#define FT8_VM800B43A
-	#define FT8_VM800B50A
-	#define FT8_FT810CB_HY50HD
-	#define FT8_FT811CB_HY50HD
-	#define FT8_ET07
-	#define FT8_RVT70AQ
 #endif
 
-#define FT8_FT810CB_HY50HD
-
+#define EVE_TYPE_NONE   0
+#define EVE_TYPE_FT800  1
+#define EVE_TYPE_FT801  2
+#define EVE_TYPE_FT810  3
+#define EVE_TYPE_FT811  4
+#define EVE_TYPE_FT812  5
+#define EVE_TYPE_FT813  6
+#define EVE_TYPE_MAX    7
 
 /* some pre-definded colors */
-#define RED		0xff0000UL
-#define ORANGE	0xffa500UL
-#define GREEN	0x00ff00UL
-#define BLUE	0x0000ffUL
-#define YELLOW	0xffff00UL
-/*#define PINK	0xff00ffUL*/
-#define PURPLE	0x800080UL
-#define WHITE	0xffffffUL
-#define BLACK	0x000000UL
+#define EVE_BLACK       0
+#define EVE_NAVY        128
+#define EVE_DARKGREEN   32768
+#define EVE_DARKCYAN    32896
+#define EVE_MAROON      8388608
+#define EVE_PURPLE      8388736
+#define EVE_OLIVE       8421376
+#define EVE_LIGHTGREY   12632256
+#define EVE_DARKGREY    8421504
+#define EVE_BLUE        255
+#define EVE_GREEN       65280
+#define EVE_CYAN        65535
+#define EVE_RED         16515072
+#define EVE_MAGENTA     16515327
+#define EVE_YELLOW      16579584
+#define EVE_WHITE       16579836
+#define EVE_ORANGE      16557056
+#define EVE_GREENYELLOW 11336748
+#define EVE_PINK        16564426
 
 
-/* VM800B35A: FT800 320x240 3.5" FTDI */
-#ifdef FT8_VM800B35A
-#define FT8_VSYNC0	(0L)	/* Tvf Vertical Front Porch */
-#define FT8_VSYNC1	(2L)	/* Tvf + Tvp Vertical Front Porch plus Vsync Pulse width */
-#define FT8_VOFFSET	(13L)	/* Tvf + Tvp + Tvb Number of non-visible lines (in lines) */
-#define FT8_VCYCLE	(263L)	/* Tv Total number of lines (visible and non-visible) (in lines) */
-#define FT8_VSIZE	(240L)	/* Tvd Number of visible lines (in lines) - display height */
-#define FT8_HSYNC0	(0L)	/* Thf Horizontal Front Porch */
-#define FT8_HSYNC1	(10L)	/* Thf + Thp Horizontal Front Porch plus Hsync Pulse width */
-#define FT8_HOFFSET 	(70L)	/* Thf + Thp + Thb Length of non-visible part of line (in PCLK cycles) */
-#define FT8_HCYCLE 	(408L)	/* Th Total length of line (visible and non-visible) (in PCLKs) */
-#define FT8_HSIZE	(320L)	/* Thd Length of visible part of line (in PCLKs) - display width */
-#define FT8_PCLKPOL 	(0L)	/* PCLK polarity (0 = rising edge, 1 = falling edge) */
-#define FT8_SWIZZLE 	(2L)	/* Defines the arrangement of the RGB pins of the FT800 */
-#define FT8_PCLK		(8L)	/* 48MHz / REG_PCLK = PCLK frequency */
-#define FT8_TOUCH_RZTHRESH (1200L)	/* touch-sensitivity */
-#define FT8_HAS_CRYSTAL 1	/* use external crystal or internal oscillator? */
-#endif
+typedef struct {
+    uint16_t vsync0;        // Tvf Vertical Front Porch
+    uint16_t vsync1;        // Tvf + Tvp Vertical Front Porch plus Vsync Pulse width
+    uint16_t voffset;       // Tvf + Tvp + Tvb Number of non-visible lines (in lines)
+    uint16_t vcycle;        // Tv Total number of lines (visible and non-visible) (in lines)
+    uint16_t vsize;         // Tvd Number of visible lines (in lines) - display height
+    uint16_t hsync0;        // Thf Horizontal Front Porch
+    uint16_t hsync1;        // Thf + Thp Horizontal Front Porch plus Hsync Pulse width
+    uint16_t hoffset;       // Thf + Thp + Thb Length of non-visible part of line (in PCLK cycles)
+    uint16_t hcycle;        // Th Total length of line (visible and non-visible) (in PCLKs)
+    uint16_t hsize;         // Thd Length of visible part of line (in PCLKs) - display width
+    uint8_t pclkpol;        // PCLK polarity (0 = rising edge, 1 = falling edge)
+    uint8_t swizzle;        // Defines the arrangement of the RGB pins of the FT800
+    uint8_t pclk;           // 48MHz or 60 MHz / REG_PCLK = PCLK frequency
+    uint8_t has_crystal;    // use external crystal or internal oscillator?
+    uint16_t touch_thresh;  // touch-sensitivity
+    uint8_t cspread;        // helps with noise, when set to 1 fewer signals are changed simultaneously, reset-default: 1
+    uint8_t has_GT911;      // special treatment required for out-of-spec touch-controller
+} ft8_config_t;
 
-/* VM800B43A: FT800 480x272 4.3" FTDI */
-#ifdef FT8_VM800B43A
-#define FT8_VSYNC0	(0L)
-#define FT8_VSYNC1	(10L)
-#define FT8_VOFFSET	(12L)
-#define FT8_VCYCLE	(292L)
-#define FT8_VSIZE	(272L)
-#define FT8_HSYNC0	(0L)
-#define FT8_HSYNC1	(41L)
-#define FT8_HOFFSET 	(43L)
-#define FT8_HCYCLE 	(548L)
-#define FT8_HSIZE	(480L)
-#define FT8_PCLKPOL 	(1L)
-#define FT8_SWIZZLE 	(0L)
-#define FT8_PCLK		(5L)
-#define FT8_TOUCH_RZTHRESH (1200L)
-#define FT8_HAS_CRYSTAL 1
-#endif
+// EVE Display structure
+typedef struct {
+    uint16_t        width;          // Display width (smaller dimension)
+    uint16_t        height;         // Display height (larger dimension)
+    uint32_t        speed;          // SPI clock in Hz
+    uint8_t         host;           // SPI host (HSPI_HOST or VSPI_HOST)
+    uint8_t         miso;           // SPI MISO pin
+    uint8_t         mosi;           // SPI MOSI pin
+    uint8_t         sck;            // SPI CLOCK pin
+    uint8_t         cs;             // Display CS pin
+    int8_t          pd;             // GPIO used as PD pin
+    uint8_t         touch;          // Touch panel type
+    ft8_config_t    disp_config;    // Pointer to display configuration structure
+} eve_config_t;
 
-/* VM800B50A: FT800 480x272 5.0" FTDI */
-#ifdef FT8_VM800B50A
-#define FT8_VSYNC0	(0L)
-#define FT8_VSYNC1	(10L)
-#define FT8_VOFFSET	(12L)
-#define FT8_VCYCLE	(292L)
-#define FT8_VSIZE	(272L)
-#define FT8_HSYNC0	(0L)
-#define FT8_HSYNC1	(41L)
-#define FT8_HOFFSET 	(43L)
-#define FT8_HCYCLE 	(548L)
-#define FT8_HSIZE	(480L)
-#define FT8_PCLKPOL 	(1L)
-#define FT8_SWIZZLE 	(0L)
-#define FT8_PCLK		(5L)
-#define FT8_TOUCH_RZTHRESH (1200L)
-#define FT8_HAS_CRYSTAL 1
-#endif
+typedef struct {
+    uint32_t    fifo_buff;  //fifo buffer address
+    int32_t     fifo_len;   //fifo length
+    int32_t     fifo_wp;    //fifo write pointer - maintained by host
+    int32_t     fifo_rp;    //fifo read point - maintained by device
+    FILE        *pFile;
+    int32_t     file_remain;
+    int32_t     file_size;
+    uint8_t     *g_scratch;
+    uint16_t    fbuff_size;
+    uint32_t    max_free;
+    uint32_t    min_free;
+} FT8_Fifo_t;
 
-/* FT810CB-HY50HD: FT810 800x480 5" HAOYU */
-#ifdef FT8_FT810CB_HY50HD
-#define FT8_VSYNC0	(0L)
-#define FT8_VSYNC1	(2L)
-#define FT8_VOFFSET	(13L)
-#define FT8_VCYCLE	(525L)
-#define FT8_VSIZE	(480L)
-#define FT8_HSYNC0	(0L)
-#define FT8_HSYNC1	(20L)
-#define FT8_HOFFSET 	(64L)
-#define FT8_HCYCLE 	(952L)
-#define FT8_HSIZE	(800L)
-#define FT8_PCLKPOL 	(1L)
-#define FT8_SWIZZLE 	(0L)
-#define FT8_PCLK		(2L)
-#define FT8_TOUCH_RZTHRESH (2000L)	/* touch-sensitivity */
-#define FT8_HAS_CRYSTAL 1
-#endif
-
-/* FT811CB-HY50HD: FT811 800x480 5" HAOYU */
-#ifdef FT8_FT811CB_HY50HD
-#define FT8_VSYNC0	(0L)
-#define FT8_VSYNC1	(2L)
-#define FT8_VOFFSET	(13L)
-#define FT8_VCYCLE	(525L)
-#define FT8_VSIZE	(480L)
-#define FT8_HSYNC0	(0L)
-#define FT8_HSYNC1	(20L)
-#define FT8_HOFFSET 	(64L)
-#define FT8_HCYCLE 	(952L)
-#define FT8_HSIZE	(800L)
-#define FT8_PCLKPOL 	(1L)
-#define FT8_SWIZZLE 	(0L)
-#define FT8_PCLK		(2L)
-#define FT8_TOUCH_RZTHRESH (1200L)	/* touch-sensitivity */
-#define FT8_HAS_CRYSTAL 1
-#endif
-
-/* some test setup */
-#ifdef FT8_800x480x
-#define FT8_VSYNC0	(0L) /* Tvf Vertical Front Porch */
-#define FT8_VSYNC1	(10L) /* Tvf + Tvp Vertical Front Porch plus Vsync Pulse width */
-#define FT8_VOFFSET	(35L) /* Tvf + Tvp + Tvb Number of non-visible lines (in lines) */
-#define FT8_VCYCLE	(516L)	/* Tv Total number of lines (visible and non-visible) (in lines) */
-#define FT8_VSIZE	(480L)	/* Tvd Number of visible lines (in lines) - display height */
-#define FT8_HSYNC0	(0L) /* (40L)	// Thf Horizontal Front Porch */
-#define FT8_HSYNC1	(88L)	/* Thf + Thp Horizontal Front Porch plus Hsync Pulse width */
-#define FT8_HOFFSET 	(169L) /* Thf + Thp + Thb Length of non-visible part of line (in PCLK cycles) */
-#define FT8_HCYCLE 	(969L) /* Th Total length of line (visible and non-visible) (in PCLKs) */
-#define FT8_HSIZE	(800L)	/* Thd Length of visible part of line (in PCLKs) - display width */
-#define FT8_PCLKPOL 	(1L)	/* PCLK polarity (0 = rising edge, 1 = falling edge) */
-#define FT8_SWIZZLE 	(0L)	/* Defines the arrangement of the RGB pins of the FT800 */
-#define FT8_PCLK		(2L)	/* 60MHz / REG_PCLK = PCLK frequency	30 MHz */
-#define FT8_TOUCH_RZTHRESH (1200L)	/* touch-sensitivity */
-#define FT8_HAS_CRYSTAL 1
-#endif
-
-/* G-ET0700G0DM6 800x480 7" Glyn, untested */
-#ifdef FT8_ET07
-#define FT8_VSYNC0	(0L)
-#define FT8_VSYNC1	(2L)
-#define FT8_VOFFSET	(35L)
-#define FT8_VCYCLE	(525L)
-#define FT8_VSIZE	(480L)
-#define FT8_HSYNC0	(0L)
-#define FT8_HSYNC1	(128L)
-#define FT8_HOFFSET 	(203L)
-#define FT8_HCYCLE 	(1056L)
-#define FT8_HSIZE	(800L)
-#define FT8_PCLKPOL 	(1L)
-#define FT8_SWIZZLE 	(0L)
-#define FT8_PCLK		(2L)
-#define FT8_TOUCH_RZTHRESH (1200L)
-#define FT8_HAS_CRYSTAL 0	/* no idea if these come with a crystal populated or not */
-#endif
-
-/* RVT70AQxxxxxx 800x480 7" Riverdi, various options, FT812/FT813, tested with RVT70UQFNWC0x */
-#ifdef FT8_RVT70AQ
-#define FT8_VSYNC0	(0L)	/* Tvf Vertical Front Porch */
-#define FT8_VSYNC1	(10L)	/* Tvf + Tvp Vertical Front Porch plus Vsync Pulse width */
-#define FT8_VOFFSET	(23L)	/* Tvf + Tvp + Tvb Number of non-visible lines (in lines) */
-#define FT8_VCYCLE	(525L)	/* Tv Total number of lines (visible and non-visible) (in lines) */
-#define FT8_VSIZE	(480L)	/* Tvd Number of visible lines (in lines) - display height */
-#define FT8_HSYNC0	(0L)	/* Thf Horizontal Front Porch */
-#define FT8_HSYNC1	(10L)	/* Thf + Thp Horizontal Front Porch plus Hsync Pulse width */
-#define FT8_HOFFSET 	(46L)	/* Thf + Thp + Thb Length of non-visible part of line (in PCLK cycles) */
-#define FT8_HCYCLE 	(1056L)	/* Th Total length of line (visible and non-visible) (in PCLKs) */
-#define FT8_HSIZE	(800L)	/* Thd Length of visible part of line (in PCLKs) - display width */
-#define FT8_PCLKPOL 	(1L)	/* PCLK polarity (0 = rising edge, 1 = falling edge) */
-#define FT8_SWIZZLE 	(0L)	/* Defines the arrangement of the RGB pins of the FT800 */
-#define FT8_PCLK		(2L)	/* 60MHz / REG_PCLK = PCLK frequency 30 MHz */
-#define FT8_TOUCH_RZTHRESH (1800L)	/* touch-sensitivity */
-#define FT8_HAS_CRYSTAL 0
-#endif
 
 // ----------------------------------------------------------------------------------
 
+extern uint16_t eve_chip_id;
+extern exspi_device_handle_t *eve_spi;
 extern uint16_t eve_cmdOffset;
+extern uint32_t ft8_ramg_ptr;
+extern FT8_Fifo_t ft8_stFifo;
+extern uint8_t ft8_full_cs;
+extern uint8_t eve_spibus_is_init;
+extern uint8_t spi_is_init;
+
+
+int FT8_Fifo_init(FILE *fhndl);
+void FT8_Fifo_deinit();
 
 void FT8_cmdWrite(uint8_t data);
 
 uint8_t FT8_memRead8(uint32_t ftAddress);
 uint16_t FT8_memRead16(uint32_t ftAddress);
 uint32_t FT8_memRead32(uint32_t ftAddress);
+void FT8_memRead_buffer(uint32_t ftAddress, uint8_t *data, uint16_t len);
+
 void FT8_memWrite8(uint32_t ftAddress, uint8_t ftData8);
 void FT8_memWrite16(uint32_t ftAddress, uint16_t ftData16);
 void FT8_memWrite32(uint32_t ftAddress, uint32_t ftData32);
-void FT8_memWrite_flash_buffer(uint32_t ftAddress, const uint8_t *data, uint16_t len);
+int FT8_memWrite_flash_buffer(uint32_t ftAddress, const uint8_t *data, uint16_t len, bool check_padding);
+
+void FT8_send_long(uint32_t val1, uint32_t val2, uint32_t val3, uint8_t len);
+
 uint8_t FT8_busy(void);
 void FT8_cmd_dl(uint32_t command);
 
+void FT8_inc_cmdoffset(uint16_t increment);
 void FT8_get_cmdoffset(void);
 uint32_t FT8_get_touch_tag(void);
 void FT8_cmd_start(void);
-void FT8_cmd_execute(void);
+bool FT8_cmd_execute(int tmo_ms);
 
 void FT8_start_cmd_burst(void);
 void FT8_end_cmd_burst(void);
+void FT8_start_cmd(uint32_t command);
+
 
 /* commands to draw graphics objects: */
 void FT8_cmd_text(int16_t x0, int16_t y0, int16_t font, uint16_t options, const char* text);
@@ -257,51 +194,52 @@ void FT8_cmd_dial(int16_t x0, int16_t y0, int16_t r0, uint16_t options, uint16_t
 void FT8_cmd_toggle(int16_t x0, int16_t y0, int16_t w0, int16_t font, uint16_t options, uint16_t state, const char* text);
 void FT8_cmd_number(int16_t x0, int16_t y0, int16_t font, uint16_t options, int32_t number);
 
-#ifdef FT8_81X_ENABLE
 void FT8_cmd_setbase(uint32_t base);
 void FT8_cmd_setbitmap(uint32_t addr, uint16_t fmt, uint16_t width, uint16_t height);
-#endif
+void FT8_cmd_bitmapXY(uint16_t x, uint16_t y);
 
 /* commands to operate on memory: */
 void FT8_cmd_memzero(uint32_t ptr, uint32_t num);
 void FT8_cmd_memset(uint32_t ptr, uint8_t value, uint32_t num);
-/*(void FT8_cmd_memwrite(uint32_t dest, uint32_t num, const uint8_t *data); */
+void FT8_cmd_memwrite(uint32_t dest, const uint8_t *data, uint32_t num);
 void FT8_cmd_memcpy(uint32_t dest, uint32_t src, uint32_t num);
 void FT8_cmd_append(uint32_t ptr, uint32_t num);
 
 
 /* commands for loading image data into FT8xx memory: */
 void FT8_cmd_inflate(uint32_t ptr, const uint8_t *data, uint16_t len);
-void FT8_cmd_loadimage(uint32_t ptr, uint32_t options, const uint8_t *data, uint16_t len);
-#ifdef FT8_81X_ENABLE
+int FT8_cmd_loadimage(uint32_t ptr, uint32_t options, FILE *fhndl, uint32_t len, uint8_t type);
 void FT8_cmd_mediafifo(uint32_t ptr, uint32_t size);
-#endif
+
+int FT8_sendDataViaMediafifo(FILE *pFile, uint32_t ptr, uint32_t options, uint8_t type);
+int FT8_Fifo_service();
+void FT8_cmd_videoframe(uint32_t addr);
 
 /* commands for setting the bitmap transform matrix: */
 void FT8_cmd_translate(int32_t tx, int32_t ty);
 void FT8_cmd_scale(int32_t sx, int32_t sy);
 void FT8_cmd_rotate(int32_t ang);
 void FT8_cmd_getmatrix(int32_t a, int32_t b, int32_t c, int32_t d, int32_t e, int32_t f);
+void FT8_cmd_setmatrix();
 
 
 /* other commands: */
 void FT8_cmd_calibrate(void);
 void FT8_cmd_interrupt(uint32_t ms);
 void FT8_cmd_setfont(uint32_t font, uint32_t ptr);
-#ifdef FT8_81X_ENABLE
+
 void FT8_cmd_romfont(uint32_t font, uint32_t romslot);
 void FT8_cmd_setfont2(uint32_t font, uint32_t ptr, uint32_t firstchar);
 void FT8_cmd_setrotate(uint32_t r);
 void FT8_cmd_setscratch(uint32_t handle);
-#endif
+
 void FT8_cmd_sketch(int16_t x0, int16_t y0, uint16_t w0, uint16_t h0, uint32_t ptr, uint16_t format);
 void FT8_cmd_snapshot(uint32_t ptr);
-#ifdef FT8_81X_ENABLE
 void FT8_cmd_snapshot2(uint32_t fmt, uint32_t ptr, int16_t x0, int16_t y0, int16_t w0, int16_t h0);
-#endif
 void FT8_cmd_spinner(int16_t x0, int16_t y0, uint16_t style, uint16_t scale);
 void FT8_cmd_track(int16_t x0, int16_t y0, int16_t w0, int16_t h0, int16_t tag);
 
+void FT8_CP_reset();
 
 /* commands that return values by writing to the command-fifo */
 uint16_t FT8_cmd_memcrc(uint32_t ptr, uint32_t num);
@@ -314,9 +252,12 @@ uint16_t FT8_cmd_getprops(uint32_t ptr);
 void FT8_cmd_point(int16_t x0, int16_t y0, uint16_t size);
 void FT8_cmd_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t w0);
 void FT8_cmd_rect(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t corner);
+void FT8_cmd_strip(uint16_t *data, uint16_t length, uint8_t type, uint16_t width);
 
 
 /* startup FT8xx: */
-uint8_t FT8_init(void);
+esp_err_t FT8_init(eve_config_t *dconfig, exspi_device_handle_t *disp_spi_dev);
+
+#endif //CONFIG_MICROPY_USE_EVE
 
 #endif // FT8_COMMANDS_H_

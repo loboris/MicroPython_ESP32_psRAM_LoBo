@@ -30,6 +30,7 @@
 #if defined(CONFIG_MICROPY_USE_CURL) || defined(CONFIG_MICROPY_USE_SSH)
 
 #include <string.h>
+#include <ctype.h>
 #include "freertos/FreeRTOS.h"
 #include "libs/espcurl.h"
 #include "libs/libGSM.h"
@@ -46,27 +47,10 @@
 #include "esp_wifi_types.h"
 #include "tcpip_adapter.h"
 
+#include "modnetwork.h"
 #include "modmachine.h"
 #include "py/mpthread.h"
 #include "py/nlr.h"
-
-
-//--------------------
-void checkConnection()
-{
-    tcpip_adapter_ip_info_t info;
-    tcpip_adapter_get_ip_info(WIFI_IF_STA, &info);
-    if (info.ip.addr == 0) {
-		#ifdef CONFIG_MICROPY_USE_GSM
-    	if (ppposStatus() != GSM_STATE_CONNECTED) {
-    		nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "No Internet connection"));
-    	}
-		#else
-		nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "No Internet connection"));
-		#endif
-    }
-}
-
 
 #ifdef CONFIG_MICROPY_USE_CURL
 
@@ -130,7 +114,7 @@ static size_t curlWrite(void *buffer, size_t size, size_t nmemb, void *userdata)
 			if ((s->status == 0) && ((size*nmemb) > 0)) {
 				for (int i=0; i<(size*nmemb); i++) {
 					if (s->len < (s->maxlen-2)) {
-						if (((buf[i] == 0x0a) || (buf[i] == 0x0d)) || ((buf[i] >= 0x20) && (buf[i] >= 0x20))) s->ptr[s->len] = buf[i];
+						if ((buf[i] == 0x0a) || (buf[i] == 0x0d) || (buf[i] == 0x09) || (buf[i] >= 0x20)) s->ptr[s->len] = buf[i];
 						else s->ptr[s->len] = '.';
 						s->len++;
 						s->ptr[s->len] = '\0';
@@ -382,6 +366,161 @@ exit:
     return err;
 }
 
+// Converts an integer value to its hex character
+//-----------------------------
+static char to_hex(char code) {
+    static char hex[] = "0123456789abcdef";
+    return hex[code & 15];
+}
+
+//------------------------------------------------------------
+/* Returns a url encoded version of str
+ * IMPORTANT: be sure to free() the returned string after use
+ */
+//=================================
+char *url_encode(const char *str) {
+    const char *pstr = str;
+    char *buf = malloc(strlen(str) * 3 + 1);
+    char *pbuf = buf;
+    while (*pstr) {
+        if (*pstr == ' ') {
+            *pbuf++ = '%';
+            *pbuf++ = to_hex(*pstr >> 4);
+            *pbuf++ = to_hex(*pstr & 15);
+        }
+        else {
+            *pbuf++ = *pstr;
+        }
+        pstr++;
+    }
+    *pbuf = '\0';
+    return buf;
+}
+
+//=========================================================================================================================================================================================
+int Curl_IMAP_GET(const char *opts, char *fname, char *hdr, char *body, int hdrlen, int bodylen, const char* imapserver, unsigned int imapport, const char* username, const char* password)
+{
+    CURL *curl = NULL;
+    CURLcode res = 0;
+    FILE* file = NULL;
+    int err = 0;
+
+    if ((hdr) && (hdrlen < MIN_HDR_BUF_LEN)) {
+        err = -1;
+        goto exit;
+    }
+    if ((body) && (bodylen < MIN_BODY_BUF_LEN)) {
+        err = -2;
+        goto exit;
+    }
+
+    struct curl_Transfer get_data;
+    struct curl_Transfer get_header;
+
+    if (!curl_initialized) {
+        res = curl_global_init(CURL_GLOBAL_DEFAULT);
+        if (res) {
+            err = -3;
+            goto exit;
+        }
+        curl_initialized = 1;
+    }
+
+    // Create a curl curl
+    curl = curl_easy_init();
+    if (curl == NULL) {
+        err = -4;
+        goto exit;
+    }
+
+    init_curl_Transfer(curl, &get_data, body, bodylen, NULL);
+    init_curl_Transfer(curl, &get_header, hdr, hdrlen, NULL);
+
+    if (fname) {
+        if (strcmp(fname, "simulate") == 0) {
+            get_data.tofile = 1;
+            curl_sim_fs = 1;
+        }
+        else {
+            file = fopen(fname, "wb");
+            if (file == NULL) {
+                err = -5;
+                goto exit;
+            }
+            get_data.file = file;
+            get_data.tofile = 1;
+            curl_sim_fs = 0;
+        }
+    }
+
+    //set destination URL
+    char* url;
+    char *opts_out = url_encode(opts);
+    int opts_len = strlen(opts_out);
+    size_t len = strlen(imapserver) + opts_len + 16;
+    if ((url = (char*)malloc(len)) == NULL) {
+        free(opts_out);
+        ESP_LOGE(CURL_TAG, "Error allocating memory");
+        err = -6;
+        goto exit;
+    }
+
+    sprintf(url, "imaps://%s:%u/%s", imapserver, imapport, opts_out);
+    free(opts_out);
+
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    printf("=== URL=[%s]\n", url);
+    free(url);
+
+    _set_default_options(curl);
+
+    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, curlWrite);
+    curl_easy_setopt(curl, CURLOPT_HEADERDATA, &get_header);
+
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWrite);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &get_data);
+
+    // Try using Transport Layer Security (TLS), but continue anyway if it fails
+    curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_TRY);
+
+    //set authentication credentials if provided
+    if (username && *username) curl_easy_setopt(curl, CURLOPT_USERNAME, username);
+    if (password) curl_easy_setopt(curl, CURLOPT_PASSWORD, password);
+
+    // Only allow IMAPS, we do not want this to work when unencrypted.
+    curl_easy_setopt(curl, CURLOPT_PROTOCOLS, CURLPROTO_IMAPS);
+
+    // Perform the request, res will get the return code
+    res = curl_easy_perform(curl);
+
+    if (res != CURLE_OK) {
+        if (curl_verbose) {
+            ESP_LOGE(CURL_TAG, "curl_easy_perform failed: %s", curl_easy_strerror(res));
+        }
+        if (body) snprintf(body, bodylen, "%s", curl_easy_strerror(res));
+        err = -7;
+        goto exit;
+    }
+
+    if (get_data.tofile) {
+        if (curl_progress) {
+            double curtime = 0;
+            curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &curtime);
+            ESP_LOGI(CURL_TAG, "* Download: received %d B; time=%0.1f s; speed=%0.1f KB/sec", get_data.len, curtime, (float)(((get_data.len*10)/curtime) / 10240.0));
+        }
+        if (body) {
+            if (strcmp(fname, "simulate") == 0) snprintf(body, bodylen, "SIMULATED save to file; size=%d", get_data.len);
+            else snprintf(body, bodylen, "Saved to file %s, size=%d", fname, get_data.len);
+        }
+    }
+
+exit:
+    // Cleanup
+    if (file) fclose(file);
+    if (curl) curl_easy_cleanup(curl);
+
+    return err;
+}
 
 //=======================================================================
 int Curl_POST(char *url , char *hdr, char *body, int hdrlen, int bodylen)
@@ -467,6 +606,7 @@ exit:
     return err;
 }
 
+//---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ifdef CONFIG_MICROPY_USE_CURLFTP
 
 //===================================================================================================================

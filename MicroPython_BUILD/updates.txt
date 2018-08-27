@@ -1,3 +1,38 @@
+=== 2018-06-26 ===
+
+Updated 'ethernet' module
+  updated all modules using network to work on any network interface, including ethernet
+  ftpserver and telnet server now also works over ethernet
+
+Updated 'uos.sdconfig()'
+  SPI host can be selected if SDCard mode is SPI
+
+Updated 'Curl' module
+  added 'getmail' method
+  added option to set maximum write buffer size, lower size can make it more usable on boards without psRAM
+  tab character (0x09) is now accepted in response body
+
+Updated 'machine' module
+  fixed bug in 'deepsleep' method, deepslep for all timeout values now works as expected
+
+Updated 'DAC' module
+  fixed bug in 'waveform' method, the 'duration' argument now works for waveform types
+
+Updated 'machine.Pin' module
+  fixed bug in handling the 'debounce' argument
+
+Added 'requests' module implemented in C, based on 'esp_http_client' componnent
+  get, post, head, put, patch methods
+
+Refactored 'display' module
+  added full support for FTDI EVE chips (FT8xx)
+  prepared for implementation of e-paper displays support
+
+Updated sdcard support
+
+Updated esp-idf to version v3.1-rc1-53509c7b
+
+
 === 2018-06-27 ===
 
 Removed option to run REPL in separate thread

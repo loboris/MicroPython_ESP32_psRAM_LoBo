@@ -30,6 +30,10 @@
 #ifndef _STMPE610_H
 #define _STMPE610_H
 
+#include "sdkconfig.h"
+
+#ifdef CONFIG_MICROPY_USE_TFT
+
 #include <stdint.h>
 
 #define STMPE610_SPI_MODE              0
@@ -145,4 +149,6 @@
 #define STMPE610_REG_INT_CTRL_ENABLE	0x01
 #define STMPE610_REG_INT_CTRL_DISABLE	0x00
 
-#endif /* _STMPE610_H */
+#endif // CONFIG_MICROPY_USE_TFT
+
+#endif // _STMPE610_H

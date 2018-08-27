@@ -149,8 +149,15 @@ static telnet_data_t telnet_data = {0};
 static const char* telnet_welcome_msg       = "MicroPython " MICROPY_GIT_TAG " - " MICROPY_BUILD_DATE " on " MICROPY_HW_BOARD_NAME " with " MICROPY_HW_MCU_NAME "\r\n";
 static const char* telnet_request_user      = "Login as: ";
 static const char* telnet_request_password  = "Password: ";
-static const char* telnet_invalid_login    = "\r\nInvalid credentials, try again.\r\n";
-static const char* telnet_login_success    = "\r\nLogin succeeded!\r\nType \"help()\" for more information.\r\n";
+static const char* telnet_invalid_login     = "\r\nInvalid credentials, try again.\r\n";
+
+#if TELNET_LOGIN_MSG_LEN_MAX > 0
+static char telnet_login_msg[TELNET_LOGIN_MSG_LEN_MAX+1];
+#else
+const char* telnet_login_msg                = "\r\nLogin succeeded!\r\nType \"help()\" for more information.\r\n";
+#endif
+char *telnet_login_success = telnet_login_msg;
+
 static const uint8_t telnet_options_user[]  = { IAC, WONT, ECHO, IAC, WONT, SUPPRESS_GO_AHEAD, IAC, WILL, LINEMODE };
 static const uint8_t telnet_options_pass[]  = { IAC, WILL, ECHO, IAC, WONT, SUPPRESS_GO_AHEAD, IAC, WILL, LINEMODE };
 static const uint8_t telnet_options_repl[]  = { IAC, WILL, ECHO, IAC, WILL, SUPPRESS_GO_AHEAD, IAC, WONT, LINEMODE };

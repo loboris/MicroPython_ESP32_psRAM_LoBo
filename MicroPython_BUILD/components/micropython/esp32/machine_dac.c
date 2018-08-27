@@ -572,7 +572,8 @@ STATIC mp_obj_t mdac_waveform(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map
         dac_offset_set(self->dac_id, (int8_t)args[ARG_offset].u_int);
         dac_invert_set(self->dac_id, args[ARG_invert].u_int & 3);
         dac_cosine_enable(self->dac_id);
-        return mp_const_none;
+
+        goto exit;
     }
 
     if (type == 4) {
@@ -589,7 +590,7 @@ STATIC mp_obj_t mdac_waveform(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map
         if (err) {
             ESP_LOGE("DAC", "Error starting DAC timer (%d)", err);
         }
-        return mp_const_none;
+        goto exit;
     }
 
     // --- For other waveforms we use I2S peripheral to generate the waveform ---
@@ -634,6 +635,7 @@ STATIC mp_obj_t mdac_waveform(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map
         mp_raise_ValueError("Error allocating wave buffer");
     }
 
+exit:
     if (args[ARG_duration].u_int > 0) {
         mp_hal_delay_ms(args[ARG_duration].u_int);
         dac_func_stop(self);

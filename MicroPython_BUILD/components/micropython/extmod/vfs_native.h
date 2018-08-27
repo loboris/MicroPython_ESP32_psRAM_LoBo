@@ -58,12 +58,13 @@ typedef struct _fs_user_mount_t {
 } fs_user_mount_t;
 
 typedef struct _sdcard_config_t {
+    int32_t  max_speed;
 	uint8_t	mode;
     int8_t	clk;
     int8_t	mosi;
     int8_t	miso;
     int8_t	cs;
-    int8_t  hispeed;
+    uint8_t host;
 } sdcard_config_t;
 
 extern const mp_obj_type_t mp_native_vfs_type;

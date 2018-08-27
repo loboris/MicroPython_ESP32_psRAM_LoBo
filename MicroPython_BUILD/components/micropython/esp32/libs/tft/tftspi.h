@@ -32,11 +32,12 @@
 #ifndef _TFTSPI_H_
 #define _TFTSPI_H_
 
-#include "tftspi.h"
-//#include "driver/spi_master.h"
-//#include "driver/spi_master_internal.h"
-#include "driver/spi_master_utils.h"
 #include "sdkconfig.h"
+
+#ifdef CONFIG_MICROPY_USE_TFT
+
+
+#include "driver/spi_master_utils.h"
 #include "stmpe610.h"
 
 typedef struct {
@@ -104,7 +105,7 @@ typedef struct __attribute__((__packed__)) {
 #define DEFAULT_TFT_DISPLAY_HEIGHT 320
 #define DEFAULT_DISP_TYPE   DISP_TYPE_ILI9341
 
-
+/*
 #define WROVER_V3_CONFIG() {\
 	.type = DISP_TYPE_ST7789V, \
 	.host = HSPI_HOST, \
@@ -170,7 +171,7 @@ typedef struct __attribute__((__packed__)) {
 	.bgr = 8, \
 	.touch = TOUCH_TYPE_NONE \
 }
-
+*/
 
 // ##############################################################
 // #### Global variables                                     ####
@@ -621,5 +622,7 @@ uint32_t stmpe610_getID();
 
 
 // ===============================================================================
+
+#endif // CONFIG_MICROPY_USE_TFT
 
 #endif

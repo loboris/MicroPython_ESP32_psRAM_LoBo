@@ -27,6 +27,10 @@
 // Memory usage : 1828 bytes
 // # characters : 95
 
+#include "sdkconfig.h"
+
+#ifdef CONFIG_MICROPY_USE_TFT
+
 const unsigned char tft_Dejavu18[] =
 {
 0x00, 0x12, 0x00, 0x00,
@@ -320,3 +324,5 @@ const unsigned char tft_Dejavu18[] =
 // Terminator
 0xFF
 };
+
+#endif

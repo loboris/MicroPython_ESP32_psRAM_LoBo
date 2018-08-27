@@ -261,8 +261,9 @@ LIBS_SRC_C = $(addprefix esp32/libs/,\
 	littleflash.c \
 	)
 
-ifdef CONFIG_MICROPY_USE_DISPLAY
+ifdef CONFIG_MICROPY_USE_TFT
 LIBS_SRC_C += \
+	esp32/moddisplay_tft.c \
 	esp32/libs/tft/tftspi.c \
 	esp32/libs/tft/tft.c \
 	esp32/libs/tft/comic24.c \
@@ -278,7 +279,8 @@ endif
 
 ifdef CONFIG_MICROPY_USE_EVE
 LIBS_SRC_C += \
-	esp32/libs/eve/FT8_commands.c
+	esp32/libs/eve/FT8_commands.c \
+	esp32/moddisplay_eve.c
 endif
 
 ifeq ($(MICROPY_PY_BTREE),1)

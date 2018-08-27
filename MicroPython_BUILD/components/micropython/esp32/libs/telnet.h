@@ -41,6 +41,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
+#define TELNET_LOGIN_MSG_LEN_MAX    128 // set this to 0 to use static login msg
 #define TELNET_USER_PASS_LEN_MAX	32
 #define TELNET_DEF_USER             "micro"
 #define TELNET_DEF_PASS             "python"
@@ -58,6 +59,7 @@ typedef enum {
 
 extern char telnet_user[TELNET_USER_PASS_LEN_MAX + 1];
 extern char telnet_pass[TELNET_USER_PASS_LEN_MAX + 1];
+char *telnet_login_success;
 extern uint32_t telnet_stack_size;
 extern QueueHandle_t telnet_mutex;
 extern int telnet_timeout;

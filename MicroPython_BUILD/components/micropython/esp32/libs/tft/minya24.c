@@ -21,6 +21,10 @@
 // First Character (Reserved. 0x00)
 // Number Of Characters (Reserved. 0x00)
 
+#include "sdkconfig.h"
+
+#ifdef CONFIG_MICROPY_USE_TFT
+
 const unsigned char tft_minya24[] = 
 {
 0x00, 0x15, 0x00, 0x00,
@@ -329,3 +333,5 @@ const unsigned char tft_minya24[] =
 // Terminator
 0xFF
 };
+
+#endif

@@ -36,8 +36,10 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
+#include "mbedtls/base64.h"
 
 #include "esp_http_client.h"
+#include "transport.h"
 #include "esp_wifi_types.h"
 #include "tcpip_adapter.h"
 
@@ -45,6 +47,7 @@
 #include "py/runtime.h"
 #include "modmachine.h"
 #include "extmod/vfs_native.h"
+#include "modnetwork.h"
 
 #define MAX_HTTP_RECV_BUFFER 512
 static const char *TAG = "[REQUESTS]";
@@ -57,7 +60,9 @@ static int rqheader_ptr = 0;
 static int rqbody_len = 0;
 static int rqbody_ptr = 0;
 static bool rqbody_ok = true;
-static bool rq_debug = false;
+static bool rq_debug = true;
+static bool rq_base64 = false;
+
 
 /* Root cert for howsmyssl.com, taken from howsmyssl_com_root_cert.pem
 
@@ -83,7 +88,11 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
             if (rq_debug) ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
             break;
         case HTTP_EVENT_HEADER_SENT:
-            if (rq_debug) ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
+            if (rq_debug) {
+                ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
+                ESP_LOGD(TAG, "  KEY: [%s]", evt->header_key);
+                ESP_LOGD(TAG, "VALUE: [%s]", evt->header_value);
+            }
             break;
         case HTTP_EVENT_ON_HEADER:
             if (rq_debug) ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
@@ -165,6 +174,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
+/*
 //---------------------
 static void http_rest()
 {
@@ -432,70 +442,282 @@ static void http_perform_as_stream_reader()
     esp_http_client_cleanup(client);
     free(buffer);
 }
+*/
 
-
-//--------------------
-static void checkConnection()
+//-----------------------------------------------
+static char *url_post_fields(mp_obj_dict_t *dict)
 {
-    tcpip_adapter_ip_info_t info;
-    tcpip_adapter_get_ip_info(WIFI_IF_STA, &info);
-    if (info.ip.addr == 0) {
-        #ifdef CONFIG_MICROPY_USE_GSM
-        if (ppposStatus() != GSM_STATE_CONNECTED) {
-            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "No Internet connection"));
+    char *params = calloc(256, sizeof(char));
+    if (params == NULL) return 0;
+
+    int nparam = 0;
+    const char *key;
+    const char *value;
+    char sval[64];
+    size_t max = dict->map.alloc;
+    mp_map_t *map = &dict->map;
+    mp_map_elem_t *next;
+    size_t cur = 0;
+    while (1) {
+        next = NULL;
+        for (size_t i = cur; i < max; i++) {
+            if (MP_MAP_SLOT_IS_FILLED(map, i)) {
+                cur = i + 1;
+                next = &(map->table[i]);
+                break;
+            }
         }
-        #else
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "No Internet connection"));
-        #endif
+        if (next == NULL) break;
+
+        value = NULL;
+        key = mp_obj_str_get_str(next->key);
+        if (MP_OBJ_IS_STR(next->value)) {
+            value = mp_obj_str_get_str(next->value);
+            for (int i=0; i<strlen(value); i++) {
+                if ((value[i] < 0x20) || (value[i] > 0x7F)) {
+                    value = NULL;
+                    break;
+                }
+            }
+        }
+        else if (MP_OBJ_IS_INT(next->value)) {
+            int ival = mp_obj_get_int(next->value);
+            sprintf(sval,"%d", ival);
+            value = sval;
+        }
+        else if (MP_OBJ_IS_TYPE(next->value, &mp_type_float)) {
+            double fval = mp_obj_get_float(next->value);
+            sprintf(sval,"%f", fval);
+            value = sval;
+        }
+        if ((value) && ((strlen(params) + strlen(key) + strlen(value) + 2) < 256)) {
+            if (strlen(params) > 0) strcat(params, "&");
+            strcat(params, key);
+            strcat(params, "=");
+            strcat(params, value);
+            nparam++;
+        }
     }
+    if (nparam == 0) {
+        free(params);
+        params = NULL;
+    }
+    return params;
 }
 
-//-----------------------------------
-STATIC mp_obj_t mod_requests_test() {
-    ESP_LOGI(TAG, "Connected to AP, begin http example");
-    http_rest();
-    http_auth_basic();
-    http_auth_basic_redirect();
-    http_auth_digest();
-    http_relative_redirect();
-    http_absolute_redirect();
-    https();
-    http_redirect_to_https();
-    http_download_chunk();
-    http_perform_as_stream_reader();
-    ESP_LOGI(TAG, "Finish http example");
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_requests_test_obj, mod_requests_test);
-
-//--------------------------------------------------------------------------------------
-STATIC mp_obj_t requests_GET(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+//-------------------------------------------------------------------------------------------------------------------------------
+static int post_field(esp_http_client_handle_t client, char *bndry, char *key, char *cont_type, char *value, int vlen, bool send)
 {
-    checkConnection();
-    enum { ARG_url, ARG_file };
-    const mp_arg_t allowed_args[] = {
-        { MP_QSTR_url,      MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
-        { MP_QSTR_file,                       MP_ARG_OBJ, { .u_obj = mp_const_none } },
-    };
+    int len = vlen;
+    int res;
+    char buff[256];
+    sprintf(buff, "--%s\r\nContent-Disposition: form-data; name=%s\r\n%s\r\n\r\n", bndry, key, cont_type);
+    len += strlen(buff);
+    if (send) {
+        res = esp_http_client_write(client, buff, strlen(buff));
+        if (rq_debug) printf("%s", buff);
+        if (res <= 0) return res;
+        res = esp_http_client_write(client, value, vlen);
+        if (rq_debug) printf("%s", value);
+        if (res <= 0) return res;
+    }
 
-    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
-    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+    sprintf(buff, "\r\n--%s\r\n\r\n", bndry);
+    len += strlen(buff);
+    if (send) {
+        res = esp_http_client_write(client, buff, strlen(buff));
+        if (rq_debug) printf("%s", buff);
+        if (res <= 0) return res;
+    }
+    return len;
+}
 
-    esp_log_level_set("HTTP_CLIENT", ESP_LOG_WARN);
-    esp_log_level_set("TRANS_TCP", ESP_LOG_WARN);
-    esp_log_level_set("TRANS_SSL", ESP_LOG_WARN);
-    int status;
-    char *url = NULL;
-    char *fname = NULL;
-    char fullname[128] = {'\0'};
-
-    url = (char *)mp_obj_str_get_str(args[ARG_url].u_obj);
-
-    rqbody_file = NULL;
-    if (MP_OBJ_IS_STR(args[ARG_file].u_obj)) {
-        // GET to file
-        fname = (char *)mp_obj_str_get_str(args[ARG_file].u_obj);
+//-----------------------------------------------------------------------------------------------------
+static int handle_file(esp_http_client_handle_t client, char *bndry, char *key, char *fname, bool send)
+{
+    int flen = 0;
+    if (strlen(fname) < 128) {
+        FILE* file = NULL;
+        char fullname[128] = {'\0'};
         int res = physicalPath(fname, fullname);
+        if ((res == 0) && (strlen(fullname) > 0)) {
+            file = fopen(fullname, "rb");
+            if (file == NULL) return flen;
+
+            char *buff = malloc(1024);
+            if (buff == NULL) return flen;
+
+            if (key) {
+                sprintf(buff, "--%s\r\nContent-Disposition: form-data; name=\"file_%s\"; filename=\"%s\"\r\nContent-Type: application/octet-stream\r\n\r\n", bndry, key, fname);
+                flen += strlen(buff);
+                if (send) {
+                    res = esp_http_client_write(client, buff, strlen(buff));
+                    if (rq_debug) printf("%s", buff);
+                    if (res <= 0) {
+                        free(buff);
+                        return -1;
+                    }
+                }
+            }
+            res = 1;
+            while (res > 0) {
+                res = fread(buff, 1, 1023, file);
+                if (send) {
+                    if (res > 0) buff[res] = 0;
+                    if ((rq_debug) && (res > 0)) printf("%s", buff);
+                    res = esp_http_client_write(client, buff, res);
+                }
+                flen += res;
+            }
+            fclose(file);
+            if (key) {
+                sprintf(buff, "\r\n--%s\r\n\r\n", bndry);
+                flen += strlen(buff);
+                if (send) {
+                    res = esp_http_client_write(client, buff, strlen(buff));
+                    if (rq_debug) printf("%s", buff);
+                    if (res <= 0) {
+                        free(buff);
+                        return -1;
+                    }
+                }
+            }
+            free(buff);
+        }
+    }
+    return flen;
+}
+
+// Parse MicroPython dictionary, calculate the content length
+// or send the body to the server
+//------------------------------------------------------------------------------------------------------------
+static int multipart_post_fields(mp_obj_dict_t *dict, char *bndry, esp_http_client_handle_t client, bool send)
+{
+    int data_len = 0;
+    int res;
+    int nparam = 0;
+    char *key;
+    char *value;
+    int vlen;
+    bool value_free;
+    char sval[64];
+    char cont_type[64];
+
+    sprintf(cont_type, "%s", "Content-Type: text/plain");
+
+    // Parse dictionary
+    size_t max = dict->map.alloc;
+    mp_map_t *map = &dict->map;
+    mp_map_elem_t *next;
+    size_t cur = 0;
+    if ((rq_debug) && (send)) printf(">>> SEND FIELDS [\n");
+    while (1) {
+        next = NULL;
+        for (size_t i = cur; i < max; i++) {
+            if (MP_MAP_SLOT_IS_FILLED(map, i)) {
+                cur = i + 1;
+                next = &(map->table[i]);
+                break;
+            }
+        }
+        if (next == NULL) break;
+
+        value = NULL;
+        value_free = false;
+        key = (char *)mp_obj_str_get_str(next->key);
+
+        if (MP_OBJ_IS_STR(next->value)) {
+            // String, it can be string to send or file name
+            value = (char *)mp_obj_str_get_str(next->value);
+            vlen = strlen(value);
+            res = handle_file(client, bndry, key, value, send);
+            if (res == 0) {
+                for (int i=0; i<strlen(value); i++) {
+                    if ((value[i] < 0x20) || (value[i] > 0x7F)) {
+                        value = NULL;
+                        break;
+                    }
+                }
+            }
+            else {
+                data_len += res;
+                nparam++;
+                value = NULL;
+            }
+        }
+        else if (MP_OBJ_IS_INT(next->value)) {
+            int ival = mp_obj_get_int(next->value);
+            sprintf(sval,"%d", ival);
+            value = sval;
+            vlen = strlen(sval);
+        }
+        else if (MP_OBJ_IS_TYPE(next->value, &mp_type_float)) {
+            double fval = mp_obj_get_float(next->value);
+            sprintf(sval,"%f", fval);
+            value = sval;
+            vlen = strlen(sval);
+        }
+        else {
+            mp_obj_type_t *type = mp_obj_get_type(next->value);
+            mp_buffer_info_t value_buff;
+            if (type->buffer_p.get_buffer != NULL) {
+                int ret = type->buffer_p.get_buffer(next->value, &value_buff, MP_BUFFER_READ);
+                if ((ret == 0) && (value_buff.len > 0)) {
+                    if (rq_base64) {
+                        // Send base64 encoded
+                        value = malloc(value_buff.len * 4 / 3 + 64);
+                        if (value) {
+                            ret = mbedtls_base64_encode((unsigned char *)value, value_buff.len * 4 / 3 + 64, (size_t *)&vlen, (const unsigned char *)value_buff.buf, value_buff.len);
+                            if (ret == 0) {
+                                value[vlen] = '\0';
+                                sprintf(cont_type, "%s", "Content-Type: binary\r\nContent-Encoding: base64");
+                                value_free = true;
+                            }
+                            else {
+                                free((void *)value);
+                                value = NULL;
+                            }
+                        }
+                    }
+                    else {
+                        value = value_buff.buf;
+                        vlen = value_buff.len;
+                    }
+                }
+            }
+        }
+        if (value) {
+            res = post_field(client, bndry, key, cont_type, value, vlen, send);
+            if (value_free) free((void *)value);
+            if (res <= 0) return res;
+            data_len += res;
+            nparam++;
+        }
+    }
+    if (rq_debug) {
+        if (send) {
+            printf("] LENGTH=%d\n", data_len);
+        }
+        else printf(">>> CONTENT LENGTH = %d\n", data_len);
+    }
+    return data_len;
+}
+
+//--------------------------------------------------------------------------------------------------
+static mp_obj_t request(int method, bool multipart, mp_obj_t post_data_in, char * url, char *tofile)
+{
+    int status;
+    char fullname[128] = {'\0'};
+    char err_msg[128] = {'\0'};
+    esp_err_t err;
+    bool perform_handled = false;
+    bool free_post_data = false;
+
+    // Check if the response is redirected to file
+    rqbody_file = NULL;
+    if (tofile) {
+        // GET to file
+        int res = physicalPath(tofile, fullname);
         if ((res != 0) || (strlen(fullname) == 0)) {
             nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error resolving file name"));
         }
@@ -505,11 +727,21 @@ STATIC mp_obj_t requests_GET(size_t n_args, const mp_obj_t *pos_args, mp_map_t *
         }
     }
 
-    esp_http_client_config_t config = {
-        .url = url,
-        .event_handler = _http_event_handler,
-    };
+    char* post_data = NULL;
+    char bndry[32];
+
+    esp_http_client_config_t config = {0};
+    config.url = url;
+    config.event_handler = _http_event_handler;
+    config.buffer_size = 1024;
+
+    // Initialize the http_client and set the method
     esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (client == NULL) {
+        if (rqbody_file) fclose(rqbody_file);
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error initializing http client"));
+    }
+    esp_http_client_set_method(client, method);
 
     if (rqheader) free(rqheader);
     if (rqbody) free(rqbody);
@@ -519,11 +751,130 @@ STATIC mp_obj_t requests_GET(size_t n_args, const mp_obj_t *pos_args, mp_map_t *
     rqbody_len = 0;
     rqbody_ptr = 0;
     rqbody_ok = true;
-    // GET
-    MP_THREAD_GIL_EXIT();
-    esp_err_t err = esp_http_client_perform(client);
-    esp_http_client_cleanup(client);
-    MP_THREAD_GIL_ENTER();
+
+    if (method == HTTP_METHOD_POST) {
+        mp_obj_dict_t *dict;
+        if (!multipart) {
+            if (MP_OBJ_IS_TYPE(post_data_in, &mp_type_dict)) {
+                dict = MP_OBJ_TO_PTR(post_data_in);
+                post_data = url_post_fields(dict);
+                err = esp_http_client_set_post_field(client, post_data, strlen(post_data));
+                if (err != ESP_OK) {
+                    if (rqbody_file) fclose(rqbody_file);
+                    free(post_data);
+                    nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error setting post fields"));
+                }
+                free_post_data = true;
+            }
+            else if (MP_OBJ_IS_STR(post_data_in)) {
+                post_data = (char *)mp_obj_str_get_str(post_data_in);
+                err = esp_http_client_set_post_field(client, post_data, strlen(post_data));
+                if (err != ESP_OK) {
+                    if (rqbody_file) fclose(rqbody_file);
+                    nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error setting post fields"));
+                }
+            }
+            else {
+                if (rqbody_file) fclose(rqbody_file);
+                nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Expected Dict or String type argument"));
+            }
+        }
+        else {
+            // === multipart POST ===
+            if (MP_OBJ_IS_TYPE(post_data_in, &mp_type_dict)) {
+                dict = MP_OBJ_TO_PTR(post_data_in);
+            }
+            else {
+                if (rqbody_file) fclose(rqbody_file);
+                nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Expected Dict type argument"));
+            }
+
+            // Prepare multipart boundary
+            memset(bndry,0x00,20);
+            int randn = rand();
+            sprintf(bndry, "_____%d_____", randn);
+            // Get body length
+            int cont_len = multipart_post_fields(dict, bndry, client, false);
+            if (cont_len <= 0) {
+                nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Nothing to send"));
+            }
+            char temp_buf[128];
+            sprintf(temp_buf, "multipart/form-data; boundary=%s", bndry);
+            esp_http_client_set_header(client, "Content-Type", temp_buf);
+
+            // Perform actions
+            MP_THREAD_GIL_EXIT();
+            err = ESP_OK;
+            do {
+                if ((err = esp_http_client_open(client, cont_len)) != ESP_OK) {
+                    sprintf(err_msg, "Http client error: open");
+                    break;
+                }
+
+                // Send content
+                cont_len = multipart_post_fields(dict, bndry, client, true);
+
+                // Check response
+                if ((esp_http_client_perform_response(client)) != ESP_OK) {
+                    sprintf(err_msg, "Http client error: response");
+                    break;
+                }
+            } while (esp_http_client_process_again(client));
+            esp_http_client_cleanup(client);
+            MP_THREAD_GIL_ENTER();
+            perform_handled = true;
+        }
+    }
+    else if ((method == HTTP_METHOD_PUT) || (method == HTTP_METHOD_PATCH)) {
+        // String, it can be string to send or file name
+        if (MP_OBJ_IS_STR(post_data_in)) {
+            post_data = (char *)mp_obj_str_get_str(post_data_in);
+            int cont_len = handle_file(client, NULL, NULL, post_data, false);
+            if (cont_len > 0) {
+                // Perform actions
+                MP_THREAD_GIL_EXIT();
+                err = ESP_OK;
+                do {
+                    if ((err = esp_http_client_open(client, cont_len)) != ESP_OK) {
+                        sprintf(err_msg, "Http client error: open");
+                        break;
+                    }
+
+                    // Send content
+                    cont_len = handle_file(client, NULL, NULL, post_data, true);
+
+                    // Check response
+                    if ((esp_http_client_perform_response(client)) != ESP_OK) {
+                        sprintf(err_msg, "Http client error: response");
+                        break;
+                    }
+                } while (esp_http_client_process_again(client));
+                esp_http_client_cleanup(client);
+                MP_THREAD_GIL_ENTER();
+                perform_handled = true;
+            }
+            else {
+                err = esp_http_client_set_post_field(client, post_data, strlen(post_data));
+                if (err != ESP_OK) {
+                    if (rqbody_file) fclose(rqbody_file);
+                    nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error setting post fields"));
+                }
+            }
+        }
+        else {
+            if (rqbody_file) fclose(rqbody_file);
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Expected String type argument"));
+        }
+    }
+
+    if (!perform_handled) {
+        MP_THREAD_GIL_EXIT();
+        err = esp_http_client_perform(client);
+        esp_http_client_cleanup(client);
+        if ((free_post_data) && (post_data)) free(post_data);
+        MP_THREAD_GIL_ENTER();
+    }
+
     if (err != ESP_OK) {
         if (rqbody_file) fclose(rqbody_file);
         if (rqheader) free(rqheader);
@@ -531,8 +882,8 @@ STATIC mp_obj_t requests_GET(size_t n_args, const mp_obj_t *pos_args, mp_map_t *
         rqbody_file = NULL;
         rqheader = NULL;
         rqbody = NULL;
-        ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "HTTP GET request failed"));
+        ESP_LOGE(TAG, "HTTP Request failed: %s [%s]", esp_err_to_name(err), err_msg);
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "HTTP Request failed"));
     }
 
     status = esp_http_client_get_status_code(client);
@@ -543,7 +894,7 @@ STATIC mp_obj_t requests_GET(size_t n_args, const mp_obj_t *pos_args, mp_map_t *
     if ((rqheader) && (rqheader_ptr)) tuple[1] = mp_obj_new_str(rqheader, rqheader_ptr);
     else tuple[1] = mp_const_none;
 
-    if (rqbody_file) tuple[2] = mp_obj_new_str(fname, strlen(fname));
+    if (rqbody_file) tuple[2] = mp_obj_new_str(tofile, strlen(tofile));
     else if ((rqbody) && (rqbody_ptr)) tuple[2] = mp_obj_new_str(rqbody, rqbody_ptr);
     else tuple[2] = mp_const_none;
 
@@ -556,15 +907,143 @@ STATIC mp_obj_t requests_GET(size_t n_args, const mp_obj_t *pos_args, mp_map_t *
 
     return mp_obj_new_tuple(3, tuple);
 }
+
+//--------------------------------------------------------------------------------------
+STATIC mp_obj_t requests_GET(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    network_checkConnection();
+    enum { ARG_url, ARG_file };
+    const mp_arg_t allowed_args[] = {
+        { MP_QSTR_url,      MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_file,                       MP_ARG_OBJ, { .u_obj = mp_const_none } },
+    };
+
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    char *url = NULL;
+    char *fname = NULL;
+
+    url = (char *)mp_obj_str_get_str(args[ARG_url].u_obj);
+
+    if (MP_OBJ_IS_STR(args[ARG_file].u_obj)) {
+        // GET to file
+        fname = (char *)mp_obj_str_get_str(args[ARG_file].u_obj);
+    }
+    mp_obj_t res = request(HTTP_METHOD_GET, false, NULL, url, fname);
+
+    return res;
+}
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(requests_GET_obj, 1, requests_GET);
+
+//--------------------------------------------------------------------------------------
+STATIC mp_obj_t requests_HEAD(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    network_checkConnection();
+    enum { ARG_url, ARG_file };
+    const mp_arg_t allowed_args[] = {
+        { MP_QSTR_url,      MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+    };
+
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    char *url = NULL;
+
+    url = (char *)mp_obj_str_get_str(args[ARG_url].u_obj);
+
+    mp_obj_t res = request(HTTP_METHOD_HEAD, false, NULL, url, NULL);
+
+    return res;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(requests_HEAD_obj, 1, requests_HEAD);
+
+//---------------------------------------------------------------------------------------
+STATIC mp_obj_t requests_POST(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    network_checkConnection();
+    enum { ARG_url, ARG_params, ARG_file, ARG_multipart };
+    const mp_arg_t allowed_args[] = {
+        { MP_QSTR_url,        MP_ARG_REQUIRED | MP_ARG_OBJ,  { .u_obj = mp_const_none } },
+        { MP_QSTR_params,     MP_ARG_REQUIRED | MP_ARG_OBJ,  { .u_obj = mp_const_none } },
+        { MP_QSTR_file,                         MP_ARG_OBJ,  { .u_obj = mp_const_none } },
+        { MP_QSTR_multipart,                    MP_ARG_BOOL, { .u_bool = false } },
+    };
+
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    char *url = NULL;
+    char *fname = NULL;
+
+    url = (char *)mp_obj_str_get_str(args[ARG_url].u_obj);
+
+    if (MP_OBJ_IS_STR(args[ARG_file].u_obj)) {
+        // GET to file
+        fname = (char *)mp_obj_str_get_str(args[ARG_file].u_obj);
+    }
+    mp_obj_t res = request(HTTP_METHOD_POST, args[ARG_multipart].u_bool, args[ARG_params].u_obj, url, fname);
+
+    return res;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(requests_POST_obj, 1, requests_POST);
+
+//--------------------------------------------------------------------------------------
+STATIC mp_obj_t requests_PUT(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    network_checkConnection();
+    enum { ARG_url, ARG_data };
+    const mp_arg_t allowed_args[] = {
+        { MP_QSTR_url,      MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_data,     MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+    };
+
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    char *url = NULL;
+
+    url = (char *)mp_obj_str_get_str(args[ARG_url].u_obj);
+
+    mp_obj_t res = request(HTTP_METHOD_PUT, false, args[ARG_data].u_obj, url, NULL);
+
+    return res;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(requests_PUT_obj, 1, requests_PUT);
+
+//----------------------------------------------------------------------------------------
+STATIC mp_obj_t requests_PATCH(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    network_checkConnection();
+    enum { ARG_url, ARG_data };
+    const mp_arg_t allowed_args[] = {
+        { MP_QSTR_url,      MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_data,     MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+    };
+
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    char *url = NULL;
+
+    url = (char *)mp_obj_str_get_str(args[ARG_url].u_obj);
+
+    mp_obj_t res = request(HTTP_METHOD_PATCH, false, args[ARG_data].u_obj, url, NULL);
+
+    return res;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(requests_PATCH_obj, 1, requests_PATCH);
 
 
 //================================================================
 STATIC const mp_rom_map_elem_t requests_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),    MP_ROM_QSTR(MP_QSTR_requests) },
 
-    { MP_ROM_QSTR(MP_QSTR_test),        MP_ROM_PTR(&mod_requests_test_obj) },
     { MP_ROM_QSTR(MP_QSTR_get),         MP_ROM_PTR(&requests_GET_obj) },
+    { MP_ROM_QSTR(MP_QSTR_head),        MP_ROM_PTR(&requests_HEAD_obj) },
+    { MP_ROM_QSTR(MP_QSTR_post),        MP_ROM_PTR(&requests_POST_obj) },
+    { MP_ROM_QSTR(MP_QSTR_put),         MP_ROM_PTR(&requests_PUT_obj) },
+    { MP_ROM_QSTR(MP_QSTR_patch),       MP_ROM_PTR(&requests_PATCH_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(requests_module_globals, requests_module_globals_table);
 

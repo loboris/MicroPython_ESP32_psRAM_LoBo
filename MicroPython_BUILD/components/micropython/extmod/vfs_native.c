@@ -107,6 +107,11 @@ STATIC const byte fresult_to_errno_table[20] = {
 STATIC const char *TAG = "vfs_native";
 
 sdcard_config_t sdcard_config = {
+#if CONFIG_SDCARD_MODE == 1
+        SDMMC_FREQ_DEFAULT,
+#else
+        SDMMC_FREQ_HIGHSPEED,
+#endif
 		CONFIG_SDCARD_MODE,
 #if CONFIG_SDCARD_MODE == 1
 		CONFIG_SDCARD_CLK,
@@ -119,7 +124,7 @@ sdcard_config_t sdcard_config = {
 		-1,
 		-1,
 #endif
-		1
+		VSPI_HOST
 };
 
 bool native_vfs_mounted[2] = {false, false};
@@ -703,39 +708,56 @@ STATIC void sdcard_print_info(const sdmmc_card_t* card, int mode)
 	else if (mode == 3) {
         printf(" Mode:  Unknown\n");
     }
-    printf(" Name: %s\n", card->cid.name);
-    printf(" Type: %s\n", (card->ocr & SD_OCR_SDHC_CAP)?"SDHC/SDXC":"SDSC");
-    printf("Speed: %s (%d MHz)\n", (card->csd.tr_speed > 25000000)?"high speed":"default speed", card->csd.tr_speed/1000000);
-    printf(" Size: %u MB\n", (uint32_t)(((uint64_t) card->csd.capacity) * card->csd.sector_size / (1024 * 1024)));
-    printf("  CSD: ver=%d, sector_size=%d, capacity=%d read_bl_len=%d\n",
+    printf("     Name: %s\n", card->cid.name);
+    printf("     Type: %s\n", (card->ocr & SD_OCR_SDHC_CAP)?"SDHC/SDXC":"SDSC");
+    printf("    Speed: %s (%d MHz)\n", (card->csd.tr_speed > 25000000)?"high speed":"default speed", card->csd.tr_speed/1000000);
+    if (mode == 1) printf("SPI speed: %d MHz\n", card->host.max_freq_khz / 1000);
+    printf("     Size: %u MB\n", (uint32_t)(((uint64_t) card->csd.capacity) * card->csd.sector_size / (1024 * 1024)));
+    printf("      CSD: ver=%d, sector_size=%d, capacity=%d read_bl_len=%d\n",
             card->csd.csd_ver,
             card->csd.sector_size, card->csd.capacity, card->csd.read_block_len);
-    printf("  SCR: sd_spec=%d, bus_width=%d\n\n", card->scr.sd_spec, card->scr.bus_width);
+    printf("      SCR: sd_spec=%d, bus_width=%d\n\n", card->scr.sd_spec, card->scr.bus_width);
     #endif
 }
 
-//--------------------------------------------------------------
-static void _setPins(int8_t p1, int8_t p2, int8_t p3, int8_t p4)
+//--------------------------------------------------------------------------------------------
+static void _setPins(int8_t miso, int8_t mosi, int8_t clk, int8_t cs, int8_t dat1, int8_t dat2)
 {
-    if (p1 >= 0) {
-		gpio_pad_select_gpio(p1);
-		gpio_set_direction(p1, GPIO_MODE_INPUT);
-		gpio_set_pull_mode(p1, GPIO_PULLUP_ONLY);
+    if (miso >= 0) { // miso/dat0/dO
+		gpio_pad_select_gpio(miso);
+		gpio_set_direction(miso, GPIO_MODE_INPUT_OUTPUT_OD);
+		gpio_set_pull_mode(miso, GPIO_PULLUP_ONLY);
+        gpio_set_level(miso, 1);
     }
-    if (p2 >= 0) {
-		gpio_pad_select_gpio(p2);
-		gpio_set_direction(p2, GPIO_MODE_INPUT);
-		gpio_set_pull_mode(p2, GPIO_PULLUP_ONLY);
+    if (mosi >= 0) { // mosi/cmd/dI
+		gpio_pad_select_gpio(mosi);
+		gpio_set_direction(mosi, GPIO_MODE_INPUT_OUTPUT_OD);
+		gpio_set_pull_mode(mosi, GPIO_PULLUP_ONLY);
+        gpio_set_level(mosi, 1);
     }
-    if (p3 >= 0) {
-		gpio_pad_select_gpio(p3);
-		gpio_set_direction(p3, GPIO_MODE_INPUT);
-		gpio_set_pull_mode(p3, GPIO_PULLUP_ONLY);
+    if (clk >= 0) { // clk/sck
+		gpio_pad_select_gpio(clk);
+		gpio_set_direction(clk, GPIO_MODE_INPUT_OUTPUT_OD);
+        gpio_set_pull_mode(clk, GPIO_PULLUP_ONLY);
+		gpio_set_level(clk, 1);
     }
-    if (p4 >= 0) {
-		gpio_pad_select_gpio(p4);
-		gpio_set_direction(p4, GPIO_MODE_INPUT);
-		gpio_set_pull_mode(p4, GPIO_PULLUP_ONLY);
+    if (cs >= 0) { // cs/dat3
+        gpio_pad_select_gpio(cs);
+        gpio_set_direction(cs, GPIO_MODE_INPUT_OUTPUT);
+        gpio_set_pull_mode(cs, GPIO_PULLUP_ONLY);
+        gpio_set_level(cs, 1);
+    }
+    if (dat1 >= 0) { // dat1
+        gpio_pad_select_gpio(dat1);
+        gpio_set_direction(dat1, GPIO_MODE_INPUT_OUTPUT_OD);
+        gpio_set_pull_mode(dat1, GPIO_PULLUP_ONLY);
+        gpio_set_level(dat1, 1);
+    }
+    if (dat2 >= 0) { // dat2
+        gpio_pad_select_gpio(dat2);
+        gpio_set_direction(dat2, GPIO_MODE_INPUT_OUTPUT_OD);
+        gpio_set_pull_mode(dat2, GPIO_PULLUP_ONLY);
+        gpio_set_level(dat2, 1);
     }
 }
 
@@ -755,10 +777,10 @@ static void _sdcard_mount()
     	// Use SPI mode
 		sdmmc_host_t host = SDSPI_HOST_DEFAULT();
 		sdspi_slot_config_t slot_config = SDSPI_SLOT_CONFIG_DEFAULT();
-		host.slot = VSPI_HOST;
-		host.max_freq_khz = (sdcard_config.hispeed > 0) ? SDMMC_FREQ_HIGHSPEED : SDMMC_FREQ_DEFAULT;
+		host.slot = sdcard_config.host;
+		host.max_freq_khz = sdcard_config.max_speed;
 		slot_config.dma_channel = 2;
-		_setPins(sdcard_config.miso, sdcard_config.mosi, sdcard_config.clk, sdcard_config.cs);
+		_setPins(sdcard_config.miso, sdcard_config.mosi, sdcard_config.clk, sdcard_config.cs, -1, -1);
 
 	    slot_config.gpio_miso = sdcard_config.miso;
 	    slot_config.gpio_mosi = sdcard_config.mosi;
@@ -769,16 +791,18 @@ static void _sdcard_mount()
 	else {
 		sdmmc_host_t host = SDMMC_HOST_DEFAULT();
 		sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-        host.max_freq_khz = (sdcard_config.hispeed > 0) ? SDMMC_FREQ_HIGHSPEED : SDMMC_FREQ_DEFAULT;
+        host.max_freq_khz = sdcard_config.max_speed; //(sdcard_config.max_speed > SDMMC_FREQ_DEFAULT) ? SDMMC_FREQ_HIGHSPEED : SDMMC_FREQ_DEFAULT;
 		if (sdcard_config.mode == 2) {
 	        // Use 1-line SD mode
-		    _setPins(4, 12, 15, 13);
+		    // miso,mosi,clk,cs,dat1,dat2
+		    _setPins(2, 15, 14, 13, -1, -1);
 	        host.flags = SDMMC_HOST_FLAG_1BIT;
 	        slot_config.width = 1;
 		}
 		else {
 	        // Use 4-line SD mode
-		    _setPins(4, 12, -1, -1);
+            // miso,mosi,clk,cs,dat1,dat2
+		    _setPins(2, 15, 14, 13, 4, 12);
             host.flags = SDMMC_HOST_FLAG_4BIT;
             slot_config.width = 4;
 		}

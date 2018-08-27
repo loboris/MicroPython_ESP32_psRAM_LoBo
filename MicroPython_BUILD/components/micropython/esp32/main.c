@@ -426,8 +426,16 @@ void micropython_entry(void)
 		esp_log_level_set("phy_init", ESP_LOG_WARN);
 		esp_log_level_set("wl_flash", ESP_LOG_WARN);
 		esp_log_level_set("RTC_MODULE", ESP_LOG_WARN);
+        #ifdef CONFIG_MICROPY_USE_ETHERNET
+        esp_log_level_set("phy_common", ESP_LOG_WARN);
+        #endif
         #ifdef CONFIG_MICROPY_USE_RFCOMM
 		esp_log_level_set("BTDM_INIT", ESP_LOG_WARN);
+        #endif
+        #ifdef CONFIG_MICROPY_USE_REQUESTS
+	    //esp_log_level_set("HTTP_CLIENT", ESP_LOG_WARN);
+	    //esp_log_level_set("TRANS_TCP", ESP_LOG_WARN);
+	    //esp_log_level_set("TRANS_SSL", ESP_LOG_WARN);
         #endif
 	}
 	#ifdef CONFIG_MICROPY_USE_OTA

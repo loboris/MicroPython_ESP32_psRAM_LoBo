@@ -26,6 +26,8 @@
 #   size              - display static memory footprint of the firmware
 #   size-components   - display detailed memory footprint of the firmware
 #   size-files        - display detailed memory footprint of the firmware
+#   miniterm          - start pySerial command line program miniterm
+#   monitor           - start esp-idf terminal emulator
 
 # Options:
 #   -jN                                           - make with multicore option, N should be the number of cores used 
@@ -50,8 +52,8 @@
 
 
 #=======================
-TOOLS_VER=ver20180628.id
-BUILD_VER=ver20180628.id
+TOOLS_VER=ver20180827.id
+BUILD_VER=ver20180827.id
 #=======================
 
 # -----------------------------

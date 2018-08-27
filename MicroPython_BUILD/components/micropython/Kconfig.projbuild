@@ -322,14 +322,73 @@ menu "MicroPython"
             default n
             help
                 Include Display module into build
-                Display module includes support for various SPI TFT displays
 
-        config MICROPY_USE_EVE
-            bool "Use EVE display module (experimental, do not enable)"
+        config MICROPY_USE_TFT
+            depends on MICROPY_USE_DISPLAY
+            bool "Enable support for SPI TFT displays"
+            default y
+            help
+                Include support for various SPI TFT displays
+
+        config MICROPY_USE_EPD
+            depends on MICROPY_USE_DISPLAY
+            bool "Enable support for ePaper displays (NOT COMPLETE, DO NOT ENABLE)"
             default n
             help
-                Include EVE display module into build
-                Display module includes support for EVE displays (FT80x, FT81x)
+                Include support for ePaper displays into build
+
+        config MICROPY_USE_EVE
+            depends on MICROPY_USE_DISPLAY
+            bool "Enable support for EVE (FT8xx) displays"
+            default n
+            help
+                Includes support for EVE displays (FT80x, FT81x)
+
+        menu "EVE Configuration"
+            depends on MICROPY_USE_EVE
+            config MICROPY_EVE_FT81X
+                bool "EVE FT81X type"
+                depends on MICROPY_USE_EVE
+                default y
+                help
+                    Used FT8xx chip is FT81x
+                    If not set, the code for FT80x will be compiled
+
+            config EVE_MODE_TYPE
+                int
+                default 0 if FT8_USER_TYPE
+                default 1 if FT8_FT810CB_HY50HD
+                default 2 if FT8_FT811CB_HY50HD
+                default 3 if FT8_VM800B35A
+                default 4 if FT8_VM800B43A
+                default 5 if FT8_VM800B50A
+                default 6 if FT8_EVE2_50G
+                default 6 if FT8_EVE2_TEST
+
+                choice
+                    prompt "Select predefined EVE display type"
+                    default EVE_MODE_TYPE1
+                    help
+                        Select predefined EVE display type
+
+                    config FT8_USER_TYPE
+                        bool "User defined"
+                    config FT8_FT810CB_HY50HD
+                        bool "FT810CB-HY50HD: FT810 800x480 5\", HAOYU"
+                    config FT8_FT811CB_HY50HD
+                        bool "FT811CB-HY50HD: FT810 800x480 5\", HAOYU"
+                    config FT8_VM800B35A
+                        bool "VM800B35A: FT800 320x240 3.5\", FTDI"
+                    config FT8_VM800B43A
+                        bool "VM800B43A: FT800 480x272 4.4\", FTDI/BRT"
+                    config FT8_VM800B50A
+                        bool "VM800B50A: FT800 480x272 5\", FTDI/BRT"
+                    config FT8_EVE2_50G
+                        bool "800x480 5.0\" capacitive touch, FT813"
+                    config FT8_EVE2_TEST
+                        bool "TEST display"
+                endchoice
+        endmenu
 
         config MICROPY_USE_GSM
             bool "Use GSM module"
@@ -384,12 +443,28 @@ menu "MicroPython"
             help
                 Include mDNS module into build
 
+        config MICROPY_USE_REQUESTS
+            bool "Use requests module"
+            default y
+            help
+                Include requests module into build
+                The module ofers less features than curl, but uses far les resources
+
         config MICROPY_USE_CURL
             bool "Use Curl module"
             default n
             help
                 Include CURL module into build
                 Using CURL module will add ~230 KB to your flash code size
+
+        config MICROPY_CURL_MAX_WRITE_SIZE
+            int "Curl max write buffer size"
+            depends on MICROPY_USE_CURL
+            range 1024 16384
+            default 8192
+            help
+                Curl buffer size used in many Curl functions
+                If not using SPIRAM, it may be necessary to set the size to the lower value
 
         config MICROPY_USE_CURL_TLS
             bool "Enable TLS in Curl module"

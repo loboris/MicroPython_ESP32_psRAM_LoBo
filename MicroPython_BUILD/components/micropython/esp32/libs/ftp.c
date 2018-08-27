@@ -68,6 +68,8 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 
+#include "modnetwork.h"
+
 TaskHandle_t FtpTaskHandle = NULL;
 QueueHandle_t ftp_mutex = NULL;
 uint32_t ftp_stack_size;
@@ -482,26 +484,20 @@ static ftp_result_t ftp_wait_for_connection (int32_t l_sd, int32_t *n_sd, uint32
     }
 
     if (ip_addr) {
-        tcpip_adapter_ip_info_t ip_info;
-        wifi_mode_t wifi_mode;
-        esp_wifi_get_mode(&wifi_mode);
-        if (wifi_mode != WIFI_MODE_APSTA) {
-            // easy way
-            tcpip_adapter_if_t if_type;
-            if (wifi_mode == WIFI_MODE_AP) {
-                if_type = TCPIP_ADAPTER_IF_AP;
-            } else {
-                if_type = TCPIP_ADAPTER_IF_STA;
-            }
-            tcpip_adapter_get_ip_info(if_type, &ip_info);
-        } else {
-            // see on which subnet is the client ip address
-            tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info);
-            if ((ip_info.ip.addr & ip_info.netmask.addr) != (ip_info.netmask.addr & sClientAddress.sin_addr.s_addr)) {
-                tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info);
+        // check on which network interface the client was connected
+        tcpip_adapter_ip_info_t ip_info = {0};
+        int n_if = network_get_active_interfaces();
+
+        if (n_if > 0) {
+            for (int i=0; i<n_if; i++) {
+                tcpip_adapter_get_ip_info(tcpip_if[i], &ip_info);
+                if ((ip_info.ip.addr & ip_info.netmask.addr) == (ip_info.netmask.addr & sClientAddress.sin_addr.s_addr)) {
+                    *ip_addr = ip_info.ip.addr;
+                    ESP_LOGD(FTP_TAG, "Client connected on interface %d", tcpip_if[i]);
+                    break;
+                }
             }
         }
-        *ip_addr = ip_info.ip.addr;
     }
 
     // enable non-blocking mode if not data channel connection
@@ -1120,16 +1116,32 @@ void ftp_deinit(void) {
 }
 
 //-------------------
-void ftp_init(void) {
+bool ftp_init(void) {
 	ftp_stop = 0;
     // Allocate memory for the data buffer, and the file system structures (from the RTOS heap)
 	ftp_deinit();
 
 	memset(&ftp_data, 0, sizeof(ftp_data_t));
 	ftp_data.dBuffer = malloc(ftp_buff_size+1);
+	if (ftp_data.dBuffer == NULL) return false;
 	ftp_path = malloc(FTP_MAX_PARAM_SIZE);
+	if (ftp_path == NULL) {
+	    free(ftp_data.dBuffer);
+	    return false;
+	}
 	ftp_scratch_buffer = malloc(FTP_MAX_PARAM_SIZE);
+    if (ftp_scratch_buffer == NULL) {
+        free(ftp_path);
+        free(ftp_data.dBuffer);
+        return false;
+    }
 	ftp_cmd_buffer = malloc(FTP_MAX_PARAM_SIZE + FTP_CMD_SIZE_MAX);
+    if (ftp_cmd_buffer == NULL) {
+        free(ftp_scratch_buffer);
+        free(ftp_path);
+        free(ftp_data.dBuffer);
+        return false;
+    }
 
     //SOCKETFIFO_Init((void *)ftp_fifoelements, FTP_SOCKETFIFO_ELEMENTS_MAX);
 
@@ -1142,6 +1154,7 @@ void ftp_init(void) {
     ftp_data.substate = E_FTP_STE_SUB_DISCONNECTED;
 
     if (ftp_mutex == NULL) ftp_mutex = xSemaphoreCreateMutex();
+    return true;
 }
 
 //============================

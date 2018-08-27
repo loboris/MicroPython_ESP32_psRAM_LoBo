@@ -353,7 +353,7 @@ mp_obj_t mp_pin_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
 			if ((args[ARG_trigger].u_int < GPIO_PIN_INTR_DISABLE) || (args[ARG_trigger].u_int >= GPIO_INTR_MAX)) {
 				mp_raise_ValueError("invalid trigger type");
 			}
-			if ((args[ARG_debounce].u_int < 100) || (args[ARG_debounce].u_int > 500000)) {
+			if ((args[ARG_debounce].u_int != 0) && ((args[ARG_debounce].u_int < 100) || (args[ARG_debounce].u_int > 500000))) {
 				mp_raise_ValueError("out of debounce range (100 - 500000 us)");
 			}
 			if ((args[ARG_acttime].u_int < 0) || (args[ARG_acttime].u_int > 500000)) {

@@ -29,11 +29,14 @@
 #define MICROPY_INCLUDED_ESP32_MODNETWORK_H
 
 #include "esp_wifi_types.h"
+#include "esp_eth.h"
+#include "tcpip_adapter.h"
 
-#define WIFI_STATE_NOTINIT	-1
-#define WIFI_STATE_INIT		0
-#define WIFI_STATE_STOPPED	1
-#define WIFI_STATE_STARTED	2
+#define WIFI_STATE_NOTINIT      -1
+#define WIFI_STATE_INIT     	0
+#define WIFI_STATE_STOPPED      1
+#define WIFI_STATE_STARTED      2
+#define MAX_ACTIVE_INTERFACES   3
 
 enum { PHY_LAN8720, PHY_TLK110 };
 
@@ -47,6 +50,12 @@ typedef void (*wifi_sta_rx_probe_req_t)(const uint8_t *frame, int len, int rssi)
 extern esp_err_t esp_wifi_set_sta_rx_probe_req(wifi_sta_rx_probe_req_t cb);
 
 extern const mp_obj_type_t wlan_if_type;
+tcpip_adapter_if_t tcpip_if[3];
+
+#ifdef CONFIG_MICROPY_USE_ETHERNET
+extern bool lan_eth_active;
+//extern eth_phy_check_link_func lan_eth_link_func;
+#endif
 
 extern int wifi_network_state;
 extern bool wifi_sta_isconnected;
@@ -54,6 +63,12 @@ extern bool wifi_sta_has_ipaddress;
 extern bool wifi_sta_changed_ipaddress;
 extern bool wifi_ap_isconnected;
 extern bool wifi_ap_sta_isconnected;
+
+int network_get_active_interfaces();
+uint32_t network_hasip();
+uint32_t network_has_staip();
+void network_checkConnection();
+
 
 #ifdef CONFIG_MICROPY_USE_ETHERNET
 MP_DECLARE_CONST_FUN_OBJ_KW(get_lan_obj);

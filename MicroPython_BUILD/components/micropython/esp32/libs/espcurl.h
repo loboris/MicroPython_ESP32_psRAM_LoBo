@@ -47,6 +47,8 @@
 
 #define GMAIL_SMTP			"smtp.gmail.com"
 #define GMAIL_PORT			465
+#define GMAIL_IMAP          "imap.gmail.com"
+#define GMAIL_IMAP_PORT     993
 
 struct curl_httppost *formpost;
 struct curl_httppost *lastptr;
@@ -80,6 +82,10 @@ extern uint8_t curl_nodecode;
  */
 //===================================================================================
 int Curl_GET(char *url, char *fname, char *hdr, char *body, int hdrlen, int bodylen);
+
+
+//==========================================================================================================================================================================================
+int Curl_IMAP_GET(const char *opts, char *fname, char *hdr, char *body, int hdrlen, int bodylen, const char* imapserver, unsigned int imapport, const char* username, const char* password);
 
 
 /*
@@ -160,8 +166,9 @@ int ssh_SCP(uint8_t type, char *server, char *port, char * scppath, char *user, 
 
 #endif  // CONFIG_MICROPY_USE_SSH
 
-//=====================
-void checkConnection();
+
+//================================
+char *url_encode(const char *str);
 
 #endif // defined(CONFIG_MICROPY_USE_CURL) || defined(CONFIG_MICROPY_USE_SSH)
 
