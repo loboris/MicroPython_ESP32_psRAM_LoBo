@@ -88,7 +88,7 @@ const char *FTP_TAG = "[Ftp]";
 #define FTP_DATA_CLIENTS_MAX                1
 #define FTP_MAX_PARAM_SIZE                  (MICROPY_ALLOC_PATH_MAX + 1)
 #define FTP_UNIX_SECONDS_180_DAYS           15552000
-#define FTP_DATA_TIMEOUT_MS                 5000	// 10 seconds
+#define FTP_DATA_TIMEOUT_MS                 10000	// 10 seconds
 #define FTP_SOCKETFIFO_ELEMENTS_MAX         4
 
 /******************************************************************************
@@ -484,19 +484,31 @@ static ftp_result_t ftp_wait_for_connection (int32_t l_sd, int32_t *n_sd, uint32
     }
 
     if (ip_addr) {
-        // check on which network interface the client was connected
+        // check on which network interface the client was connected and save the IP address
         tcpip_adapter_ip_info_t ip_info = {0};
         int n_if = network_get_active_interfaces();
 
         if (n_if > 0) {
+            struct sockaddr_in clientAddr;
+            in_addrSize = sizeof(struct sockaddr_in);
+            getpeername(_sd, (struct sockaddr *)&clientAddr, (socklen_t *)&in_addrSize);
+            ESP_LOGD(FTP_TAG, "Client IP: %08x", clientAddr.sin_addr.s_addr);
+            *ip_addr = 0;
             for (int i=0; i<n_if; i++) {
                 tcpip_adapter_get_ip_info(tcpip_if[i], &ip_info);
-                if ((ip_info.ip.addr & ip_info.netmask.addr) == (ip_info.netmask.addr & sClientAddress.sin_addr.s_addr)) {
+                ESP_LOGD(FTP_TAG, "Adapter: %08x, %08x", ip_info.ip.addr, ip_info.netmask.addr);
+                if ((ip_info.ip.addr & ip_info.netmask.addr) == (ip_info.netmask.addr & clientAddr.sin_addr.s_addr)) {
                     *ip_addr = ip_info.ip.addr;
                     ESP_LOGD(FTP_TAG, "Client connected on interface %d", tcpip_if[i]);
                     break;
                 }
             }
+            if (*ip_addr == 0) {
+                ESP_LOGE(FTP_TAG, "No IP address detected (?!)");
+            }
+        }
+        else {
+            ESP_LOGE(FTP_TAG, "No active interface (?!)");
         }
     }
 
@@ -1295,12 +1307,12 @@ int ftp_run (uint32_t elapsed)
 			ESP_LOGD(FTP_TAG, "Data socket connected");
         }
         else if (ftp_data.dtimeout > FTP_DATA_TIMEOUT_MS) {
+            ESP_LOGW(FTP_TAG, "Waiting for data connection timeout (%d)", ftp_data.dtimeout);
             ftp_data.dtimeout = 0;
             // close the listening socket
             closesocket(ftp_data.ld_sd);
             ftp_data.ld_sd = -1;
             ftp_data.substate = E_FTP_STE_SUB_DISCONNECTED;
-            ESP_LOGW(FTP_TAG, "Waiting for data connection timeout");
         }
         break;
     case E_FTP_STE_SUB_DATA_CONNECTED:

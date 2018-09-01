@@ -40,6 +40,8 @@
 #include "netif/ppp/pppos.h"
 #include "netif/ppp/ppp.h"
 #include "lwip/pppapi.h"
+//#include "lwip/port/lwipopts.h"
+#include "lwip/opt.h"
 
 #include "libs/libGSM.h"
 #include "py/runtime.h"
@@ -80,6 +82,11 @@ static int gsm_pin_rts = UART_PIN_NO_CHANGE;
 static int gsm_baudrate = 115200;
 static uint8_t tcpip_adapter_initialized = 0;
 static uint32_t sms_timer = 0;
+static bool allow_roaming = false;
+
+static uint32_t ppp_ip = 0;
+static uint32_t ppp_netmask = 0;
+static uint32_t ppp_gw = 0;
 
 // The PPP control block
 static ppp_pcb *ppp = NULL;
@@ -228,6 +235,9 @@ static void ppp_status_cb(ppp_pcb *pcb, int err_code, void *ctx)
 				#endif
 			}
 			xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
+            ppp_ip = pppif->ip_addr.u_addr.ip4.addr;
+            ppp_netmask = pppif->netmask.u_addr.ip4.addr;
+            ppp_gw = pppif->gw.u_addr.ip4.addr;
 			gsm_status = GSM_STATE_CONNECTED;
 			xSemaphoreGive(pppos_mutex);
 			break;
@@ -262,6 +272,9 @@ static void ppp_status_cb(ppp_pcb *pcb, int err_code, void *ctx)
 				ESP_LOGW(TAG,"status_cb: User interrupt (disconnected)");
 			}
 			xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
+            ppp_ip = 0;
+            ppp_netmask = 0;
+            ppp_gw = 0;
 			gsm_status = GSM_STATE_DISCONNECTED;
 			xSemaphoreGive(pppos_mutex);
 			break;
@@ -271,6 +284,9 @@ static void ppp_status_cb(ppp_pcb *pcb, int err_code, void *ctx)
 				ESP_LOGE(TAG,"status_cb: Connection lost");
 			}
 			xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
+            ppp_ip = 0;
+            ppp_netmask = 0;
+            ppp_gw = 0;
 			gsm_status = GSM_STATE_DISCONNECTED;
 			xSemaphoreGive(pppos_mutex);
 			break;
@@ -609,6 +625,9 @@ static void pppos_client_task()
 {
 	xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
 	pppos_task_started = 1;
+    ppp_ip = 0;
+    ppp_netmask = 0;
+    ppp_gw = 0;
 	xSemaphoreGive(pppos_mutex);
 
 	char PPP_ApnATReq[strlen(GSM_APN)+24];
@@ -685,6 +704,7 @@ static void pppos_client_task()
 		}
 		int gsmCmdIter = 0;
 		int nfail = 0;
+		int cmd_res = 0;
 
 		// ===== GSM Initialization loop =========================================================================
 		while(gsmCmdIter < GSM_InitCmdsSize)
@@ -696,11 +716,11 @@ static void pppos_client_task()
 				gsmCmdIter++;
 				continue;
 			}
-			if (atCmd_waitResponse(GSM_Init[gsmCmdIter]->cmd,
-					GSM_Init[gsmCmdIter]->cmdResponseOnOk, NULL,
-					GSM_Init[gsmCmdIter]->cmdSize,
-					GSM_Init[gsmCmdIter]->timeoutMs, NULL, 0, NULL) == 0)
-			{
+			if ((GSM_Init[gsmCmdIter] == &cmd_Reg) && (allow_roaming))
+	            cmd_res = atCmd_waitResponse(GSM_Init[gsmCmdIter]->cmd, GSM_Init[gsmCmdIter]->cmdResponseOnOk, "CREG: 0,5", GSM_Init[gsmCmdIter]->cmdSize, GSM_Init[gsmCmdIter]->timeoutMs, NULL, 0, NULL);
+			else
+			    cmd_res = atCmd_waitResponse(GSM_Init[gsmCmdIter]->cmd, GSM_Init[gsmCmdIter]->cmdResponseOnOk, NULL, GSM_Init[gsmCmdIter]->cmdSize, GSM_Init[gsmCmdIter]->timeoutMs, NULL, 0, NULL);
+			if (cmd_res == 0) {
 				// * No response or not as expected, start from first initialization command
 				if (debug) {
 					ESP_LOGW(TAG,"Wrong response, restarting...");
@@ -713,7 +733,15 @@ static void pppos_client_task()
 				continue;
 			}
 
-			if (GSM_Init[gsmCmdIter]->delayMs > 0) vTaskDelay(GSM_Init[gsmCmdIter]->delayMs / portTICK_PERIOD_MS);
+            if ((GSM_Init[gsmCmdIter] == &cmd_Reg) && (allow_roaming)) {
+                if (cmd_res == 2) {
+                    if (debug) {
+                        ESP_LOGW(TAG,"Connected in roaming");
+                    }
+                }
+            }
+
+            if (GSM_Init[gsmCmdIter]->delayMs > 0) vTaskDelay(GSM_Init[gsmCmdIter]->delayMs / portTICK_PERIOD_MS);
 			GSM_Init[gsmCmdIter]->skip = 1;
 			if (GSM_Init[gsmCmdIter] == &cmd_Reg) GSM_Init[gsmCmdIter]->delayMs = 0;
 			// Next command
@@ -908,11 +936,12 @@ exit:
 	vTaskDelete(NULL);
 }
 
-//===================================================================================================================
-int ppposInit(int tx, int rx, int rts, int cts, int bdr, char *user, char *pass, char *apn, uint8_t wait, int doconn)
+//=================================================================================================================================
+int ppposInit(int tx, int rx, int rts, int cts, int bdr, char *user, char *pass, char *apn, uint8_t wait, int doconn, bool roaming)
 {
 	if (pppos_mutex != NULL) xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
 	do_pppos_connect = doconn;
+	allow_roaming = roaming;
 	int gstat = 0;
 	int task_s = pppos_task_started;
 	if (pppos_mutex != NULL) xSemaphoreGive(pppos_mutex);
@@ -986,31 +1015,34 @@ int ppposConnect()
 	if (task_s == 0) return -2;
 	if (gstat == GSM_STATE_CONNECTED) return 0;
 
+	int tmo = 0;
 	while (gstat != 1) {
 		vTaskDelay(10 / portTICK_RATE_MS);
 		xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
 		gstat = gsm_status;
 		task_s = pppos_task_started;
 		xSemaphoreGive(pppos_mutex);
-		if (task_s == 0) return 0;
+		if (task_s == 0) return -2;
+        tmo++;
+        if (tmo > 800) return -1;
 	}
 
 	return 0;
 }
 
 //===================================================
-void ppposDisconnect(uint8_t end_task, uint8_t rfoff)
+int ppposDisconnect(uint8_t end_task, uint8_t rfoff)
 {
-	if (pppos_mutex == NULL) return;
+	if (pppos_mutex == NULL) return -1;
 
 	xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
 	int gstat = gsm_status;
 	int task_s = pppos_task_started;
 	xSemaphoreGive(pppos_mutex);
 
-	if (task_s == 0) return;
+	if (task_s == 0) return 0;
 
-	if ((gstat == GSM_STATE_IDLE) && (end_task == 0)) return;
+	if ((gstat == GSM_STATE_IDLE) && (end_task == 0)) return 0;
 
 	vTaskDelay(2000 / portTICK_RATE_MS);
 	xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
@@ -1020,31 +1052,41 @@ void ppposDisconnect(uint8_t end_task, uint8_t rfoff)
 	xSemaphoreGive(pppos_mutex);
 
 	gstat = 0;
+    int tmo = 0;
 	while ((gstat == 0) && (task_s != 0)) {
 		xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
 		gstat = do_pppos_connect;
 		task_s = pppos_task_started;
 		xSemaphoreGive(pppos_mutex);
 		vTaskDelay(10 / portTICK_RATE_MS);
+        tmo++;
+        if (tmo > 800) return -1;
 	}
-	if (task_s == 0) return;
+	if (task_s == 0) return 0;
 
+	tmo = 0;
 	while ((gstat != 0) && (task_s != 0)) {
 		vTaskDelay(100 / portTICK_RATE_MS);
 		xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
 		gstat = do_pppos_connect;
 		task_s = pppos_task_started;
 		xSemaphoreGive(pppos_mutex);
+        tmo++;
+        if (tmo > 800) return -1;
 	}
+	return 0;
 }
 
-//===================
-int ppposStatus()
+//============================================================
+int ppposStatus(uint32_t *ip, uint32_t *netmask, uint32_t *gw)
 {
 	if (pppos_mutex == NULL) return GSM_STATE_FIRSTINIT;
 
 	xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
 	int gstat = gsm_status;
+    if (ip) *ip = ppp_ip;
+    if (netmask) *netmask = ppp_netmask;
+    if (gw) *gw = ppp_gw;
 	xSemaphoreGive(pppos_mutex);
 
 	return gstat;
@@ -1133,7 +1175,7 @@ int gsm_RFOn()
 //--------------------
 static int sms_ready()
 {
-	if (ppposStatus() != GSM_STATE_IDLE) return 0;
+	if (ppposStatus(NULL, NULL, NULL) != GSM_STATE_IDLE) return 0;
 	int ret = 0;
 
 	xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
@@ -1518,7 +1560,7 @@ void setDebug(uint8_t dbg)
 //=======================================*============================================
 int at_Cmd(char *cmd, char* resp, char **buffer, int buf_size, int tmo, char *cmddata)
 {
-	if (ppposStatus() != GSM_STATE_IDLE) return 0;
+	if (ppposStatus(NULL, NULL, NULL) != GSM_STATE_IDLE) return 0;
 	xSemaphoreTake(pppos_mutex, PPPOSMUTEX_TIMEOUT);
 
 	int res = atCmd_waitResponse(cmd, resp, NULL, -1, tmo, buffer, buf_size, cmddata);

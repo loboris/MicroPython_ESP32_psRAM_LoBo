@@ -60,25 +60,22 @@ static int rqheader_ptr = 0;
 static int rqbody_len = 0;
 static int rqbody_ptr = 0;
 static bool rqbody_ok = true;
-static bool rq_debug = true;
+static bool rq_debug = false;
 static bool rq_base64 = false;
+static char *cert_pem = NULL;
 
 
-/* Root cert for howsmyssl.com, taken from howsmyssl_com_root_cert.pem
+/*
+ * You can get the Root cert for the server using openssl
 
-   The PEM file was extracted from the output of this command:
-   openssl s_client -showcerts -connect www.howsmyssl.com:443 </dev/null
+   The PEM file can be  extracted from the output of this command:
+   openssl s_client -showcerts -connect <the_server>:443
 
    The CA root cert is the last cert given in the chain of certs.
-
-   To embed it in the app binary, the PEM file is named
-   in the component.mk COMPONENT_EMBED_TXTFILES variable.
 */
-//extern const char howsmyssl_com_root_cert_pem_start[] asm("_binary_howsmyssl_com_root_cert_pem_start");
-//extern const char howsmyssl_com_root_cert_pem_end[]   asm("_binary_howsmyssl_com_root_cert_pem_end");
 
-//---------------------------------------------------------
-esp_err_t _http_event_handler(esp_http_client_event_t *evt)
+//----------------------------------------------------------------
+static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
     switch(evt->event_id) {
         case HTTP_EVENT_ERROR:
@@ -175,79 +172,6 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 }
 
 /*
-//---------------------
-static void http_rest()
-{
-    esp_http_client_config_t config = {
-        .url = "http://httpbin.org/get",
-        .event_handler = _http_event_handler,
-    };
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-
-    // GET
-    esp_err_t err = esp_http_client_perform(client);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTP GET Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-    } else {
-        ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
-    }
-
-    // POST
-    const char *post_data = "field1=value1&field2=value2";
-    esp_http_client_set_url(client, "http://httpbin.org/post");
-    esp_http_client_set_method(client, HTTP_METHOD_POST);
-    esp_http_client_set_post_field(client, post_data, strlen(post_data));
-    err = esp_http_client_perform(client);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-    } else {
-        ESP_LOGE(TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
-    }
-
-    //PUT
-    esp_http_client_set_url(client, "http://httpbin.org/put");
-    esp_http_client_set_method(client, HTTP_METHOD_PUT);
-    err = esp_http_client_perform(client);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTP PUT Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-    } else {
-        ESP_LOGE(TAG, "HTTP PUT request failed: %s", esp_err_to_name(err));
-    }
-
-    //PATCH
-    esp_http_client_set_url(client, "http://httpbin.org/patch");
-    esp_http_client_set_method(client, HTTP_METHOD_PATCH);
-    esp_http_client_set_post_field(client, NULL, 0);
-    err = esp_http_client_perform(client);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTP PATCH Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-    } else {
-        ESP_LOGE(TAG, "HTTP PATCH request failed: %s", esp_err_to_name(err));
-    }
-
-    //DELETE
-    esp_http_client_set_url(client, "http://httpbin.org/delete");
-    esp_http_client_set_method(client, HTTP_METHOD_DELETE);
-    err = esp_http_client_perform(client);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTP DELETE Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-    } else {
-        ESP_LOGE(TAG, "HTTP DELETE request failed: %s", esp_err_to_name(err));
-    }
-
-    esp_http_client_cleanup(client);
-}
-
 //---------------------------
 static void http_auth_basic()
 {
@@ -713,6 +637,13 @@ static mp_obj_t request(int method, bool multipart, mp_obj_t post_data_in, char 
     bool perform_handled = false;
     bool free_post_data = false;
 
+    // Disable logging
+    if (!rq_debug) {
+        esp_log_level_set("HTTP_CLIENT", ESP_LOG_WARN);
+        esp_log_level_set("TRANSPORT", ESP_LOG_WARN);
+        esp_log_level_set("TRANS_SSL", ESP_LOG_WARN);
+    }
+
     // Check if the response is redirected to file
     rqbody_file = NULL;
     if (tofile) {
@@ -908,14 +839,53 @@ static mp_obj_t request(int method, bool multipart, mp_obj_t post_data_in, char 
     return mp_obj_new_tuple(3, tuple);
 }
 
+//-----------------------------------------------------
+void get_certificate(mp_obj_t cert, char *cert_pem_buf)
+{
+    if (MP_OBJ_IS_STR(cert)) {
+        struct stat sb;
+        char *fname = NULL;
+        char certname[128] = {'\0'};
+
+        fname = (char *)mp_obj_str_get_str(cert);
+        esp_err_t res = physicalPath(fname, certname);
+        if ((res != 0) || (strlen(certname) == 0)) {
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error resolving file name"));
+        }
+        if (stat(certname, &sb) != 0) {
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error opening certificate file"));
+        }
+        FILE *fhndl = fopen(certname, "rb");
+        if (!fhndl) {
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error opening certificate file"));
+        }
+
+        if (cert_pem_buf) free(cert_pem_buf);
+        cert_pem_buf = NULL;
+        cert_pem_buf = calloc(sizeof(char), sb.st_size+16);
+        if (cert_pem_buf == NULL) {
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error allocating certificate buffer"));
+        }
+        int rd_len = fread(cert_pem_buf, 1, sb.st_size, fhndl);
+        fclose(fhndl);
+        if (rd_len != sb.st_size) {
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error reading from certificate file"));
+        }
+    }
+    else if (cert == mp_const_false) {
+        if (cert_pem_buf) free(cert_pem_buf);
+        cert_pem_buf = NULL;
+    }
+}
+
 //--------------------------------------------------------------------------------------
 STATIC mp_obj_t requests_GET(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
     network_checkConnection();
     enum { ARG_url, ARG_file };
     const mp_arg_t allowed_args[] = {
-        { MP_QSTR_url,      MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
-        { MP_QSTR_file,                       MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_url,   MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_file,                    MP_ARG_OBJ, { .u_obj = mp_const_none } },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -930,6 +900,7 @@ STATIC mp_obj_t requests_GET(size_t n_args, const mp_obj_t *pos_args, mp_map_t *
         // GET to file
         fname = (char *)mp_obj_str_get_str(args[ARG_file].u_obj);
     }
+
     mp_obj_t res = request(HTTP_METHOD_GET, false, NULL, url, fname);
 
     return res;
@@ -940,9 +911,9 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(requests_GET_obj, 1, requests_GET);
 STATIC mp_obj_t requests_HEAD(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
     network_checkConnection();
-    enum { ARG_url, ARG_file };
+    enum { ARG_url };
     const mp_arg_t allowed_args[] = {
-        { MP_QSTR_url,      MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_url,   MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -982,6 +953,7 @@ STATIC mp_obj_t requests_POST(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
         // GET to file
         fname = (char *)mp_obj_str_get_str(args[ARG_file].u_obj);
     }
+
     mp_obj_t res = request(HTTP_METHOD_POST, args[ARG_multipart].u_bool, args[ARG_params].u_obj, url, fname);
 
     return res;
@@ -994,8 +966,8 @@ STATIC mp_obj_t requests_PUT(size_t n_args, const mp_obj_t *pos_args, mp_map_t *
     network_checkConnection();
     enum { ARG_url, ARG_data };
     const mp_arg_t allowed_args[] = {
-        { MP_QSTR_url,      MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
-        { MP_QSTR_data,     MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_url,  MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_data, MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -1017,8 +989,8 @@ STATIC mp_obj_t requests_PATCH(size_t n_args, const mp_obj_t *pos_args, mp_map_t
     network_checkConnection();
     enum { ARG_url, ARG_data };
     const mp_arg_t allowed_args[] = {
-        { MP_QSTR_url,      MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
-        { MP_QSTR_data,     MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_url,  MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_data, MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -1034,6 +1006,24 @@ STATIC mp_obj_t requests_PATCH(size_t n_args, const mp_obj_t *pos_args, mp_map_t
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(requests_PATCH_obj, 1, requests_PATCH);
 
+//---------------------------------------------
+STATIC mp_obj_t requests_debug(mp_obj_t dbg_in)
+{
+    rq_debug = mp_obj_is_true(dbg_in);
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(requests_debug_obj, requests_debug);
+
+//----------------------------------------------------
+STATIC mp_obj_t requests_certificate(mp_obj_t cert_in)
+{
+    if (cert_in != mp_const_none) get_certificate(cert_in, cert_pem);
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(requests_certificate_obj, requests_certificate);
+
 
 //================================================================
 STATIC const mp_rom_map_elem_t requests_module_globals_table[] = {
@@ -1044,6 +1034,8 @@ STATIC const mp_rom_map_elem_t requests_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_post),        MP_ROM_PTR(&requests_POST_obj) },
     { MP_ROM_QSTR(MP_QSTR_put),         MP_ROM_PTR(&requests_PUT_obj) },
     { MP_ROM_QSTR(MP_QSTR_patch),       MP_ROM_PTR(&requests_PATCH_obj) },
+    { MP_ROM_QSTR(MP_QSTR_debug),       MP_ROM_PTR(&requests_debug_obj) },
+    { MP_ROM_QSTR(MP_QSTR_certicicate), MP_ROM_PTR(&requests_certificate_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(requests_module_globals, requests_module_globals_table);
 

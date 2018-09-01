@@ -1,4 +1,30 @@
-=== 2018-06-26 ===
+=== 2018-09-01 ===
+
+Fixed bug in Ftp server preenting directory listing
+
+Updated 'ota' module
+  update over network now uses 'esp_http_client' componnent
+  update with SSL (https) is now possible
+  server certificate (with https) can be used to verify the firmware origin
+
+Updated 'gsm' module
+  added option to allow connection when in roaming
+  added method 'isconfig()' to get the IP, netmask and gateway
+  some small improvements
+
+Updated 'requests' module
+  added method 'certificate()' to set the server certificate from file (when using https)
+  added method 'debug()' to enable/disable logging
+  some cleaning and improvements
+
+Updated 'machine.DHT' module
+  fixed bug: When a DTH22 sensor is used, the results were always truncated after the decimal place
+
+Updated 'machine.Pin' module
+  improved irq handling
+
+
+=== 2018-08-26 ===
 
 Updated 'ethernet' module
   updated all modules using network to work on any network interface, including ethernet

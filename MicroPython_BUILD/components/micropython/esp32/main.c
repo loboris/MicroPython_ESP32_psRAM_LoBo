@@ -270,7 +270,7 @@ void micropython_entry(void)
 		else {
 			mpy_use_spiram = false;
 			MPY_DEFAULT_STACK_SIZE = 16 * 1024;
-			MPY_DEFAULT_HEAP_SIZE = 80 * 1024;
+			MPY_DEFAULT_HEAP_SIZE = 72 * 1024;
 	    	ESP_LOGW("MicroPython","SPIRAM support enabled but SPIRAM not detected");
 		}
 		#else
@@ -297,6 +297,7 @@ void micropython_entry(void)
 		MPY_MIN_HEAP_SIZE = 48*1024;
 		#if defined(CONFIG_MICROPY_USE_CURL) && defined(CONFIG_MICROPY_USE_CURL_TLS)
 		MPY_MAX_HEAP_SIZE =	74*1024;
+        MPY_DEFAULT_HEAP_SIZE = 72 * 1024;
 		#else
 		MPY_MAX_HEAP_SIZE =	96*1024;
 		#endif
@@ -408,7 +409,7 @@ void micropython_entry(void)
     	ESP_LOGE("MicroPython", "Error allocating heap, HALTED.");
         return;
     }
-	ESP_LOGD("MicroPython", "MPy heap: %p - %p", mp_task_heap, mp_task_heap+mpy_heap_size+64);
+	ESP_LOGD("MicroPython", "MPy heap: %p - %p (%d)", mp_task_heap, mp_task_heap+mpy_heap_size+64, mpy_heap_size);
 
     // Workaround for possible bug in i2c driver !?
 	//ToDo: Is it still needed?

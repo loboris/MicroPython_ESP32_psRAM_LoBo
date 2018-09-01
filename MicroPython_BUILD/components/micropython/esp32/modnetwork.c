@@ -1291,7 +1291,7 @@ void network_checkConnection()
     uint32_t ip = network_has_staip();
     if (ip == 0) {
         #ifdef CONFIG_MICROPY_USE_GSM
-        if (ppposStatus() != GSM_STATE_CONNECTED) {
+        if (ppposStatus(NULL, NULL, NULL) != GSM_STATE_CONNECTED) {
             nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "No Internet connection"));
         }
         #else

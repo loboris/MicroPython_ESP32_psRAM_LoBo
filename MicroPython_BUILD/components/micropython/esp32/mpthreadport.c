@@ -838,7 +838,7 @@ static bool _check_network()
     if (ip == 0) {
         #ifdef CONFIG_MICROPY_USE_GSM
         //ToDo: should we enable telnet/ftp over GSM ?
-        //if (ppposStatus() != GSM_STATE_CONNECTED) {
+        //if (ppposStatus(NULL, NULL, NULL) != GSM_STATE_CONNECTED) {
             return false;
         //}
         #else
@@ -924,7 +924,7 @@ void ftp_task (void *pvParameters)
     // Initialize ftp, create rx buffer and mutex
     if (!ftp_init()) {
         ESP_LOGE("[Ftp]", "Init Error");
-        goto exit;
+        goto exit1;
     }
 
     while (!_check_network()) {
@@ -937,6 +937,7 @@ void ftp_task (void *pvParameters)
 
     time_ms = mp_hal_ticks_ms();
     while (1) {
+        // Calculate time between two ftp_run() calls
         elapsed = mp_hal_ticks_ms() - time_ms;
         time_ms = mp_hal_ticks_ms();
 
@@ -966,6 +967,7 @@ void ftp_task (void *pvParameters)
 exit:
     ftp_disable();
     ftp_deinit();
+exit1:
     ESP_LOGD("[Ftp]", "\nTask terminated!");
     FtpTaskHandle = NULL;
     vSemaphoreDelete(ftp_mutex);
