@@ -1035,7 +1035,7 @@ STATIC const mp_rom_map_elem_t requests_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_put),         MP_ROM_PTR(&requests_PUT_obj) },
     { MP_ROM_QSTR(MP_QSTR_patch),       MP_ROM_PTR(&requests_PATCH_obj) },
     { MP_ROM_QSTR(MP_QSTR_debug),       MP_ROM_PTR(&requests_debug_obj) },
-    { MP_ROM_QSTR(MP_QSTR_certicicate), MP_ROM_PTR(&requests_certificate_obj) },
+    { MP_ROM_QSTR(MP_QSTR_certificate), MP_ROM_PTR(&requests_certificate_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(requests_module_globals, requests_module_globals_table);
 

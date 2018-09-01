@@ -1,4 +1,8 @@
 === 2018-09-01 ===
+Fixed wrong method name in 'requests' module
+
+
+=== 2018-09-01 ===
 
 Fixed bug in Ftp server preenting directory listing
 
