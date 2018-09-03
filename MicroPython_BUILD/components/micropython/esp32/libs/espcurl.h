@@ -84,8 +84,8 @@ extern uint8_t curl_nodecode;
 int Curl_GET(char *url, char *fname, char *hdr, char *body, int hdrlen, int bodylen);
 
 
-//==========================================================================================================================================================================================
-int Curl_IMAP_GET(const char *opts, char *fname, char *hdr, char *body, int hdrlen, int bodylen, const char* imapserver, unsigned int imapport, const char* username, const char* password);
+//==========================================================================================================================================================================================================
+int Curl_IMAP_GET(const char *opts, char *fname, char *hdr, char *body, int hdrlen, int bodylen, const char* imapserver, unsigned int imapport, const char* username, const char* password, char *cust_req);
 
 
 /*

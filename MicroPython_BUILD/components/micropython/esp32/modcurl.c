@@ -202,7 +202,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(curl_GET_obj, 1, curl_GET);
 STATIC mp_obj_t curl_GET_MAIL(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
     network_checkConnection();
-    enum { ARG_opts, ARG_user, ARG_pass, ARG_server, ARG_port, ARG_file };
+    enum { ARG_opts, ARG_user, ARG_pass, ARG_server, ARG_port, ARG_file, ARG_req };
     const mp_arg_t allowed_args[] = {
         { MP_QSTR_opts,     MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
         { MP_QSTR_user,     MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
@@ -210,11 +210,13 @@ STATIC mp_obj_t curl_GET_MAIL(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
         { MP_QSTR_server,   MP_ARG_KW_ONLY  | MP_ARG_OBJ, { .u_obj = mp_const_none } },
         { MP_QSTR_port,     MP_ARG_KW_ONLY  | MP_ARG_INT, { .u_int = GMAIL_IMAP_PORT } },
         { MP_QSTR_file,     MP_ARG_KW_ONLY  | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_req,      MP_ARG_KW_ONLY  | MP_ARG_OBJ, { .u_obj = mp_const_none } },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
+    char *cust_req = NULL;
     char *opts = (char *)mp_obj_str_get_str(args[ARG_opts].u_obj);
     char *user = (char *)mp_obj_str_get_str(args[ARG_user].u_obj);
     char *pass = (char *)mp_obj_str_get_str(args[ARG_pass].u_obj);
@@ -228,6 +230,10 @@ STATIC mp_obj_t curl_GET_MAIL(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
     char fullname[128] = {'\0'};
 
     uint32_t mail_port = args[ARG_port].u_int;
+    if (MP_OBJ_IS_STR(args[ARG_req].u_obj)) {
+        (char *)mp_obj_str_get_str(args[ARG_req].u_obj);
+    }
+
     if (MP_OBJ_IS_STR(args[ARG_server].u_obj)) sprintf(mail_server, "%s", (char *)mp_obj_str_get_str(args[ARG_server].u_obj));
     else sprintf(mail_server, GMAIL_IMAP);
 
@@ -250,7 +256,7 @@ STATIC mp_obj_t curl_GET_MAIL(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
     body.buf[0] = '\0';
 
     MP_THREAD_GIL_EXIT();
-    res = Curl_IMAP_GET(opts, fname, header.buf, body.buf, header.len, body.len, mail_server, mail_port, user, pass);
+    res = Curl_IMAP_GET(opts, fname, header.buf, body.buf, header.len, body.len, mail_server, mail_port, user, pass, cust_req);
     MP_THREAD_GIL_ENTER();
 
     mp_obj_t tuple[3];

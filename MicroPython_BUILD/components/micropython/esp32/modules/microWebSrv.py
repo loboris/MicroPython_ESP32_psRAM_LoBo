@@ -11,7 +11,6 @@ import _thread
 import network
 import time
 import socket
-import websocket
 import gc
 import re
 

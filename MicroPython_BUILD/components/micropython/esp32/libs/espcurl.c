@@ -397,8 +397,8 @@ char *url_encode(const char *str) {
     return buf;
 }
 
-//=========================================================================================================================================================================================
-int Curl_IMAP_GET(const char *opts, char *fname, char *hdr, char *body, int hdrlen, int bodylen, const char* imapserver, unsigned int imapport, const char* username, const char* password)
+//=========================================================================================================================================================================================================
+int Curl_IMAP_GET(const char *opts, char *fname, char *hdr, char *body, int hdrlen, int bodylen, const char* imapserver, unsigned int imapport, const char* username, const char* password, char *cust_req)
 {
     CURL *curl = NULL;
     CURLcode res = 0;
@@ -487,6 +487,9 @@ int Curl_IMAP_GET(const char *opts, char *fname, char *hdr, char *body, int hdrl
     if (username && *username) curl_easy_setopt(curl, CURLOPT_USERNAME, username);
     if (password) curl_easy_setopt(curl, CURLOPT_PASSWORD, password);
 
+    if (cust_req) {
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, cust_req);
+    }
     // Only allow IMAPS, we do not want this to work when unencrypted.
     curl_easy_setopt(curl, CURLOPT_PROTOCOLS, CURLPROTO_IMAPS);
 

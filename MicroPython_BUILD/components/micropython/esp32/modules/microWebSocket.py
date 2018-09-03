@@ -10,7 +10,6 @@ from   struct      import pack
 import _thread
 import time
 import gc
-import websocket
 
 class MicroWebSocket :
 

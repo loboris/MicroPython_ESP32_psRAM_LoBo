@@ -1,3 +1,13 @@
+=== 2018-09-03 ===
+Fixed build errors if EVE module was selected without TFT module enabled
+
+Updated 'Curl' module
+  Adder custom request argument to 'getmail' method
+
+Updated frozen modules 'microWebSrv' and 'microWebSocket'
+  Removed unneede import of 'websocket' module
+
+
 === 2018-09-01 ===
 Fixed wrong method name in 'requests' module
 

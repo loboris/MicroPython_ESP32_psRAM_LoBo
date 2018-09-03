@@ -374,12 +374,14 @@ static void adjust_ramg_objects(void *this_obj, uint32_t addr, uint32_t size)
                     obj->addr -= size;
                 }
             }
+            #ifdef CONFIG_MICROPY_USE_TFT
             else if (base->type == &tft_eve_type) {
                 tft_eve_obj_t *obj = (tft_eve_obj_t *)ptr;
                 if (obj->addr > addr) {
                     obj->addr -= size;
                 }
             }
+            #endif
         }
     }
 }
@@ -410,10 +412,12 @@ static void print_objects(const mp_print_t *print)
                 console_eve_obj_t *obj = (console_eve_obj_t *)ptr;
                 mp_printf(print, "        %2d: Console, addr=%u, size=%u\n", i, obj->addr,obj->size);
             }
+            #ifdef CONFIG_MICROPY_USE_TFT
             else if (base->type == &tft_eve_type) {
                 tft_eve_obj_t *obj = (tft_eve_obj_t *)ptr;
                 mp_printf(print, "        %2d: Tft, addr=%u, size=%u\n", i, obj->addr,obj->size);
             }
+            #endif
             else {
                 mp_printf(print, "        %2d: Unknown object type\n", i);
             }
@@ -505,6 +509,7 @@ STATIC void console_eve_printinfo(const mp_print_t *print, mp_obj_t self_in, mp_
     }
 }
 
+#ifdef CONFIG_MICROPY_USE_TFT
 //--------------------------------------------------------------------------------------------
 STATIC void tft_eve_printinfo(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
@@ -517,6 +522,7 @@ STATIC void tft_eve_printinfo(const mp_print_t *print, mp_obj_t self_in, mp_prin
         mp_printf(print, "EVE_TFT ( Unloaded )");
     }
 }
+#endif
 
 //--------------------------------------------
 static esp_err_t _EVE_calibrate(bool nvs_read)
@@ -3958,10 +3964,9 @@ const mp_obj_type_t console_eve_type = {
 // ^^^^ CONSOLE object end ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+#ifdef CONFIG_MICROPY_USE_TFT
 
 // ==== TFT object ===============================================
-
-
 
 
 // constructor
@@ -4218,6 +4223,7 @@ const mp_obj_type_t tft_eve_type = {
 
 // ^^^^ TFT object ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+#endif
 
 //================================================================
 STATIC const mp_rom_map_elem_t display_eve_locals_dict_table[] = {
@@ -4294,7 +4300,9 @@ STATIC const mp_rom_map_elem_t display_eve_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_Font),            MP_ROM_PTR(&font_eve_type) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_Image),           MP_ROM_PTR(&image_eve_type) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_Console),         MP_ROM_PTR(&console_eve_type) },
+    #ifdef CONFIG_MICROPY_USE_TFT
     { MP_OBJ_NEW_QSTR(MP_QSTR_Tft),             MP_ROM_PTR(&tft_eve_type) },
+    #endif
 
     // SPI bus constants
     { MP_ROM_QSTR(MP_QSTR_HSPI),                MP_ROM_INT(HSPI_HOST) },
