@@ -1,3 +1,8 @@
+=== 2018-09-04 ===
+Updated 'EVE' module to build correctly for both FT80x and FT81x
+
+-------------------------------------------------------------------------------
+
 === 2018-09-03 ===
 Fixed build errors if EVE module was selected without TFT module enabled
 
@@ -7,10 +12,12 @@ Updated 'Curl' module
 Updated frozen modules 'microWebSrv' and 'microWebSocket'
   Removed unneede import of 'websocket' module
 
+-------------------------------------------------------------------------------
 
 === 2018-09-01 ===
 Fixed wrong method name in 'requests' module
 
+-------------------------------------------------------------------------------
 
 === 2018-09-01 ===
 
@@ -37,6 +44,7 @@ Updated 'machine.DHT' module
 Updated 'machine.Pin' module
   improved irq handling
 
+-------------------------------------------------------------------------------
 
 === 2018-08-26 ===
 
@@ -72,6 +80,7 @@ Updated sdcard support
 
 Updated esp-idf to version v3.1-rc1-53509c7b
 
+-------------------------------------------------------------------------------
 
 === 2018-06-27 ===
 
@@ -112,6 +121,7 @@ Updated 'mdns' module
 
 Other minor updates, improvements and bug fixes
 
+-------------------------------------------------------------------------------
 
 === 2018-06-04 ===
 
@@ -160,9 +170,7 @@ Menuconfig:
 
 Other minor updates, improvements and bug fixes
 
-
 -------------------------------------------------------------------------------
-
 
 === 2018-05-15 ===
 
@@ -175,9 +183,7 @@ Added MicroPython system options in 'menuconfig'
 Updated some frozen modules
   upip, urequests, logging
 
-
 -------------------------------------------------------------------------------
-
 
 === 2018-05-15 ===
 
@@ -201,9 +207,7 @@ Some new MicroPython system options added to menuconfig
 Temporary solution for esp-idf bug:
   cannot set the QIO mode on some Flash chips
 
-
 -------------------------------------------------------------------------------
-
 
 === 2018-05-10 ===
 

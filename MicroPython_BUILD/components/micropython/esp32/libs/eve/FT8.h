@@ -421,8 +421,11 @@
 #define VERTEX2II(x,y,handle,cell) ((2UL<<30)|(((x)&511UL)<<21)|(((y)&511UL)<<12)|(((handle)&31UL)<<7)|(((cell)&127UL)<<0))
 
 
+#define REG_ID_FT81X    0x302000UL
+#define REG_ID_FT80X    0x102400UL
+
 /* specific for FT80x */
-#ifndef FT8_81X_ENABLE
+#ifdef CONFIG_EVE_CHIP_TYPE0
 
 #define FT8_CHIPID		0x00010008UL
 

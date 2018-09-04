@@ -146,8 +146,10 @@ extern uint8_t eve_spibus_is_init;
 extern uint8_t spi_is_init;
 
 
+#ifdef CONFIG_EVE_CHIP_TYPE1
 int FT8_Fifo_init(FILE *fhndl);
 void FT8_Fifo_deinit();
+#endif
 
 void FT8_cmdWrite(uint8_t data);
 
@@ -209,11 +211,19 @@ void FT8_cmd_append(uint32_t ptr, uint32_t num);
 /* commands for loading image data into FT8xx memory: */
 void FT8_cmd_inflate(uint32_t ptr, const uint8_t *data, uint16_t len);
 int FT8_cmd_loadimage(uint32_t ptr, uint32_t options, FILE *fhndl, uint32_t len, uint8_t type);
+
+#ifdef CONFIG_EVE_CHIP_TYPE1
 void FT8_cmd_mediafifo(uint32_t ptr, uint32_t size);
 
 int FT8_sendDataViaMediafifo(FILE *pFile, uint32_t ptr, uint32_t options, uint8_t type);
 int FT8_Fifo_service();
 void FT8_cmd_videoframe(uint32_t addr);
+
+void FT8_cmd_romfont(uint32_t font, uint32_t romslot);
+void FT8_cmd_setfont2(uint32_t font, uint32_t ptr, uint32_t firstchar);
+void FT8_cmd_setrotate(uint32_t r);
+void FT8_cmd_setscratch(uint32_t handle);
+#endif
 
 /* commands for setting the bitmap transform matrix: */
 void FT8_cmd_translate(int32_t tx, int32_t ty);
@@ -227,11 +237,6 @@ void FT8_cmd_setmatrix();
 void FT8_cmd_calibrate(void);
 void FT8_cmd_interrupt(uint32_t ms);
 void FT8_cmd_setfont(uint32_t font, uint32_t ptr);
-
-void FT8_cmd_romfont(uint32_t font, uint32_t romslot);
-void FT8_cmd_setfont2(uint32_t font, uint32_t ptr, uint32_t firstchar);
-void FT8_cmd_setrotate(uint32_t r);
-void FT8_cmd_setscratch(uint32_t handle);
 
 void FT8_cmd_sketch(int16_t x0, int16_t y0, uint16_t w0, uint16_t h0, uint32_t ptr, uint16_t format);
 void FT8_cmd_snapshot(uint32_t ptr);

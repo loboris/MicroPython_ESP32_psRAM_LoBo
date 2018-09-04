@@ -22,6 +22,7 @@ build/
 
 patches/
 
+*.id
 qstrdefs.generated.h
 /partitions_mpy.csv
 /sdkconfig

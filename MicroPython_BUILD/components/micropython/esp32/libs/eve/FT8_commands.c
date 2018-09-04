@@ -68,6 +68,7 @@ FT8_Fifo_t ft8_stFifo = {0};
 //FT8_Fifo_t *ft8_pFifo = &ft8_stFifo;
 
 
+#ifdef CONFIG_EVE_CHIP_TYPE1
 // FT811 / FT813 binary-blob from FTDIs AN_336 to patch the touch-engine for Goodix GT911 / GT9271 touch controllers
 const uint16_t FT8_GT911_len = 1184;
 const uint8_t FT8_GT911_data[1184] =
@@ -98,7 +99,7 @@ const uint8_t FT8_GT911_data[1184] =
  247,2,75,191,6,130,59,188,11,55,240,31,243,122,152,226,183,207,154,73,188,39,219,43,105,222,87,41,143,141,140,175,73,112,184,252,61,184,16,90,250,35,168,82,119,176,57,116,94,
  200,150,22,190,179,44,104,12,235,84,149,102,252,89,154,193,99,228,106,242,125,248,64,194,255,223,127,242,83,11,255,2,70,214,226,128,0,0
 };
-
+#endif
 
 //---------------------------
 static esp_err_t eve_select()
@@ -119,6 +120,8 @@ static esp_err_t eve_deselect()
         return ESP_OK;
     }
 }
+
+#ifdef CONFIG_EVE_CHIP_TYPE1
 
 //-----------------------------------------------
 static int FT8_Fifo_write_file_block(int blksize)
@@ -368,7 +371,7 @@ int FT8_sendDataViaMediafifo(FILE *pFile, uint32_t ptr, uint32_t options, uint8_
 
     return 0;
 }
-
+#endif
 
 // ==== Basic SPI commands ====
 
@@ -921,10 +924,10 @@ void FT8_cmd_toggle(int16_t x0, int16_t y0, int16_t w0, int16_t font, uint16_t o
 	if (cmd_burst == 0) eve_deselect();
 }
 
+#ifdef CONFIG_EVE_CHIP_TYPE1
 //---------------------------------
 void FT8_cmd_setbase(uint32_t base)
 {
-    if (eve_chip_id < 0x810) return;
 	FT8_start_cmd(CMD_SETBASE);
     FT8_send_long(base, 0, 0, 1);
 
@@ -934,13 +937,13 @@ void FT8_cmd_setbase(uint32_t base)
 //----------------------------------------------------------------------------------
 void FT8_cmd_setbitmap(uint32_t addr, uint16_t fmt, uint16_t width, uint16_t height)
 {
-    if (eve_chip_id < 0x810) return;
 	FT8_start_cmd(CMD_SETBITMAP);
     FT8_send_long(addr, 0, 0, 1);
 	FT8_send_params(fmt, width, height, 0, 0, 0, 0, 0, 4);
 
 	if (cmd_burst == 0) eve_deselect();
 }
+#endif
 
 //-------------------------------------------
 void FT8_cmd_bitmapXY(uint16_t x, uint16_t y)
@@ -1107,13 +1110,12 @@ int FT8_cmd_loadimage(uint32_t ptr, uint32_t options, FILE *fhndl, uint32_t len,
 }
 
 
-
+#ifdef CONFIG_EVE_CHIP_TYPE1
 // this is meant to be called outside display-list building,
 // does not support cmd-burst
 //-------------------------------------------------
 void FT8_cmd_mediafifo(uint32_t ptr, uint32_t size)
 {
-    if (eve_chip_id < 0x810) return;
 	FT8_start_cmd(CMD_MEDIAFIFO);
 	FT8_send_long(ptr, size, 0, 2);
 
@@ -1128,7 +1130,7 @@ void FT8_cmd_videoframe(uint32_t addr)
 
     if (cmd_burst == 0) eve_deselect();
 }
-
+#endif
 
 
 // ===========================================================
@@ -1212,21 +1214,12 @@ void FT8_cmd_interrupt(uint32_t ms)
 }
 
 
+#ifdef CONFIG_EVE_CHIP_TYPE1
 //---------------------------------------------------
 void FT8_cmd_romfont(uint32_t font, uint32_t romslot)
 {
-    if (eve_chip_id < 0x810) return;
 	FT8_start_cmd(CMD_ROMFONT);
 	FT8_send_long(font, romslot & 0xFFFF, 0, 2);
-
-	if (cmd_burst == 0) eve_deselect();
-}
-
-//-----------------------------------------------
-void FT8_cmd_setfont(uint32_t font, uint32_t ptr)
-{
-	FT8_start_cmd(CMD_SETFONT);
-	FT8_send_long(font, ptr, 0, 2);
 
 	if (cmd_burst == 0) eve_deselect();
 }
@@ -1234,29 +1227,47 @@ void FT8_cmd_setfont(uint32_t font, uint32_t ptr)
 //--------------------------------------------------------------------
 void FT8_cmd_setfont2(uint32_t font, uint32_t ptr, uint32_t firstchar)
 {
-    if (eve_chip_id < 0x810) return;
-	FT8_start_cmd(CMD_SETFONT2);
-	FT8_send_long(font, ptr, firstchar, 3);
+    FT8_start_cmd(CMD_SETFONT2);
+    FT8_send_long(font, ptr, firstchar, 3);
 
-	if (cmd_burst == 0) eve_deselect();
+    if (cmd_burst == 0) eve_deselect();
 }
 
 //--------------------------------
 void FT8_cmd_setrotate(uint32_t r)
 {
-    if (eve_chip_id < 0x810) return;
-	FT8_start_cmd(CMD_SETROTATE);
-	FT8_send_long(r, 0, 0, 1);
+    FT8_start_cmd(CMD_SETROTATE);
+    FT8_send_long(r, 0, 0, 1);
 
-	if (cmd_burst == 0) eve_deselect();
+    if (cmd_burst == 0) eve_deselect();
 }
 
 //--------------------------------------
 void FT8_cmd_setscratch(uint32_t handle)
 {
-    if (eve_chip_id < 0x810) return;
-	FT8_start_cmd(CMD_SETSCRATCH);
-	FT8_send_long(handle, 0, 0, 1);
+    FT8_start_cmd(CMD_SETSCRATCH);
+    FT8_send_long(handle, 0, 0, 1);
+
+    if (cmd_burst == 0) eve_deselect();
+}
+
+//------------------------------------------------------------------------------------------------
+void FT8_cmd_snapshot2(uint32_t fmt, uint32_t ptr, int16_t x0, int16_t y0, int16_t w0, int16_t h0)
+{
+    FT8_start_cmd(CMD_SNAPSHOT2);
+    FT8_send_long(fmt, ptr, 0, 2);
+    FT8_send_params(x0, y0, w0, h0, 0, 0, 0, 0, 4);
+
+    if (cmd_burst == 0) eve_deselect();
+}
+
+#endif
+
+//-----------------------------------------------
+void FT8_cmd_setfont(uint32_t font, uint32_t ptr)
+{
+	FT8_start_cmd(CMD_SETFONT);
+	FT8_send_long(font, ptr, 0, 2);
 
 	if (cmd_burst == 0) eve_deselect();
 }
@@ -1276,17 +1287,6 @@ void FT8_cmd_snapshot(uint32_t ptr)
 {
 	FT8_start_cmd(CMD_SNAPSHOT);
 	FT8_send_long(ptr, 0, 0, 1);
-
-	if (cmd_burst == 0) eve_deselect();
-}
-
-//------------------------------------------------------------------------------------------------
-void FT8_cmd_snapshot2(uint32_t fmt, uint32_t ptr, int16_t x0, int16_t y0, int16_t w0, int16_t h0)
-{
-    if (eve_chip_id < 0x810) return;
-	FT8_start_cmd(CMD_SNAPSHOT2);
-    FT8_send_long(fmt, ptr, 0, 2);
-	FT8_send_params(x0, y0, w0, h0, 0, 0, 0, 0, 4);
 
 	if (cmd_burst == 0) eve_deselect();
 }
@@ -1577,12 +1577,25 @@ static esp_err_t EVE_spiInit(eve_config_t *dconfig)
     return ESP_OK;
 }
 
+//----------------------------------------
+static bool _ft8xx_detect(uint32_t reg_id)
+{
+    uint8_t chipid = 0;
+    uint8_t timeout = 0;
+    // if chip id is not 0x7c, continue to read it until it is,
+    // FT81x may need a moment for it's power on self test
+    while (chipid != 0x7C) {
+        chipid = FT8_memRead8(reg_id);
+        vTaskDelay(1 / portTICK_RATE_MS);
+        timeout++;
+        if (timeout > 200) return false;
+    }
+    return true;
+}
 //============================================================================
 esp_err_t FT8_init(eve_config_t *dconfig, exspi_device_handle_t *disp_spi_dev)
 {
-	uint8_t chipid = 0;
 	uint32_t chip_type = 0;
-	uint8_t timeout = 0;
     esp_err_t ret;
 
     eve_spi = disp_spi_dev;
@@ -1621,17 +1634,25 @@ esp_err_t FT8_init(eve_config_t *dconfig, exspi_device_handle_t *disp_spi_dev)
 	// Start FT8xx
 	FT8_cmdWrite(FT8_ACTIVE);
 
-	// if chip id is not 0x7c, continue to read it until it is,
-	// FT81x may need a moment for it's power on self test
-	while (chipid != 0x7C) {
-		chipid = FT8_memRead8(REG_ID);
-	    vTaskDelay(1 / portTICK_RATE_MS);
-		timeout++;
-		if (timeout > 200) {
-	        ESP_LOGE(TAG, "EVE chip not detected (timeout)");
-	        eve_chip_id = 0;
-		    return ESP_FAIL;
-		}
+	// Detect EVE chip
+	if (!_ft8xx_detect(REG_ID)) {
+        #ifdef CONFIG_EVE_CHIP_TYPE1
+	    if (_ft8xx_detect(REG_ID_FT80X)) {
+            ESP_LOGE(TAG, "EVE module configured for FT81x but FT80x detected");
+	    }
+        else {
+            ESP_LOGE(TAG, "EVE chip not detected (timeout)");
+        }
+        #else
+        if (_ft8xx_detect(REG_ID_FT81X)) {
+            ESP_LOGE(TAG, "EVE module configured for FT80x but FT81x detected");
+        }
+        else {
+            ESP_LOGE(TAG, "EVE chip not detected (timeout)");
+        }
+        #endif
+        eve_chip_id = 0;
+        return ESP_FAIL;
 	}
 
 	// Get chip model
@@ -1646,6 +1667,7 @@ esp_err_t FT8_init(eve_config_t *dconfig, exspi_device_handle_t *disp_spi_dev)
         return ESP_FAIL;
 	}
 
+    #ifdef CONFIG_EVE_CHIP_TYPE1
     // If we have a display with a Goodix GT911 / GT9271 touch-controller on it, we need to patch our FT811 or FT813 according to AN_336
     if (dconfig->disp_config.has_GT911) {
         uint32_t ftAddress;
@@ -1667,6 +1689,7 @@ esp_err_t FT8_init(eve_config_t *dconfig, exspi_device_handle_t *disp_spi_dev)
         vTaskDelay(57 / portTICK_RATE_MS);                      // wait more than 55ms
         FT8_memWrite16(REG_GPIOX_DIR,0x8000);                   // setting GPIO3 back to input
     }
+    #endif
 
     //FT8_memWrite8(REG_PCLK, 0x00);	    			        // set PCLK to zero - don't clock the LCD until later
 

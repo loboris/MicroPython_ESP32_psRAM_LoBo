@@ -257,6 +257,7 @@ static int _check_png(uint8_t *data, int *width, int *height)
 }
 #endif
 
+#ifdef CONFIG_EVE_CHIP_TYPE1
 //---------------------------------------------------------------------------------------
 static int _check_avi(uint8_t *data, int *width, int *height, int* playtime, int *frames)
 {
@@ -276,6 +277,7 @@ static int _check_avi(uint8_t *data, int *width, int *height, int* playtime, int
 
     return 0;
 }
+#endif
 
 //------------------------------------------------------
 STATIC void spi_deinit_internal(display_eve_obj_t *self)
@@ -591,6 +593,7 @@ static esp_err_t _EVE_calibrate(bool nvs_read)
     return err;
 }
 
+#ifdef CONFIG_EVE_CHIP_TYPE1
 //-------------------------------------------------------
 static void _eve_rotate(display_eve_obj_t *self, int rot)
 {
@@ -612,6 +615,7 @@ static void _eve_rotate(display_eve_obj_t *self, int rot)
         self->height = self->dconfig.height;
     }
 }
+#endif
 
 // === EVE object constructor ===
 //---------------------------------------------------------------------------------------------------------------
@@ -644,7 +648,7 @@ STATIC mp_obj_t display_eve_make_new(const mp_obj_type_t *type, size_t n_args, s
     ramg_objects.size = 16;
     loaded_lists = 0;
     loaded_images = 0;
-    eve_chip_id = 1;
+    eve_chip_id = 0;
     eve_obj = self;
 
     return MP_OBJ_FROM_PTR(self);
@@ -827,9 +831,11 @@ STATIC mp_obj_t display_eve_init(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
     if (ret != ESP_OK) ret = _EVE_calibrate(false);
 
     if (ret == ESP_OK) {
+        #ifdef CONFIG_EVE_CHIP_TYPE1
         if (args[ARG_rot].u_int >= 0) {
             _eve_rotate(self, args[ARG_rot].u_int & 7);
         }
+        #endif
     }
     return mp_const_none;
 }
@@ -874,6 +880,7 @@ STATIC mp_obj_t EVE_calibrate(size_t n_args, const mp_obj_t *args)
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(EVE_calibrate_obj, 1, 2, EVE_calibrate);
 
 
+#ifdef CONFIG_EVE_CHIP_TYPE1
 // ----------------------------------------------------------
 STATIC mp_obj_t EVE_rotate(mp_obj_t self_in, mp_obj_t rot_in)
 {
@@ -889,6 +896,7 @@ STATIC mp_obj_t EVE_rotate(mp_obj_t self_in, mp_obj_t rot_in)
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(EVE_rotate_obj, EVE_rotate);
+#endif
 
 // Start creating display list
 // --------------------------------------------
@@ -1395,8 +1403,11 @@ STATIC mp_obj_t EVE_text(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *k
     display_eve_obj_t *self = pos_args[0];
     _check_inlist(self, 1);
 
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    int max_font = 34;
+    #else
     int max_font = 31;
-    if (eve_chip_id >= 0x810) max_font = 43;
+    #endif
     mp_int_t x = args[ARG_x].u_int;
     mp_int_t y = args[ARG_y].u_int;
     mp_int_t font = args[ARG_font].u_int;
@@ -1411,12 +1422,12 @@ STATIC mp_obj_t EVE_text(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *k
     const char *st = mp_obj_str_get_str(args[ARG_text].u_obj);
 
     if (font > 31) {
+        #ifdef CONFIG_EVE_CHIP_TYPE1
         FT8_cmd_romfont(1, font);
         font = 1;
+        #endif
     }
     FT8_cmd_text(x, y, font, align, st);
-    FT8_cmd_dl(NOP());
-
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(EVE_text_obj, 0, EVE_text);
@@ -1438,8 +1449,11 @@ STATIC mp_obj_t EVE_number(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t 
     display_eve_obj_t *self = pos_args[0];
     _check_inlist(self, 1);
 
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    int max_font = 34;
+    #else
     int max_font = 31;
-    if (eve_chip_id >= 0x810) max_font = 43;
+    #endif
     mp_int_t x = args[ARG_x].u_int;
     mp_int_t y = args[ARG_y].u_int;
     mp_int_t font = args[ARG_font].u_int;
@@ -1454,15 +1468,19 @@ STATIC mp_obj_t EVE_number(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t 
     int32_t num = mp_obj_get_int(args[ARG_num].u_obj);
     if (num < 0) align |= FT8_OPT_SIGNED;
     if (font > 31) {
+        #ifdef CONFIG_EVE_CHIP_TYPE1
         FT8_cmd_romfont(1, font);
         font = 1;
+        #endif
     }
 
+    #ifdef CONFIG_EVE_CHIP_TYPE1
     int base = 10;
-    if ((args[ARG_base].u_int > 1) && (args[ARG_base].u_int < 37) && (eve_chip_id >= 0x810)) {
+    if ((args[ARG_base].u_int > 1) && (args[ARG_base].u_int < 37)) {
         base = args[ARG_base].u_int;
         FT8_cmd_setbase(base);
     }
+    #endif
     FT8_cmd_number(x, y, font, align, num);
 
     return mp_const_none;
@@ -1902,20 +1920,19 @@ STATIC mp_obj_t EVE_userfont(mp_obj_t self_in, mp_obj_t font_in)
         mp_raise_ValueError("Font unloaded");
     }
 
-    if (eve_chip_id < 0x810) {
-        // For FT80x use CMD_SETFONT
-        FT8_cmd_dl(BEGIN(FT8_BITMAPS));
-        FT8_cmd_dl(BITMAP_HANDLE(font->handle));
-        FT8_cmd_dl(BITMAP_SOURCE(font->metrics.ptr));
-        FT8_cmd_dl(BITMAP_LAYOUT(font->metrics.format, font->metrics.stride, font->metrics.height));
-        FT8_cmd_dl(BITMAP_SIZE(FT8_NEAREST, FT8_BORDER, FT8_BORDER, font->metrics.width, font->metrics.height));
-        FT8_cmd_setfont(font->handle, font->addr);
-    }
-    else {
-        // For FT81x use CMD_SETFONT2
-        FT8_cmd_setbitmap(font->metrics.ptr, font->metrics.format, font->metrics.width, font->metrics.height);
-        FT8_cmd_setfont2(font->handle, font->addr, font->firstc);
-    }
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    // For FT81x use CMD_SETFONT2
+    FT8_cmd_setbitmap(font->metrics.ptr, font->metrics.format, font->metrics.width, font->metrics.height);
+    FT8_cmd_setfont2(font->handle, font->addr, font->firstc);
+    #else
+    // For FT80x use CMD_SETFONT
+    FT8_cmd_dl(BEGIN(FT8_BITMAPS));
+    FT8_cmd_dl(BITMAP_HANDLE(font->handle));
+    FT8_cmd_dl(BITMAP_SOURCE(font->metrics.ptr));
+    FT8_cmd_dl(BITMAP_LAYOUT(font->metrics.format, font->metrics.stride, font->metrics.height));
+    FT8_cmd_dl(BITMAP_SIZE(FT8_NEAREST, FT8_BORDER, FT8_BORDER, font->metrics.width, font->metrics.height));
+    FT8_cmd_setfont(font->handle, font->addr);
+    #endif
 
     return mp_const_none;
 }
@@ -1973,9 +1990,13 @@ STATIC mp_obj_t EVE_setbitmap(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map
     }
 
     FT8_cmd_dl(BITMAP_SOURCE(addr));
-    if ((eve_chip_id >= 0x810)) FT8_cmd_dl(BITMAP_LAYOUT_H(stride>>10, height>>9));
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    FT8_cmd_dl(BITMAP_LAYOUT_H(stride>>10, height>>9));
+    #endif
     FT8_cmd_dl(BITMAP_LAYOUT(format, stride , height));
-    if ((eve_chip_id >= 0x810)) FT8_cmd_dl(BITMAP_SIZE_H(width>>9, sheight>>9));
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    FT8_cmd_dl(BITMAP_SIZE_H(width>>9, sheight>>9));
+    #endif
     FT8_cmd_dl(BITMAP_SIZE(filter, wrapx, wrapy, width, sheight));
 
     FT8_cmd_dl(DL_BEGIN | FT8_BITMAPS);
@@ -2044,9 +2065,13 @@ STATIC mp_obj_t EVE_showimage(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map
     }
 
     FT8_cmd_dl(BITMAP_SOURCE(image->addr));
-    if ((eve_chip_id >= 0x810)) FT8_cmd_dl(BITMAP_LAYOUT_H(stride>>10, height>>9));
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    FT8_cmd_dl(BITMAP_LAYOUT_H(stride>>10, height>>9));
+    #endif
     FT8_cmd_dl(BITMAP_LAYOUT(image->format, stride , height));
-    if ((eve_chip_id >= 0x810)) FT8_cmd_dl(BITMAP_SIZE_H(width>>9, sheight>>9));
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    FT8_cmd_dl(BITMAP_SIZE_H(width>>9, sheight>>9));
+    #endif
     FT8_cmd_dl(BITMAP_SIZE(filter, wrapx, wrapy, width, sheight));
 
     FT8_cmd_dl(DL_BEGIN | FT8_BITMAPS);
@@ -2062,6 +2087,7 @@ STATIC mp_obj_t EVE_showimage(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(EVE_showimage_obj, 0, EVE_showimage);
 
+#ifdef CONFIG_EVE_CHIP_TYPE1
 //------------------------------------------------------------------------------------------
 STATIC mp_obj_t EVE_playvideo(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
@@ -2076,10 +2102,6 @@ STATIC mp_obj_t EVE_playvideo(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map
     mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
     //display_eve_obj_t *self = pos_args[0];
-
-    if (eve_chip_id < 0x810) {
-        mp_raise_ValueError("Not supported on FT80x");
-    }
 
     _check_inlist(eve_obj, 0);
 
@@ -2216,7 +2238,7 @@ STATIC mp_obj_t EVE_closevideo(mp_obj_t self_in)
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(EVE_closevideo_obj, EVE_closevideo);
-
+#endif
 
 // ----------------------------------------------------------
 STATIC mp_obj_t EVE_vol_pb(mp_obj_t self_in, mp_obj_t vol_in)
@@ -2355,7 +2377,9 @@ static uint16_t process_eve_command(uint32_t cmd, uint32_t base, uint16_t *idx)
     else if (ccmd == 0x22000000) mp_printf(&mp_plat_print, "SAVE_CONTEXT\n");
     else if (ccmd == 0x23000000) mp_printf(&mp_plat_print, "RESTORE_CONTEXT\n");
     else if ((ccmd >= 0x15000000) && (ccmd <= 0x1A000000)) mp_printf(&mp_plat_print, "BITMAP_TRANSFORM_%c (%d)\n", 65+((ccmd>>24)-0x15), cmd&131071);
+    #ifdef CONFIG_EVE_CHIP_TYPE1
     else if (ccmd == NOP()) mp_printf(&mp_plat_print, "NOP\n");
+    #endif
     else if ((cmd & 0xC0000000) == 0x40000000) mp_printf(&mp_plat_print, "VERTEX2F (%d, %d)\n", (cmd >> 15)&32767, cmd&32767);
     else if ((cmd & 0xC0000000) == 0x80000000) mp_printf(&mp_plat_print, "VERTEXII (%d, %d, %d, %d)\n", (cmd >> 21)&0x1FF, (cmd >> 12)&0x1FF, (cmd >> 7)&31, cmd&127);
     else {
@@ -2440,6 +2464,7 @@ static uint16_t process_eve_command(uint32_t cmd, uint32_t base, uint16_t *idx)
                     proc_bytes += 4;
                 }
                 break;
+            #ifdef CONFIG_EVE_CHIP_TYPE1
             case (CMD_MEDIAFIFO): {
                     mp_printf(&mp_plat_print, "CMD_MEDIAFIFO ");
                     cmd = FT8_memRead32(base + j);
@@ -2454,6 +2479,45 @@ static uint16_t process_eve_command(uint32_t cmd, uint32_t base, uint16_t *idx)
                     proc_bytes += 4;
                 }
                 break;
+            case (CMD_SETBITMAP): {
+                    mp_printf(&mp_plat_print, "CMD_SETBITMAP ");
+                    cmd = FT8_memRead32(base + j);
+                    mp_printf(&mp_plat_print, "(addr=%d, ", cmd);
+                    j += 4;
+                    j &= 0xfff;
+                    proc_bytes += 4;
+                    cmd = FT8_memRead32(base + j);
+                    mp_printf(&mp_plat_print, "fmt=%d, w=%d, ", cmd & 0xffff, cmd >> 16);
+                    j += 4;
+                    j &= 0xfff;
+                    proc_bytes += 4;
+                    cmd = FT8_memRead32(base + j);
+                    mp_printf(&mp_plat_print, "h=%d)\n", cmd);
+                    j += 4;
+                    j &= 0xfff;
+                    proc_bytes += 4;
+                }
+                break;
+            case (CMD_SETFONT2): {
+                    mp_printf(&mp_plat_print, "CMD_SETFONT2: ");
+                    cmd = FT8_memRead32(base + j);
+                    mp_printf(&mp_plat_print, "(font=%d, ", cmd);
+                    j += 4;
+                    j &= 0xfff;
+                    proc_bytes += 4;
+                    cmd = FT8_memRead32(base + j);
+                    mp_printf(&mp_plat_print, "addr=%d, ", cmd);
+                    j += 4;
+                    j &= 0xfff;
+                    proc_bytes += 4;
+                    cmd = FT8_memRead32(base + j);
+                    mp_printf(&mp_plat_print, "1st char=%d)\n", cmd);
+                    j += 4;
+                    j &= 0xfff;
+                    proc_bytes += 4;
+                }
+                break;
+            #endif
             case (CMD_GETPROPS): {
                     mp_printf(&mp_plat_print, "CMD_GETPROPS ");
                     cmd = FT8_memRead32(base + j);
@@ -2487,25 +2551,6 @@ static uint16_t process_eve_command(uint32_t cmd, uint32_t base, uint16_t *idx)
                     proc_bytes += 4;
                 }
                 break;
-            case (CMD_SETBITMAP): {
-                    mp_printf(&mp_plat_print, "CMD_SETBITMAP ");
-                    cmd = FT8_memRead32(base + j);
-                    mp_printf(&mp_plat_print, "(addr=%d, ", cmd);
-                    j += 4;
-                    j &= 0xfff;
-                    proc_bytes += 4;
-                    cmd = FT8_memRead32(base + j);
-                    mp_printf(&mp_plat_print, "fmt=%d, w=%d, ", cmd & 0xffff, cmd >> 16);
-                    j += 4;
-                    j &= 0xfff;
-                    proc_bytes += 4;
-                    cmd = FT8_memRead32(base + j);
-                    mp_printf(&mp_plat_print, "h=%d)\n", cmd);
-                    j += 4;
-                    j &= 0xfff;
-                    proc_bytes += 4;
-                }
-                break;
             case (CMD_TEXT): {
                     mp_printf(&mp_plat_print, "CMD_TEXT ");
                     cmd = FT8_memRead32(base + j);
@@ -2519,21 +2564,27 @@ static uint16_t process_eve_command(uint32_t cmd, uint32_t base, uint16_t *idx)
                     j &= 0xfff;
                     proc_bytes += 4;
                     cmd = FT8_memRead32(base + j);
+                    j += 4;
+                    j &= 0xfff;
+                    proc_bytes += 4;
                     mp_printf(&mp_plat_print, "      '");
-                    while (cmd != NOP()) {
+                    while (1) {
                         char *txt = (char *)&cmd;
+                        char ch = *txt;
                         for (int k=0; k<4; k++) {
-                            char ch = *txt++;
+                            ch = *txt++;
+                            if (ch == '\0') break;
                             if ((ch > 0) && (ch < 32)) ch = '.';
                             if (ch > 0) {
                                 if (ch >= 32) mp_printf(&mp_plat_print, "%c", ch);
                                 else mp_printf(&mp_plat_print, "\\x%2x", ch);
                             }
                         }
+                        if (ch == '\0') break;
+                        cmd = FT8_memRead32(base + j);
                         j += 4;
                         j &= 0xfff;
                         proc_bytes += 4;
-                        cmd = FT8_memRead32(base + j);
                     }
                     mp_printf(&mp_plat_print, "'\n");
                 }
@@ -2547,25 +2598,6 @@ static uint16_t process_eve_command(uint32_t cmd, uint32_t base, uint16_t *idx)
                     proc_bytes += 4;
                     cmd = FT8_memRead32(base + j);
                     mp_printf(&mp_plat_print, "addr=%d)\n", cmd);
-                    j += 4;
-                    j &= 0xfff;
-                    proc_bytes += 4;
-                }
-                break;
-            case (CMD_SETFONT2): {
-                    mp_printf(&mp_plat_print, "CMD_SETFONT2: ");
-                    cmd = FT8_memRead32(base + j);
-                    mp_printf(&mp_plat_print, "(font=%d, ", cmd);
-                    j += 4;
-                    j &= 0xfff;
-                    proc_bytes += 4;
-                    cmd = FT8_memRead32(base + j);
-                    mp_printf(&mp_plat_print, "addr=%d, ", cmd);
-                    j += 4;
-                    j &= 0xfff;
-                    proc_bytes += 4;
-                    cmd = FT8_memRead32(base + j);
-                    mp_printf(&mp_plat_print, "1st char=%d)\n", cmd);
                     j += 4;
                     j &= 0xfff;
                     proc_bytes += 4;
@@ -3042,8 +3074,11 @@ STATIC mp_obj_t image_eve_make_new(const mp_obj_type_t *type, size_t n_args, siz
     char fullname[128] = {'\0'};
     int len=0, size=0;
     fname = (char *)mp_obj_str_get_str(args[ARG_file].u_obj);
-    uint32_t allowed_opts = FT8_OPT_MONO | FT8_OPT_FULLSCREEN;
-    if (eve_chip_id >= 0x810) allowed_opts |= FT8_OPT_MEDIAFIFO;
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    uint32_t allowed_opts = FT8_OPT_MONO | FT8_OPT_FULLSCREEN | FT8_OPT_MEDIAFIFO;
+    #else
+    uint32_t allowed_opts = FT8_OPT_MONO;
+    #endif
     uint32_t opt = args[ARG_opt].u_int & allowed_opts;
     opt |= FT8_OPT_NODL;
     uint32_t addr = ft8_ramg_ptr; // address in Eve RAM_G
@@ -3174,7 +3209,8 @@ STATIC mp_obj_t image_eve_make_new(const mp_obj_type_t *type, size_t n_args, siz
     uint32_t tmp1, tmp2;
     if ((img_type == IMAGE_TYPE_JPG) || (img_type == IMAGE_TYPE_PNG)) {
         // === Decode JPG or PNG image ===
-        if ((eve_chip_id >= 0x810) && ((opt & FT8_OPT_MEDIAFIFO) != 0)) {
+        #ifdef CONFIG_EVE_CHIP_TYPE1
+        if ((opt & FT8_OPT_MEDIAFIFO) != 0) {
             res = FT8_Fifo_init(fhndl);
             if (res != 0) {
                 nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Error initializing mediafifo"));
@@ -3183,7 +3219,9 @@ STATIC mp_obj_t image_eve_make_new(const mp_obj_type_t *type, size_t n_args, siz
             fclose(fhndl);
             FT8_Fifo_deinit();
         }
-        else {
+        else
+        #endif
+        {
             res = FT8_cmd_loadimage(addr, opt, fhndl, len, 1);
 
             fclose(fhndl);
@@ -3775,9 +3813,13 @@ STATIC mp_obj_t CONSOLE_EVE_show(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
         FT8_cmd_rect(x, y, x+swidth, y+((sheight+self->rowspace)*self->height), 1);
     }
 
-    if ((eve_chip_id >= 0x810)) FT8_cmd_dl(BITMAP_LAYOUT_H(stride>>10, height>>9));
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    FT8_cmd_dl(BITMAP_LAYOUT_H(stride>>10, height>>9));
+    #endif
     FT8_cmd_dl(BITMAP_LAYOUT(self->type, stride , height));
-    if ((eve_chip_id >= 0x810)) FT8_cmd_dl(BITMAP_SIZE_H(swidth>>9, sheight>>9));
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    FT8_cmd_dl(BITMAP_SIZE_H(swidth>>9, sheight>>9));
+    #endif
     FT8_cmd_dl(BITMAP_SIZE(filter, FT8_BORDER, FT8_BORDER, swidth, sheight));
     if (scale) {
         FT8_cmd_dl(CMD_LOADIDENTITY);
@@ -4128,9 +4170,13 @@ STATIC mp_obj_t TFT_EVE_show(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_
     int x = args[ARG_x].u_int;
     int y = args[ARG_y].u_int;
 
-    if ((eve_chip_id >= 0x810)) FT8_cmd_dl(BITMAP_LAYOUT_H(self->rowsize>>10, self->height>>9));
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    FT8_cmd_dl(BITMAP_LAYOUT_H(self->rowsize>>10, self->height>>9));
+    #endif
     FT8_cmd_dl(BITMAP_LAYOUT(self->type, self->rowsize , self->height));
-    if ((eve_chip_id >= 0x810)) FT8_cmd_dl(BITMAP_SIZE_H(self->width>>9, self->height>>9));
+    #ifdef CONFIG_EVE_CHIP_TYPE1
+    FT8_cmd_dl(BITMAP_SIZE_H(self->width>>9, self->height>>9));
+    #endif
     FT8_cmd_dl(BITMAP_SIZE(FT8_NEAREST, FT8_BORDER, FT8_BORDER, self->width, self->height));
     FT8_cmd_dl(DL_BEGIN | FT8_BITMAPS);
     FT8_cmd_dl(BITMAP_SOURCE(self->addr));
@@ -4273,11 +4319,14 @@ STATIC const mp_rom_map_elem_t display_eve_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_gradient),            MP_ROM_PTR(&EVE_gradient_obj) },
     { MP_ROM_QSTR(MP_QSTR_image),               MP_ROM_PTR(&EVE_showimage_obj) },
     { MP_ROM_QSTR(MP_QSTR_setbitmap),           MP_ROM_PTR(&EVE_setbitmap_obj) },
+    #ifdef CONFIG_EVE_CHIP_TYPE1
     { MP_ROM_QSTR(MP_QSTR_video),               MP_ROM_PTR(&EVE_playvideo_obj) },
     { MP_ROM_QSTR(MP_QSTR_closevideo),          MP_ROM_PTR(&EVE_closevideo_obj) },
     { MP_ROM_QSTR(MP_QSTR_videoframe),          MP_ROM_PTR(&EVE_videoframe_obj) },
     { MP_ROM_QSTR(MP_QSTR_lastframe),           MP_ROM_PTR(&EVE_lastframe_obj) },
     { MP_ROM_QSTR(MP_QSTR_videobuffer),         MP_ROM_PTR(&EVE_videobuffer_obj) },
+    { MP_ROM_QSTR(MP_QSTR_rotate),              MP_ROM_PTR(&EVE_rotate_obj) },
+    #endif
     { MP_ROM_QSTR(MP_QSTR_getprops),            MP_ROM_PTR(&EVE_getprops_obj) },
     { MP_ROM_QSTR(MP_QSTR_userfont),            MP_ROM_PTR(&EVE_userfont_obj) },
     { MP_ROM_QSTR(MP_QSTR_fontinfo),            MP_ROM_PTR(&EVE_fontinfo_obj) },
@@ -4294,7 +4343,6 @@ STATIC const mp_rom_map_elem_t display_eve_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_vol_play),            MP_ROM_PTR(&EVE_vol_pb_obj) },
     { MP_ROM_QSTR(MP_QSTR_vol_sound),           MP_ROM_PTR(&EVE_vol_sound_obj) },
     { MP_ROM_QSTR(MP_QSTR_sound),               MP_ROM_PTR(&EVE_sound_obj) },
-    { MP_ROM_QSTR(MP_QSTR_rotate),              MP_ROM_PTR(&EVE_rotate_obj) },
     { MP_ROM_QSTR(MP_QSTR_screensize),          MP_ROM_PTR(&EVE_screensize_obj) },
 
     { MP_OBJ_NEW_QSTR(MP_QSTR_Font),            MP_ROM_PTR(&font_eve_type) },
@@ -4324,11 +4372,13 @@ STATIC const mp_rom_map_elem_t display_eve_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_OPT_NOPOINTER),       MP_ROM_INT(FT8_OPT_NOPOINTER) },
     { MP_ROM_QSTR(MP_QSTR_OPT_NOHANDS),         MP_ROM_INT(FT8_OPT_NOHANDS) },
     { MP_ROM_QSTR(MP_QSTR_OPT_NOSECS),          MP_ROM_INT(FT8_OPT_NOSECS) },
+    #ifdef CONFIG_EVE_CHIP_TYPE1
     { MP_ROM_QSTR(MP_QSTR_OPT_NOTEAR),          MP_ROM_INT(FT8_OPT_NOTEAR) },
     { MP_ROM_QSTR(MP_QSTR_OPT_FULLSCREEN),      MP_ROM_INT(FT8_OPT_FULLSCREEN) },
     { MP_ROM_QSTR(MP_QSTR_OPT_MEDIAFIFO),       MP_ROM_INT(FT8_OPT_MEDIAFIFO) },
     { MP_ROM_QSTR(MP_QSTR_OPT_SOUND),           MP_ROM_INT(FT8_OPT_SOUND) },
     { MP_ROM_QSTR(MP_QSTR_OPT_RGB565),          MP_ROM_INT(0) },
+    #endif
 
     // Blend constants
     { MP_ROM_QSTR(MP_QSTR_ZERO),                MP_ROM_INT(FT8_ZERO) },
@@ -4347,7 +4397,9 @@ STATIC const mp_rom_map_elem_t display_eve_locals_dict_table[] = {
     // Bitmap format constants
     { MP_ROM_QSTR(MP_QSTR_IMG_ARGB1555),        MP_ROM_INT(FT8_ARGB1555) },
     { MP_ROM_QSTR(MP_QSTR_IMG_L1),              MP_ROM_INT(FT8_L1) },
+    #ifdef CONFIG_EVE_CHIP_TYPE1
     { MP_ROM_QSTR(MP_QSTR_IMG_L2),              MP_ROM_INT(FT8_L2) },
+    #endif
     { MP_ROM_QSTR(MP_QSTR_IMG_L4),              MP_ROM_INT(FT8_L4) },
     { MP_ROM_QSTR(MP_QSTR_IMG_L8),              MP_ROM_INT(FT8_L8) },
     { MP_ROM_QSTR(MP_QSTR_IMG_RGB332),          MP_ROM_INT(FT8_RGB332) },
