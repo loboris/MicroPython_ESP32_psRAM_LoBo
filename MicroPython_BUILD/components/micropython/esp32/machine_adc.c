@@ -47,7 +47,6 @@
 #include "extmod/vfs_native.h"
 
 #define ADC1_CHANNEL_HALL	ADC1_CHANNEL_MAX
-#define ADC_TIMER_DIVIDER	80		// 1 us per tick, 1 MHz
 #define I2S_RD_BUF_SIZE     (1024*2)
 
 typedef struct _madc_obj_t {
@@ -174,7 +173,7 @@ static void adc_task(void *pvParameters)
     }
 
     self->buf_ptr = 0;
-    collect_start_time = mp_hal_ticks_us();
+    collect_start_time = esp_timer_get_time(); //mp_hal_ticks_us();
     collect_end_time = collect_start_time;
 
     // read ADC data
@@ -209,7 +208,7 @@ static void adc_task(void *pvParameters)
         //vTaskDelay(0); // allow other core idle task to reset the watchdog
         //#endif
     }
-    collect_end_time = mp_hal_ticks_us();
+    collect_end_time = esp_timer_get_time(); //mp_hal_ticks_us();
 
     if (self->fhndl) {
         // reading to file, close file and free the buffer
@@ -255,7 +254,7 @@ STATIC void adc_timer_isr(void *self_in)
     uint16_t *buffer16 = (uint16_t *)self->buffer;
     uint8_t *buffer8 = (uint8_t *)self->buffer;
 
-    if (self->buf_ptr == 0) collect_start_time = mp_hal_ticks_us();
+    if (self->buf_ptr == 0) collect_start_time = esp_timer_get_time(); //mp_hal_ticks_us();
 
     // --- Read ADC value ---
     int val = 0;
@@ -302,7 +301,7 @@ STATIC void adc_timer_isr(void *self_in)
             esp_intr_free(adc_timer_handle);
             adc_timer_handle = NULL;
         }
-        collect_end_time = mp_hal_ticks_us();
+        collect_end_time = esp_timer_get_time(); //mp_hal_ticks_us();
         if (self->callback) mp_sched_schedule(self->callback, self, NULL);
         self->buffer = NULL;
         adc_timer_active = false;
@@ -736,10 +735,10 @@ STATIC mp_obj_t madc_collect(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_
     }
 
     double freq = mp_obj_get_float(args[ARG_freq].u_obj);
-    if ((freq < 0.001) || (freq > 10000.0)) {
-        mp_raise_ValueError("frequency out of range (0.001 - 10000 Hz)");
+    if ((freq < 0.001) || (freq > 18000.0)) {
+        mp_raise_ValueError("frequency out of range (0.001 - 18000 Hz)");
     }
-    double interv = (1.0 / freq) * 1000000.0;
+    double interv = (1.0 / freq) * ADC_TIMER_FREQ;
     self->callback = NULL;
     self->buffer = NULL;
     self->buf_ptr = 0;
@@ -972,7 +971,7 @@ STATIC mp_obj_t madc_progress(mp_obj_t self_in) {
     tuple[0] = mp_obj_new_bool(active);
     tuple[1] = mp_obj_new_int(self->buf_ptr);
     tuple[2] = mp_obj_new_int(self->buf_len);
-    if (active) tuple[3] = mp_obj_new_int_from_ull(mp_hal_ticks_us() - collect_start_time);
+    if (active) tuple[3] = mp_obj_new_int_from_ull(esp_timer_get_time() /*mp_hal_ticks_us()*/ - collect_start_time);
     else tuple[3] = mp_obj_new_int_from_ull(collect_end_time - collect_start_time);
 
     return mp_obj_new_tuple(4, tuple);
@@ -997,7 +996,7 @@ STATIC mp_obj_t madc_stop_collect(mp_obj_t self_in) {
             esp_intr_free(adc_timer_handle);
             adc_timer_handle = NULL;
         }
-        collect_end_time = mp_hal_ticks_us();
+        collect_end_time = esp_timer_get_time(); //mp_hal_ticks_us();
         self->buffer = NULL;
         adc_timer_active = false;
         collect_active = false;

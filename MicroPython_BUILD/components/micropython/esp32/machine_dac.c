@@ -47,17 +47,20 @@
 #include "py/runtime.h"
 #include "py/mphal.h"
 #include "modmachine.h"
+#include "py/objarray.h"
 #include "extmod/vfs_native.h"
 
 
 typedef struct _mdac_obj_t {
     mp_obj_base_t base;
-    int gpio_id;
-    dac_channel_t dac_id;
-    uint8_t *buffer;
-    size_t buf_len;
-    FILE *fhndl;
-    int noise;
+    int             gpio_id;
+    dac_channel_t   dac_id;
+    uint8_t         *buffer;
+    size_t          buf_len;
+    size_t          buf_ptr;
+    FILE            *fhndl;
+    uint64_t        timer_interval;
+    uint8_t         dac_timer_mode;
 } mdac_obj_t;
 
 extern int MainTaskCore;
@@ -297,10 +300,23 @@ STATIC void dac_timer_isr(void *self_in)
         else TIMERG0.int_clr_timers.t0 = 1;
     }
 
-    uint32_t rnd = esp_random();
-    rnd = ((rnd & 0xff) ^ ((rnd >> 8) & 0xff) ^ ((rnd >> 16) & 0xff) ^ ((rnd >> 24) & 0xff));
-    //rnd = ((rnd & 0xff) + ((rnd >> 8) & 0xff) + ((rnd >> 16) & 0xff) + ((rnd >> 24) & 0xff));
-    dac_output_voltage(self->dac_id, (uint8_t)rnd);
+    if (self->dac_timer_mode == 1) {
+        // Generate random noise
+        uint32_t rnd = esp_random();
+        rnd = ((rnd & 0xff) ^ ((rnd >> 8) & 0xff) ^ ((rnd >> 16) & 0xff) ^ ((rnd >> 24) & 0xff));
+        //rnd = ((rnd & 0xff) + ((rnd >> 8) & 0xff) + ((rnd >> 16) & 0xff) + ((rnd >> 24) & 0xff));
+        dac_output_voltage(self->dac_id, (uint8_t)rnd);
+    }
+    else if (self->dac_timer_mode == 2) {
+        // Output DAC values from buffer
+        dac_output_voltage(self->dac_id, self->buffer[self->buf_ptr]);
+        self->buf_ptr++;
+        if (self->buf_ptr >= self->buf_len) {
+            if (trepeat) self->buf_ptr = 0;
+            else timer_stop = true;
+        }
+    }
+    else timer_stop = true;
 
     if (timer_stop) {
         // --- Finished, all data read or ADC read error ---
@@ -335,7 +351,7 @@ STATIC esp_err_t start_dac_timer(mdac_obj_t *self)
     config.counter_en = TIMER_PAUSE;
     config.alarm_en = TIMER_ALARM_EN;
     config.auto_reload = true;
-    config.divider = 80; // 1 MHz
+    config.divider = ADC_TIMER_DIVIDER; // 1 MHz
 
     esp_err_t err = timer_init((ADC_TIMER_NUM >> 1) & 1, ADC_TIMER_NUM & 1, &config);
     if (err != ESP_OK) return -1;
@@ -347,7 +363,7 @@ STATIC esp_err_t start_dac_timer(mdac_obj_t *self)
     if (err != ESP_OK) return -2;
 
     // Configure the alarm value and the interrupt on alarm.
-    err = timer_set_alarm_value((ADC_TIMER_NUM >> 1) & 1, ADC_TIMER_NUM & 1, self->noise);
+    err = timer_set_alarm_value((ADC_TIMER_NUM >> 1) & 1, ADC_TIMER_NUM & 1, self->timer_interval);
     if (err != ESP_OK) return -3;
 
     // Enable timer interrupt
@@ -583,9 +599,10 @@ STATIC mp_obj_t mdac_waveform(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map
         }
         adc_timer_active = true;
         dac_timer_active = true;
+        self->dac_timer_mode = 1;
         timer_stop = false;
         if (freq < 500 || freq > 32000) mp_raise_ValueError("Frequency out of range (500-32000 Hz)");
-        self->noise = 1000000 / freq;
+        self->timer_interval = (int)ADC_TIMER_FREQ / freq;
         int err = start_dac_timer(self) != ESP_OK;
         if (err) {
             ESP_LOGE("DAC", "Error starting DAC timer (%d)", err);
@@ -644,6 +661,94 @@ exit:
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mdac_waveform_obj, 0, mdac_waveform);
 
+//------------------------------------------------------------------------------------------------
+STATIC mp_obj_t mdac_write_buffer(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
+    enum { ARG_data, ARG_freq, ARG_mode, ARG_wait };
+    const mp_arg_t allowed_args[] = {
+            { MP_QSTR_data, MP_ARG_REQUIRED | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
+            { MP_QSTR_freq, MP_ARG_REQUIRED | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
+            { MP_QSTR_mode, MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = false}},
+            { MP_QSTR_wait, MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = false}},
+    };
+
+    mdac_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
+    _is_init(self, true, false);
+
+    dac_func_stop(self);
+
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args-1, pos_args+1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    double freq = mp_obj_get_float(args[ARG_freq].u_obj);
+    if ((freq < 0.001) || (freq > 18000.0)) {
+        mp_raise_ValueError("frequency out of range (0.001 - 18000 Hz)");
+    }
+    double interv = (1.0 / freq) * ADC_TIMER_FREQ;
+
+    // Get arguments
+    bool wait = false;
+    trepeat = args[ARG_mode].u_bool;
+    // only wait if if not continuous mode
+    if (!trepeat) wait = args[ARG_wait].u_bool;
+
+    adc_timer_active = true;
+    dac_timer_active = true;
+    self->buffer = NULL;
+    self->buf_len = 0;
+    self->buf_ptr = 0;
+
+    if (args[ARG_data].u_obj != mp_const_none) {
+        // Play from the provided array
+        if (!MP_OBJ_IS_TYPE(args[ARG_data].u_obj, &mp_type_array)) {
+            adc_timer_active = false;
+            dac_timer_active = false;
+            mp_raise_ValueError("array argument expected");
+        }
+        mp_obj_array_t * arr = (mp_obj_array_t *)MP_OBJ_TO_PTR(args[ARG_data].u_obj);
+        if (arr->typecode != 'B') {
+            adc_timer_active = false;
+            dac_timer_active = false;
+            mp_raise_ValueError("array argument of type 'B' expected");
+        }
+        if (arr->len < 1) {
+            self->buf_len = 0;
+            adc_timer_active = false;
+            dac_timer_active = false;
+            mp_raise_ValueError("array argument length must be >= 1");
+        }
+        self->buffer = arr->items;
+        if (self->buf_len < 1) self->buf_len = arr->len;
+        else if (arr->len < self->buf_len) self->buf_len = arr->len;
+    }
+    else {
+        adc_timer_active = false;
+        dac_timer_active = false;
+        mp_raise_ValueError("array argument expected");
+    }
+
+    self->dac_timer_mode = 2;
+    self->timer_interval = (int64_t)(round(interv));
+    int err = start_dac_timer(self) != ESP_OK;
+    if (err) {
+        adc_timer_active = false;
+        dac_timer_active = false;
+        self->buffer = NULL;
+        self->buf_len = 0;
+        self->buf_ptr = 0;
+        ESP_LOGE("DAC", "Error starting DAC timer (%d)", err);
+    }
+
+    if (wait) {
+        mp_hal_delay_ms(3);
+        while (dac_timer_active) {
+            mp_hal_delay_ms(3);
+        }
+    }
+
+    return mp_const_true;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mdac_write_buffer_obj, 0, mdac_write_buffer);
+
 //-----------------------------------------------------------------------------------------------
 STATIC mp_obj_t mdac_write_timed(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     enum { ARG_data, ARG_freq, ARG_mode, ARG_wait };
@@ -678,7 +783,7 @@ STATIC mp_obj_t mdac_write_timed(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
 
     mp_buffer_info_t src;
     self->fhndl = NULL;
-    self->noise = 0;
+    self->timer_interval = 0;
 
     if (MP_OBJ_IS_STR(args[ARG_data].u_obj)) {
         const char *dac_file = NULL;
@@ -957,6 +1062,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(mdac_deinit_obj, mdac_deinit);
 STATIC const mp_rom_map_elem_t mdac_locals_dict_table[] = {
         { MP_ROM_QSTR(MP_QSTR_write),		MP_ROM_PTR(&mdac_write_obj) },
         { MP_ROM_QSTR(MP_QSTR_write_timed),	MP_ROM_PTR(&mdac_write_timed_obj) },
+        { MP_ROM_QSTR(MP_QSTR_write_buffer),MP_ROM_PTR(&mdac_write_buffer_obj) },
         { MP_ROM_QSTR(MP_QSTR_wavplay),     MP_ROM_PTR(&mdac_play_wav_obj) },
         { MP_ROM_QSTR(MP_QSTR_waveform),    MP_ROM_PTR(&mdac_waveform_obj) },
         { MP_ROM_QSTR(MP_QSTR_stopwave),    MP_ROM_PTR(&mdac_stopfunc_obj) },

@@ -1,4 +1,14 @@
 === 2018-09-04 ===
+Updated 'machine.DAC' module
+  added 'write_buffer()' method
+  which can be used to reproduce data collected with 'machine.ADC.collect'
+
+Updated 'machine.ADC' module
+  improved 'collect()' method, max frequency increased to 18000 Hz
+
+-------------------------------------------------------------------------------
+
+=== 2018-09-04 ===
 Updated 'EVE' module to build correctly for both FT80x and FT81x
 
 -------------------------------------------------------------------------------
