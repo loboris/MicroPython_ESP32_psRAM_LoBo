@@ -1104,6 +1104,232 @@ STATIC mp_obj_t display_tft_Image(size_t n_args, const mp_obj_t *pos_args, mp_ma
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(display_tft_Image_obj, 3, display_tft_Image);
 
+//-----------------------------------------------------------------------------------------------
+STATIC mp_obj_t display_tft_rawImage(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
+
+    const mp_arg_t allowed_args[] = {
+        { MP_QSTR_x,     MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_y,     MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_width, MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_height,MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_buffer,MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+    };
+    display_tft_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
+    if (setupDevice(self)) return mp_const_none;
+
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(args[4].u_obj, &bufinfo, MP_BUFFER_RW);
+
+    disp_select();
+    send_data(args[0].u_int, args[1].u_int,
+              args[0].u_int + args[2].u_int - 1, args[1].u_int + args[3].u_int - 1,
+              args[2].u_int * args[3].u_int,
+              bufinfo.buf, 1);
+    disp_deselect();
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(display_tft_rawImage_obj, 3, display_tft_rawImage);
+
+
+//-----------------------------------------------------------------------------------------------
+STATIC mp_obj_t display_tft_drawBitmap(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
+
+    const mp_arg_t allowed_args[] = {
+        { MP_QSTR_x,            MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_y,            MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_width,        MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_height,       MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = 0 } },
+        { MP_QSTR_buffer,       MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_color,                          MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_bgcolor,      MP_ARG_KW_ONLY  | MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_transparent,  MP_ARG_KW_ONLY  | MP_ARG_BOOL, { .u_bool = false } },
+        { MP_QSTR_topbitfirst,  MP_ARG_KW_ONLY  | MP_ARG_BOOL, { .u_bool = false } },
+        { MP_QSTR_scale,        MP_ARG_KW_ONLY  | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+    };
+    display_tft_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
+    if (setupDevice(self)) return mp_const_none;
+
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(args[4].u_obj, &bufinfo, MP_BUFFER_READ);
+
+    uint8_t *buffer = (uint8_t *) bufinfo.buf;
+
+    mp_int_t x = args[0].u_int;
+    mp_int_t y = args[1].u_int;
+    mp_int_t width = args[2].u_int;
+    mp_int_t height = args[3].u_int;
+
+    color_t fg_color = (args[5].u_int >= 0) ? intToColor(args[5].u_int) : _fg;
+    color_t bg_color = (args[6].u_int >= 0) ? intToColor(args[6].u_int) : _bg;
+
+    bool transparent = args[7].u_bool;
+    int tbf_mask = args[8].u_bool ? 7 : 0;
+
+    mp_int_t x_scale = 1;
+    mp_int_t y_scale = 1;
+
+    if (args[9].u_obj != mp_const_none) {
+        if (MP_OBJ_IS_TYPE(args[9].u_obj, &mp_type_tuple)) {
+            size_t len;
+            mp_obj_t *items;
+            mp_obj_tuple_get(args[9].u_obj, &len, &items);
+            if (len != 2) {
+                mp_raise_ValueError("scale must be an int or a 2-tuple");
+            } else {
+                x_scale = mp_obj_get_int(items[0]);
+                y_scale = mp_obj_get_int(items[1]);
+            }
+        } else {
+            x_scale = y_scale = mp_obj_get_int(args[9].u_obj);
+        }
+        if (x_scale < 1 || y_scale < 1) {
+            mp_raise_ValueError("scale value must be greater than zero");
+        }
+    }
+
+    int screen_width = self->dconfig.width;
+    int screen_height = self->dconfig.height;
+
+    // Check if we are going to actually need to draw anything
+    if (x >= screen_width ||
+        (x + width * x_scale) < 0 ||
+        y >= screen_height ||
+        (y + height * y_scale) < 0)
+        return mp_const_none;
+
+    if (!transparent) {
+        color_t *pixels = NULL;
+
+        // Check for the fast case: no scaling and everything on screen
+        // If so, see if we have enough memory to hold the whole image
+        if (x_scale == 1 && y_scale == 1 &&
+            x >=0 && y >=0 &&
+            (x + width) <= screen_width &&
+            (y + height) <= screen_height) {
+            pixels = calloc(width * height, sizeof(color_t));
+        }
+
+        if (pixels) {
+            // Handle the fast case
+            uint8_t pixel_byte=0;
+            int idx=0;
+
+            for(int j=0; j<height; j++) {
+                for(int i=0; i<width; i++) {
+                    int ii = (i & 7) ^ tbf_mask;
+                    if (ii == tbf_mask)
+                        pixel_byte = *buffer++;
+                    pixels[idx++] = (pixel_byte & (1 << ii)) ? fg_color : bg_color;
+                }
+            }
+
+            disp_select();
+            send_data(x, y, x + width - 1, y + height - 1, width * height, pixels, 1);
+            disp_deselect();
+        } else {
+            // Not enough memory, or we need to clip or scale.
+
+            // Check horizontal clipping
+            int x_left = (x >= 0) ? x : 0;
+            int x_right = (x + width * x_scale <= screen_width) ? x + width * x_scale : screen_width;
+
+            int start_idx = (x < 0) ? x : 0;
+            int clip_idx = x_right - x_left;
+
+            pixels = calloc(clip_idx, sizeof(color_t));
+            if (pixels) {
+                int j = 0;
+
+                if (y < 0) {
+                    // Skip over rows that are fully above the screen
+                    // Find number of bytes per line
+                    int row_len = (width + 7) >> 3;
+                    j = (-y) / y_scale;
+                    buffer += (3 * row_len * j);
+                }
+
+                // Start value for j set above
+                for(; j<height; j++) {
+                    uint8_t pixel_byte=0;
+                    int idx=start_idx;
+
+                    for(int i=0; i<width; i++) {
+                        int ii = (i & 7) ^ tbf_mask;
+                        if (ii == tbf_mask)
+                            pixel_byte = *buffer++;
+                        for(int x_rep=0; x_rep < x_scale; x_rep++) {
+                            // Put pixel in buffer, with x clipping
+                            if (idx >= 0 && idx < clip_idx)
+                                pixels[idx] = (pixel_byte & (1 << ii)) ? fg_color : bg_color;
+                            idx++;
+                        }
+                    }
+
+                    // Render y_scale repeats
+                    disp_select();
+                    for(int repeat=0; repeat < y_scale; repeat++) {
+                        int yy = y + j * y_scale + repeat;
+                        // Perform y clipping
+                        if (yy >= 0 && yy < screen_height) {
+                            send_data(x_left, yy,
+                                      x_left + clip_idx - 1, yy,
+                                      clip_idx, pixels, 1);
+                        }
+                    }
+                    disp_deselect();
+                }
+            } else {
+                mp_raise_msg(&mp_type_MemoryError, "no memory for image");
+            }
+        }
+
+        if (pixels)
+            free(pixels);
+    } else {
+        // Transparent, so just draw the set pixels as rectangles
+        for(int j=0; j<height; j++) {
+            uint8_t pixel_byte=0;
+            int last_bit=0;
+            int run_start=0;
+            int i;
+
+            for(i=0; i<width; i++) {
+                int ii = (i & 7) ^ tbf_mask;
+                if (ii == tbf_mask)
+                    pixel_byte = *buffer++;
+
+                int this_bit = pixel_byte & (1 << ii);
+                // Draw runs of pixels as wide rectangles
+                if (this_bit != 0 && last_bit == 0) {
+                    run_start = i;
+                }
+                if (this_bit == 0 && last_bit != 0) {
+                    // Draw the run
+                    TFT_fillRect(x + run_start * x_scale, y + j * y_scale,
+                                 (i - run_start) * x_scale, y_scale,
+                                 fg_color);
+                }
+                last_bit = this_bit;
+            }
+            if (last_bit) {
+                TFT_fillRect(x + run_start * x_scale, y + j * y_scale,
+                             (i - run_start) * x_scale, y_scale,
+                             fg_color);
+            }
+        }
+    }
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(display_tft_drawBitmap_obj, 3, display_tft_drawBitmap);
+
 //------------------------------------------------------------------------------------------------
 STATIC mp_obj_t display_tft_getTouch(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
 
@@ -1599,6 +1825,8 @@ STATIC const mp_rom_map_elem_t display_tft_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_textClear),           MP_ROM_PTR(&display_tft_clearStringRect_obj) },
     { MP_ROM_QSTR(MP_QSTR_attrib7seg),          MP_ROM_PTR(&display_tft_7segAttrib_obj) },
     { MP_ROM_QSTR(MP_QSTR_image),               MP_ROM_PTR(&display_tft_Image_obj) },
+    { MP_ROM_QSTR(MP_QSTR_rawImage),			MP_ROM_PTR(&display_tft_rawImage_obj) },
+    { MP_ROM_QSTR(MP_QSTR_drawBitmap),			MP_ROM_PTR(&display_tft_drawBitmap_obj) },
     { MP_ROM_QSTR(MP_QSTR_gettouch),            MP_ROM_PTR(&display_tft_getTouch_obj) },
     { MP_ROM_QSTR(MP_QSTR_compileFont),         MP_ROM_PTR(&display_tft_compileFont_obj) },
     { MP_ROM_QSTR(MP_QSTR_hsb2rgb),             MP_ROM_PTR(&display_tft_HSBtoRGB_obj) },
