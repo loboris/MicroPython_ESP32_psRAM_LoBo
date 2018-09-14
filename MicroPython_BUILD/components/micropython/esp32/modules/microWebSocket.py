@@ -97,7 +97,7 @@ class MicroWebSocket :
 
     def _handshake(self, httpResponse) :
         try :
-            key = self._httpCli.GetRequestHeaders().get('Sec-WebSocket-Key', None)
+            key = self._httpCli.GetRequestHeaders().get('sec-websocket-key', None)
             if key :
                 key += self._handshakeSign
                 r = sha1(key.encode()).digest()

@@ -26,11 +26,11 @@ except :
 
 class MicroWebSrvRoute :
     def __init__(self, route, method, func, routeArgNames, routeRegex) :
-        self.route         = route        
-        self.method        = method       
-        self.func          = func         
+        self.route         = route
+        self.method        = method
+        self.func          = func
         self.routeArgNames = routeArgNames
-        self.routeRegex    = routeRegex   
+        self.routeRegex    = routeRegex
 
 
 class MicroWebSrv :
@@ -304,7 +304,7 @@ class MicroWebSrv :
         return None
 
     # ----------------------------------------------------------------------------
-    
+
     def GetRouteHandler(self, resUrl, method) :
         if self._routeHandlers :
             #resUrl = resUrl.upper()
@@ -365,7 +365,7 @@ class MicroWebSrv :
             self._headers       = { }
             self._contentType   = None
             self._contentLength = 0
-            
+
             self._processRequest()
 
         # ------------------------------------------------------------------------
@@ -443,18 +443,18 @@ class MicroWebSrv :
             except :
                 pass
             return False
-    
+
         # ------------------------------------------------------------------------
 
         def _parseHeader(self, response) :
             while True :
                 elements = self._socket.readline().decode().strip().split(':', 1)
                 if len(elements) == 2 :
-                    self._headers[elements[0].strip()] = elements[1].strip()
+                    self._headers[elements[0].strip().lower()] = elements[1].strip()
                 elif len(elements) == 1 and len(elements[0]) == 0 :
-                    if self._method == 'POST' :
-                        self._contentType   = self._headers.get("Content-Type", None)
-                        self._contentLength = int(self._headers.get("Content-Length", 0))
+                    if self._method == 'POST' or self._method == 'PUT' :
+                        self._contentType   = self._headers.get("content-type", None)
+                        self._contentLength = int(self._headers.get("content-length", 0))
                     return True
                 else :
                     return False
@@ -462,8 +462,8 @@ class MicroWebSrv :
         # ------------------------------------------------------------------------
 
         def _getConnUpgrade(self) :
-            if 'upgrade' in self._headers.get('Connection', '').lower() :
-                return self._headers.get('Upgrade', '').lower()
+            if 'upgrade' in self._headers.get('connection', '').lower() :
+                return self._headers.get('upgrade', '').lower()
             return None
 
         # ------------------------------------------------------------------------
@@ -562,7 +562,7 @@ class MicroWebSrv :
                 return loads(self.ReadRequestContent())
             except :
                 return None
-        
+
     # ============================================================================
     # ===( Class Response  )======================================================
     # ============================================================================
