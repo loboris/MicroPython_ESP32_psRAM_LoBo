@@ -87,25 +87,27 @@ pin_low:
 chk_state:
             move r2, last_state         # get last qualified state of pin
             ld r0, r2, 0
-            jumpr chk_debounce, 1, lt   # if previous state =  0
+            jumpr chk_debounce, 1, lt   # if previous state was high
             ld r0, r3, 0                # and
             jumpr done, 1, ge           # integrator < 1
             move r0, 0                  # falling edge qualified
             st r0, r2, 0                # so update last_state=0
-            move r3, pulse_count
-            ld r1, r3, 0                # and increment pulse count
-            add r1, r1, 1
-            st r1, r3, 0
-            halt                        # halt 'til next wakeup
+            jump inc_pulse_count        # update count on falling edge
 
 chk_debounce:                           # previous state was low
             ld r0, r3, 0                # get integrator value
             jumpr done, debounce, lt    # if integrator >= debounce max
-            move r0,1
+            move r0,1                   # rising edge qualified
             st r0, r2, 0                # update last_state=1
+            jump done                   # halt 'til next wakeup
 
-done:
-            halt                        # halt 'til next wakeup
+inc_pulse_count:                        # increment pulse count
+            move r3, pulse_count
+            ld r1, r3, 0
+            add r1, r1, 1
+            st r1, r3, 0
+done:       halt                        # halt 'til next wakeup
+
 """
 
 
