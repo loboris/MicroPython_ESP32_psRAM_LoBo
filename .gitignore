@@ -9,7 +9,7 @@
 *.dis
 #*.exe
 
-# Packages 
+# Packages
 ############
 
 # Logs and Databases
@@ -52,3 +52,5 @@ xtensa-esp32-elf/
 xtensa-esp32-elf_psram/
 
 backup.sh
+.DS_Store
+*.gch
