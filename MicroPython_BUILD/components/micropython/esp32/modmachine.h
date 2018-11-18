@@ -38,9 +38,11 @@
 #include "driver/rtc_io.h"
 
 #define MPY_MIN_STACK_SIZE	(6*1024)
-#define EXT1_WAKEUP_ALL_HIGH	2    //!< Wake the chip when all selected GPIOs go high
+#define EXT1_WAKEUP_ALL_HIGH	2           //!< Wake the chip when all selected GPIOs go high
 #define EXT1_WAKEUP_MAX_PINS	4
-#define ADC_TIMER_NUM			3	// Timer used in ADC module
+#define ADC_TIMER_NUM			3	        // Timer used in ADC module
+#define ADC_TIMER_DIVIDER       8           // 0.1 us per tick, 10 MHz
+#define ADC_TIMER_FREQ          10000000.0  //Timer frequency
 
 typedef struct {
     int8_t		ext1_pins[EXT1_WAKEUP_MAX_PINS];

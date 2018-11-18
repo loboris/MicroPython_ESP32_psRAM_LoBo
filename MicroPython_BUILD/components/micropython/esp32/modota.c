@@ -46,6 +46,7 @@
 #include "rom/crc.h"
 #include "soc/dport_reg.h"
 #include "esp_log.h"
+#include "esp_http_client.h"
 
 #include "py/runtime.h"
 #include "modmachine.h"
@@ -56,89 +57,52 @@
 #define BUFFSIZE 4096
 
 static const char *TAG = "OTA_UPDATE";
-static int socket_id = -1;
+static char *cert_pem = NULL;
 
-//----------------------------------------------------------------------
-static bool connect_to_http_server(const char *server, const char *port)
+extern void get_certificate(mp_obj_t cert, char *cert_pem_buf);
+
+//----------------------------------------------------------------
+static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
-    const struct addrinfo hints = {
-        .ai_family = AF_INET,
-        .ai_socktype = SOCK_STREAM,
-    };
-    struct addrinfo *res;
-    int  http_connect_flag = -1;
-
-    int err = getaddrinfo(server, port, &hints, &res);
-    if(err != 0 || res == NULL) {
-        ESP_LOGE(TAG, "DNS lookup failed err=%d res=%p", err, res);
-        return false;
+    switch(evt->event_id) {
+        case HTTP_EVENT_ERROR:
+            ESP_LOGD(TAG, "HTTP Event: ERROR");
+            break;
+        case HTTP_EVENT_ON_CONNECTED:
+            ESP_LOGD(TAG, "HTTP Event: Connected");
+            break;
+        case HTTP_EVENT_HEADER_SENT:
+            ESP_LOGD(TAG, "HTTP Event: Header sent");
+            break;
+        case HTTP_EVENT_ON_HEADER:
+            //ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+            break;
+        case HTTP_EVENT_ON_DATA:
+            //ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+            break;
+        case HTTP_EVENT_ON_FINISH:
+            ESP_LOGD(TAG, "HTTP Event: Finish");
+            break;
+        case HTTP_EVENT_DISCONNECTED:
+            ESP_LOGD(TAG, "HTTP Event: Disconnected");
+            break;
     }
-
-    socket_id = socket(res->ai_family, res->ai_socktype, 0);
-    if (socket_id < 0) {
-        ESP_LOGE(TAG, "Create socket failed!");
-        freeaddrinfo(res);
-        return false;
-    }
-
-    // connect to http server
-    http_connect_flag =  connect(socket_id, res->ai_addr, res->ai_addrlen);
-    if (http_connect_flag != 0) {
-        ESP_LOGE(TAG, "Connect to server failed! errno=%d", errno);
-        close(socket_id);
-        socket_id = -1;
-        return false;
-    }
-    else return true;
+    return ESP_OK;
 }
 
-//--------------------------------------------------------------------------------------
-static int get_header(char *ota_write_data, int *expect_len, int max_size, int min_size)
+//-----------------------------------------------------------------------------------
+static esp_err_t mpy_ota_update(const char *upd_url, uint8_t md5, uint8_t force_fact)
 {
-    char text[513] = {'\0'};
-    int body_len = 0;
-    int idx = 0;
-    int buff_len = recv(socket_id, text, 512, 0);
-    while (buff_len > 0) {
-    	text[buff_len+idx] = '\0';
-    	char *hdr_end = strstr(text, "\r\n\r\n");
-    	if (hdr_end) {
-    		hdr_end[0] = '\0';
-    		body_len = buff_len+idx - (hdr_end - text) - 4;
-    		char *sc_len_start = strstr(text, "Content-Length: ");
-    		if (sc_len_start) {
-    			char *sc_len_end = strstr(sc_len_start, "\r\n");
-    			if (sc_len_end) {
-    				*expect_len = strtol(sc_len_start+16, NULL, 0);
-    				if ((*expect_len > 0) && (*expect_len > max_size)) {
-    		    		ESP_LOGE(TAG, "Image length bigger than partition size: %u > %u\n", *expect_len, max_size);
-    		    	    return 0;
-    				}
-    			}
-    		}
-    		if (body_len) {
-    	        memcpy(ota_write_data, hdr_end+4, buff_len);
-    		}
-    		while (body_len < min_size) {
-    	        buff_len = recv(socket_id, ota_write_data+body_len, BUFFSIZE-idx, 0);
-    	        if (buff_len <= 0) break;
-    	        body_len += buff_len;
-    		}
-    		break;
-    	}
-    	idx += buff_len;
-    	if ((512-buff_len) <= 0) break;
-        buff_len = recv(socket_id, text+idx, 512-buff_len, 0);
+    if ((CONFIG_LOG_DEFAULT_LEVEL > ESP_LOG_WARN) && (CONFIG_MICRO_PY_LOG_LEVEL > ESP_LOG_WARN)){
+        esp_log_level_set("HTTP_CLIENT", ESP_LOG_WARN);
+        esp_log_level_set("esp_image", ESP_LOG_WARN);
+        esp_log_level_set("TRANSPORT", ESP_LOG_WARN);
+        esp_log_level_set("TRANS_SSL", ESP_LOG_WARN);
     }
-    return body_len;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-static esp_err_t mpy_ota_update(const char *server, const char *port, const char *name, uint8_t md5, uint8_t force_fact)
-{
 	mp_hal_set_wdt_tmo();
 
-	char http_request[128] = {0};
+	static esp_http_client_config_t http_client_config;
+	memset(&http_client_config, 0, sizeof(esp_http_client_config_t));
 	char remote_md5[33] = {0};
 	char local_md5[33] = {0};
 	char *ota_write_data = NULL; // ota data write buffer
@@ -184,85 +148,96 @@ static esp_err_t mpy_ota_update(const char *server, const char *port, const char
     }
 
 	mp_hal_reset_wdt();
-    int body_len = 0;
     int expect_len = 0;
-   	if (md5) {
-   	   	// === Connect to http server to get the image MD5 file ===
-   	    sprintf(http_request, "GET %s.md5 HTTP/1.1\r\nHost: %s:%s \r\n\r\n", name, server, port);
+    int data_read = 0;
+    esp_http_client_handle_t client = NULL;
 
-   	    if (connect_to_http_server(server, port)) {
-   	        ESP_LOGI(TAG, "Connected to http server, requesting '%s.md5'", name);
-   	    } else {
-   	        ESP_LOGE(TAG, "Connect to http server failed!");
-   	        goto exit;
-   	    }
+    if (md5) {
+   	   	// === Get the image MD5 file from server ===
+        char http_request[strlen(upd_url)+8];
+        strcpy(http_request, upd_url);
+        strcat(http_request, ".md5");
+        http_client_config.url = http_request;
+        http_client_config.cert_pem = cert_pem;
+        http_client_config.event_handler = _http_event_handler;
+        //http_client_config.buffer_size = BUFFSIZE;
 
-   	    int res = -1;
-   	    // Send GET request to http server
-   	    res = send(socket_id, http_request, strlen(http_request), 0);
-   	    if (res == -1) {
-   	        ESP_LOGE(TAG, "Requesting MD5 file failed");
-   	        goto exit;
-   	    }
-   	    else {
-			// === wait for body start ===
-			memset(ota_write_data, 0, BUFFSIZE+1);
-			body_len = get_header(ota_write_data, &expect_len, 128, 32);
+        client = esp_http_client_init(&http_client_config);
+        if (client == NULL) {
+            ESP_LOGE(TAG, "Failed to initialise HTTP connection");
+            goto exit;
+        }
+        err = esp_http_client_open(client, 0);
+        if (err != ESP_OK) {
+            esp_http_client_cleanup(client);
+            ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
+            goto exit_client;
+        }
 
-			if (body_len >= 32) strncpy(remote_md5, ota_write_data, 32);
-   	    }
-   		if (socket_id >= 0) {
-   			close(socket_id);
-   			socket_id = -1;
-   		}
-   		if (strlen(remote_md5) == 32) {
-	        ESP_LOGI(TAG, "Received remote MD5");
-   		}
-   		else {
-	        ESP_LOGE(TAG, "Remote MD5 requested but not received");
-	        goto exit;
-   		}
+        if (esp_http_client_fetch_headers(client) == ESP_FAIL) {
+            ESP_LOGE(TAG, "Error fetching headers");
+            goto exit_client;
+        }
+
+        data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
+        if (data_read >= 32) strncpy(remote_md5, ota_write_data, 32);
+        else {
+            ESP_LOGE(TAG, "Remote MD5 requested but not received");
+            goto exit_client;
+        }
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+        client = NULL;
    	}
 
    	// === Connect to http server to get the image file ===
-    sprintf(http_request, "GET %s HTTP/1.1\r\nHost: %s:%s \r\n\r\n", name, server, port);
-    if (connect_to_http_server(server, port)) {
-        ESP_LOGI(TAG, "Connected to http server, requesting '%s'", name);
-    } else {
-        ESP_LOGE(TAG, "Connect to http server failed!");
+    http_client_config.url = upd_url;
+    http_client_config.cert_pem = cert_pem;
+    http_client_config.event_handler = _http_event_handler;
+    //http_client_config.buffer_size = BUFFSIZE;
+
+    if (client == NULL) client = esp_http_client_init(&http_client_config);
+    if (client == NULL) {
+        ESP_LOGE(TAG, "Failed to initialise HTTP connection");
         goto exit;
+    }
+
+    err = esp_http_client_open(client, 0);
+    if (err != ESP_OK) {
+        esp_http_client_cleanup(client);
+        ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
+        goto exit_client;
+    }
+    err = esp_http_client_fetch_headers(client);
+    if (err == ESP_FAIL) {
+        ESP_LOGE(TAG, "Error fetching headers");
+        goto exit_client;
     }
 
 	mp_hal_reset_wdt();
-    int res = -1;
-    // Send GET request to http server
-    res = send(socket_id, http_request, strlen(http_request), 0);
-    if (res == -1) {
-        ESP_LOGE(TAG, "Send GET request to server failed");
-        goto exit;
-    } else {
-        ESP_LOGI(TAG, "Send GET request to server succeeded");
+
+    expect_len = esp_http_client_get_content_length(client);
+    if (expect_len > 0) {
+        ESP_LOGI(TAG, "Update image size: %d bytes", expect_len);
+    }
+    else {
+        ESP_LOGW(TAG, "Cannot determine image size");
     }
 
-    // === wait for body start ===
-    memset(ota_write_data, 0, BUFFSIZE+1);
-
-    expect_len = 0;
-    body_len = get_header(ota_write_data, &expect_len, update_partition->size, 1);
-
-    if (body_len <= 0) {
-        ESP_LOGE(TAG, "Error: No body received!");
-        goto exit;
+    data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
+    if (data_read <= 0) {
+        vTaskDelay(5);
+        data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
+    }
+    if (data_read <= 0) {
+        ESP_LOGE(TAG, "Error reading from server (%d)", data_read);
+        goto exit_client;
     }
 
     // We have some data received, check for image magic byte
     if (ota_write_data[0] != 0xE9) {
-        ESP_LOGE(TAG, "Error: OTA image has invalid magic byte!");
-        goto exit;
-    }
-
-    if (expect_len > 0) {
-    	ESP_LOGI(TAG, "Update image size: %d bytes", expect_len);
+        ESP_LOGE(TAG, "Error: OTA image has invalid magic byte (%02X <> E9)", ota_write_data[0]);
+        goto exit_client;
     }
 
     // Start writing data
@@ -274,28 +249,30 @@ static esp_err_t mpy_ota_update(const char *server, const char *port, const char
     mbedtls_md5_starts( &ctx );
 	int binary_file_length = 0;  // image total length
 
-	while (body_len > 0) {
+	while (data_read > 0) {
 		mp_hal_reset_wdt();
-        err = esp_ota_write( update_handle, (const void *)ota_write_data, body_len);
-        mbedtls_md5_update( &ctx, (const unsigned char *)ota_write_data, body_len);
+        err = esp_ota_write( update_handle, (const void *)ota_write_data, data_read);
+        mbedtls_md5_update( &ctx, (const unsigned char *)ota_write_data, data_read);
         if (err != ESP_OK) {
         	mp_hal_stdout_tx_newline();
             ESP_LOGE(TAG, "Error: esp_ota_write failed! err=0x%x", err);
-            goto exit;
+            goto exit_client;
         }
-        binary_file_length += body_len;
+        binary_file_length += data_read;
         mp_printf(&mp_plat_print, "%s Received %d bytes\r", TAG, binary_file_length);
-        body_len = recv(socket_id, ota_write_data, BUFFSIZE, 0);
-        if ((expect_len > 0) && ((binary_file_length + body_len) > expect_len)) {
-    		ESP_LOGE(TAG, "More than expected bytes received %u > %u\n", binary_file_length+body_len, expect_len);
-    		goto exit;
+
+        data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
+        if ((expect_len > 0) && ((binary_file_length + data_read) > expect_len)) {
+    		ESP_LOGE(TAG, "More than expected bytes received %u > %u\n", binary_file_length+data_read, expect_len);
+    		goto exit_client;
         }
-        if ((binary_file_length + body_len) > update_partition->size) {
-    		ESP_LOGE(TAG, "Received more bytes than the partition size: %u > %u\n", binary_file_length+body_len, update_partition->size);
-    		goto exit;
+        if ((binary_file_length + data_read) > update_partition->size) {
+    		ESP_LOGE(TAG, "Received more bytes than the partition size: %u > %u\n", binary_file_length+data_read, update_partition->size);
+    		goto exit_client;
 		}
     }
-    mbedtls_md5_finish( &ctx, md5_byte_array );
+
+	mbedtls_md5_finish( &ctx, md5_byte_array );
     mbedtls_md5_free( &ctx );
     for (int i = 0; i<16; i++){
         sprintf(local_md5+(i*2),"%02x", md5_byte_array[i]);
@@ -306,7 +283,7 @@ static esp_err_t mpy_ota_update(const char *server, const char *port, const char
 	ESP_LOGI(TAG, "Image written, total length = %d bytes\n", binary_file_length);
 	if ((expect_len > 0) && (expect_len != binary_file_length)) {
 		ESP_LOGE(TAG, "Expected image length not equal to received length: %u <> %u\n", expect_len, binary_file_length);
-		goto exit;
+		goto exit_client;
 	}
    	if (md5) {
 		if (strlen(remote_md5) == 32) {
@@ -315,7 +292,7 @@ static esp_err_t mpy_ota_update(const char *server, const char *port, const char
 			}
 			else {
 				ESP_LOGE(TAG, "MD5 Checksum check FAILED!");
-				goto exit;
+				goto exit_client;
 			}
 		}
    	}
@@ -323,23 +300,24 @@ static esp_err_t mpy_ota_update(const char *server, const char *port, const char
     err = esp_ota_end(update_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "OTA end failed! err=0x%x", err);
-        goto exit;
+        goto exit_client;
     }
 	mp_hal_reset_wdt();
     // === Set boot partition ===
     err = esp_ota_set_boot_partition(update_partition);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "OTA set_boot_partition failed! err=0x%x", err);
-        goto exit;
+        goto exit_client;
     }
     ESP_LOGW(TAG, "On next reboot the system will be started from '%s' partition", update_partition->label);
     errexit = ESP_OK;
+    goto exit;
+
+exit_client:
+    esp_http_client_close(client);
+    esp_http_client_cleanup(client);
 
 exit:
-	if (socket_id >= 0) {
-		close(socket_id);
-		socket_id = -1;
-	}
 	if (ota_write_data) free(ota_write_data);
 
 	return errexit;
@@ -348,6 +326,9 @@ exit:
 //------------------------------------------------------------------------
 static esp_err_t mpy_ota_fileupdate(const char *fname, uint8_t force_fact)
 {
+    if ((CONFIG_LOG_DEFAULT_LEVEL > ESP_LOG_WARN) && (CONFIG_MICRO_PY_LOG_LEVEL > ESP_LOG_WARN)){
+        esp_log_level_set("esp_image", ESP_LOG_WARN);
+    }
 	mp_hal_set_wdt_tmo();
 
 	char *ota_write_data = NULL; // ota data write buffer
@@ -532,36 +513,28 @@ exit:
 //------------------------------------------------------------------------------------------
 STATIC mp_obj_t mod_ota_start(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
-	enum { ARG_server, ARG_port, ARG_name, ARG_restart, ARG_md5, ARG_forceFact };
+	enum { ARG_url,  ARG_restart, ARG_md5, ARG_forceFact, ARG_cert };
     const mp_arg_t allowed_args[] = {
-			{ MP_QSTR_server,     MP_ARG_REQUIRED | MP_ARG_KW_ONLY  | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
-			{ MP_QSTR_port,                         MP_ARG_KW_ONLY  | MP_ARG_INT,  {.u_int = 80} },
-			{ MP_QSTR_file,							MP_ARG_KW_ONLY  | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
-			{ MP_QSTR_restart,                      MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = false} },
-			{ MP_QSTR_md5,                          MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = false} },
-			{ MP_QSTR_forceFactory,                 MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = false} },
+			{ MP_QSTR_url,          MP_ARG_REQUIRED | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
+			{ MP_QSTR_restart,      MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = false} },
+			{ MP_QSTR_md5,          MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = false} },
+			{ MP_QSTR_forceFactory, MP_ARG_KW_ONLY  | MP_ARG_BOOL, {.u_bool = false} },
+            { MP_QSTR_certificate,  MP_ARG_KW_ONLY  | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
 	};
 	mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    char sport[16] = {'\0'};
-   	int nport = args[ARG_port].u_int;
-    const char *server = mp_obj_str_get_str(args[ARG_server].u_obj);
-    const char *name = NULL;
+    const char *url = mp_obj_str_get_str(args[ARG_url].u_obj);
 
-    if (MP_OBJ_IS_STR(args[ARG_name].u_obj)) {
-    	name = mp_obj_str_get_str(args[ARG_name].u_obj);
-    }
-    else name = "/MicroPython.bin";
+    if (cert_pem) free(cert_pem);
+    cert_pem = NULL;
 
-    char fname[strlen(name)+2];
+    get_certificate(args[ARG_cert].u_obj, cert_pem);
 
-    if (name[0] != '/') sprintf(fname, "/%s", name);
-    else sprintf(fname, "%s", name);
+    esp_err_t res = mpy_ota_update(url, args[ARG_md5].u_bool, args[ARG_forceFact].u_bool);
 
-    sprintf(sport, "%d", nport);
-
-    esp_err_t res = mpy_ota_update(server, sport, fname, args[ARG_md5].u_bool, args[ARG_forceFact].u_bool);
+    if (cert_pem) free(cert_pem);
+    cert_pem = NULL;
 
     if (res != ESP_OK) return mp_const_false;
 

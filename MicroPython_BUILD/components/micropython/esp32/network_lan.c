@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2017 "Eric Poulsen" <eric@zyxod.com>
+ * Copyright (c) 2018 LoBo (https://github.com/loboris)
  *
  * Based on the ESP IDF example code which is Public Domain / CC0
  *
@@ -28,8 +29,6 @@
 
 #include "sdkconfig.h"
 
-#ifdef CONFIG_MICROPY_USE_ETHERNET
-
 #include "py/runtime.h"
 #include "py/mphal.h"
 
@@ -38,8 +37,15 @@
 #include "eth_phy/phy_lan8720.h"
 #include "tcpip_adapter.h"
 
+#include "netutils.h"
 #include "modmachine.h"
 #include "modnetwork.h"
+
+bool lan_eth_active = false;
+
+#ifdef CONFIG_MICROPY_USE_ETHERNET
+
+static eth_phy_check_link_func lan_eth_link_func = NULL;
 
 typedef struct _lan_if_obj_t {
     mp_obj_base_t base;
@@ -56,8 +62,9 @@ typedef struct _lan_if_obj_t {
 } lan_if_obj_t;
 
 const mp_obj_type_t lan_if_type;
-STATIC lan_if_obj_t lan_obj = {{&lan_if_type}, ESP_IF_ETH, false, false};
+STATIC lan_if_obj_t lan_obj = {{&lan_if_type}, ESP_IF_ETH, false, false, 23, 18, -1, 1, 0, NULL, NULL};
 
+//-----------------------------------------
 STATIC void phy_power_enable(bool enable) {
     lan_if_obj_t* self = &lan_obj;
 
@@ -86,12 +93,14 @@ STATIC void phy_power_enable(bool enable) {
     }
 }
 
+//---------------------------
 STATIC void init_lan_rmii() {
     lan_if_obj_t* self = &lan_obj;
     phy_rmii_configure_data_interface_pins();
     phy_rmii_smi_configure_pins(self->mdc_pin, self->mdio_pin);
 }
 
+//-----------------------------------------------------------------------------------
 STATIC mp_obj_t get_lan(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     lan_if_obj_t* self = &lan_obj;
 
@@ -99,14 +108,15 @@ STATIC mp_obj_t get_lan(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_ar
         return MP_OBJ_FROM_PTR(&lan_obj);
     }
 
-    enum { ARG_id, ARG_mdc, ARG_mdio, ARG_power, ARG_phy_addr, ARG_phy_type };
+    enum { ARG_id, ARG_mdc, ARG_mdio, ARG_power, ARG_phy_addr, ARG_phy_type, ARG_clk_type };
     static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_id,           MP_ARG_OBJ, {.u_obj = mp_const_none} },
-        { MP_QSTR_mdc,          MP_ARG_KW_ONLY | MP_ARG_REQUIRED | MP_ARG_OBJ },
-        { MP_QSTR_mdio,         MP_ARG_KW_ONLY | MP_ARG_REQUIRED | MP_ARG_OBJ },
-        { MP_QSTR_power,        MP_ARG_KW_ONLY | MP_ARG_REQUIRED | MP_ARG_OBJ },
-        { MP_QSTR_phy_addr,     MP_ARG_KW_ONLY | MP_ARG_REQUIRED | MP_ARG_INT },
-        { MP_QSTR_phy_type,     MP_ARG_KW_ONLY | MP_ARG_REQUIRED | MP_ARG_INT },
+        { MP_QSTR_id,                                              MP_ARG_OBJ, { .u_obj = mp_const_none} },
+        { MP_QSTR_mdc,          MP_ARG_KW_ONLY | MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_mdio,         MP_ARG_KW_ONLY | MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_power,        MP_ARG_KW_ONLY                   | MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_phy_addr,     MP_ARG_KW_ONLY                   | MP_ARG_INT, { .u_int = 1 } },
+        { MP_QSTR_phy_type,     MP_ARG_KW_ONLY                   | MP_ARG_INT, { .u_int = PHY_LAN8720 } },
+        { MP_QSTR_clk_type,     MP_ARG_KW_ONLY                   | MP_ARG_INT, { .u_int = ETH_CLOCK_GPIO0_IN } },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -122,12 +132,19 @@ STATIC mp_obj_t get_lan(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_ar
     self->mdio_pin = machine_pin_get_gpio(args[ARG_mdio].u_obj);
     self->phy_power_pin = args[ARG_power].u_obj == mp_const_none ? -1 : machine_pin_get_gpio(args[ARG_power].u_obj);
 
-    if (args[ARG_phy_addr].u_int < 0x00 || args[ARG_phy_addr].u_int > 0x1f) {
+    if ((args[ARG_phy_addr].u_int < 0x00) || (args[ARG_phy_addr].u_int > 0x1f)) {
         mp_raise_ValueError("invalid phy address");
     }
 
-    if (args[ARG_phy_type].u_int != PHY_LAN8720 && args[ARG_phy_type].u_int != PHY_TLK110) {
+    if ((args[ARG_phy_type].u_int != PHY_LAN8720) && (args[ARG_phy_type].u_int != PHY_TLK110)) {
         mp_raise_ValueError("invalid phy type");
+    }
+
+    if ((args[ARG_clk_type].u_int < 0) || (args[ARG_clk_type].u_int > 3)) {
+        mp_raise_ValueError("invalid clock type");
+    }
+    if ((mpy_use_spiram) && (args[ARG_clk_type].u_int > 1)) {
+        mp_raise_ValueError("clock on gpio 16 & 17 not allowed when SPIRAM is used");
     }
 
     eth_config_t config;
@@ -142,11 +159,13 @@ STATIC mp_obj_t get_lan(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_ar
     }
 
     self->link_func = config.phy_check_link;
+    lan_eth_link_func = config.phy_check_link;
 
     // Replace default power func with our own
     self->power_func = config.phy_power_enable;
     config.phy_power_enable = phy_power_enable;
 
+    config.clock_mode = args[ARG_clk_type].u_int;
     config.phy_addr = args[ARG_phy_addr].u_int;
     config.gpio_config = init_lan_rmii;
     config.tcpip_input = tcpip_adapter_eth_input;
@@ -161,6 +180,7 @@ STATIC mp_obj_t get_lan(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_ar
 }
 MP_DEFINE_CONST_FUN_OBJ_KW(get_lan_obj, 0, get_lan);
 
+//---------------------------------------------------------------
 STATIC mp_obj_t lan_active(size_t n_args, const mp_obj_t *args) {
     lan_if_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
@@ -177,30 +197,53 @@ STATIC mp_obj_t lan_active(size_t n_args, const mp_obj_t *args) {
             }
         }
     }
+    lan_eth_active = self->active;
     return mp_obj_new_bool(self->active);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lan_active_obj, 1, 2, lan_active);
 
+//--------------------------------------------
 STATIC mp_obj_t lan_status(mp_obj_t self_in) {
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(lan_status_obj, lan_status);
 
+//-------------------------------------------------
 STATIC mp_obj_t lan_isconnected(mp_obj_t self_in) {
     lan_if_obj_t *self = MP_OBJ_TO_PTR(self_in);
     return self->active ? mp_obj_new_bool(self->link_func()) : mp_const_false;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(lan_isconnected_obj, lan_isconnected);
 
+
+tcpip_adapter_ip_info_t info;
+tcpip_adapter_dns_info_t dns_info;
+
+//-----------------------------------------
+STATIC mp_obj_t lan_hasip(mp_obj_t self_in)
+{
+    lan_if_obj_t *self = MP_OBJ_TO_PTR(self_in);
+
+    tcpip_adapter_ip_info_t info;
+    tcpip_adapter_get_ip_info(self->if_id, &info);
+    if (info.ip.addr == 0) return mp_const_false;
+
+    return netutils_format_ipv4_addr((uint8_t*)&info.ip, NETUTILS_BIG);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(lan_hasip_obj, lan_hasip);
+
+//===========================================================
 STATIC const mp_rom_map_elem_t lan_if_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR_active), MP_ROM_PTR(&lan_active_obj) },
+    { MP_ROM_QSTR(MP_QSTR_active),      MP_ROM_PTR(&lan_active_obj) },
     { MP_ROM_QSTR(MP_QSTR_isconnected), MP_ROM_PTR(&lan_isconnected_obj) },
-    { MP_ROM_QSTR(MP_QSTR_status), MP_ROM_PTR(&lan_status_obj) },
-    { MP_ROM_QSTR(MP_QSTR_ifconfig), MP_ROM_PTR(&esp_ifconfig_obj) },
+    { MP_ROM_QSTR(MP_QSTR_status),      MP_ROM_PTR(&lan_status_obj) },
+    { MP_ROM_QSTR(MP_QSTR_ifconfig),    MP_ROM_PTR(&esp_ifconfig_obj) },
+    { MP_ROM_QSTR(MP_QSTR_hasip),       MP_ROM_PTR(&lan_hasip_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(lan_if_locals_dict, lan_if_locals_dict_table);
 
+//=================================
 const mp_obj_type_t lan_if_type = {
     { &mp_type_type },
     .name = MP_QSTR_LAN,

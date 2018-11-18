@@ -68,6 +68,8 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 
+#include "modnetwork.h"
+
 TaskHandle_t FtpTaskHandle = NULL;
 QueueHandle_t ftp_mutex = NULL;
 uint32_t ftp_stack_size;
@@ -86,7 +88,7 @@ const char *FTP_TAG = "[Ftp]";
 #define FTP_DATA_CLIENTS_MAX                1
 #define FTP_MAX_PARAM_SIZE                  (MICROPY_ALLOC_PATH_MAX + 1)
 #define FTP_UNIX_SECONDS_180_DAYS           15552000
-#define FTP_DATA_TIMEOUT_MS                 5000	// 10 seconds
+#define FTP_DATA_TIMEOUT_MS                 10000	// 10 seconds
 #define FTP_SOCKETFIFO_ELEMENTS_MAX         4
 
 /******************************************************************************
@@ -482,26 +484,32 @@ static ftp_result_t ftp_wait_for_connection (int32_t l_sd, int32_t *n_sd, uint32
     }
 
     if (ip_addr) {
-        tcpip_adapter_ip_info_t ip_info;
-        wifi_mode_t wifi_mode;
-        esp_wifi_get_mode(&wifi_mode);
-        if (wifi_mode != WIFI_MODE_APSTA) {
-            // easy way
-            tcpip_adapter_if_t if_type;
-            if (wifi_mode == WIFI_MODE_AP) {
-                if_type = TCPIP_ADAPTER_IF_AP;
-            } else {
-                if_type = TCPIP_ADAPTER_IF_STA;
+        // check on which network interface the client was connected and save the IP address
+        tcpip_adapter_ip_info_t ip_info = {0};
+        int n_if = network_get_active_interfaces();
+
+        if (n_if > 0) {
+            struct sockaddr_in clientAddr;
+            in_addrSize = sizeof(struct sockaddr_in);
+            getpeername(_sd, (struct sockaddr *)&clientAddr, (socklen_t *)&in_addrSize);
+            ESP_LOGD(FTP_TAG, "Client IP: %08x", clientAddr.sin_addr.s_addr);
+            *ip_addr = 0;
+            for (int i=0; i<n_if; i++) {
+                tcpip_adapter_get_ip_info(tcpip_if[i], &ip_info);
+                ESP_LOGD(FTP_TAG, "Adapter: %08x, %08x", ip_info.ip.addr, ip_info.netmask.addr);
+                if ((ip_info.ip.addr & ip_info.netmask.addr) == (ip_info.netmask.addr & clientAddr.sin_addr.s_addr)) {
+                    *ip_addr = ip_info.ip.addr;
+                    ESP_LOGD(FTP_TAG, "Client connected on interface %d", tcpip_if[i]);
+                    break;
+                }
             }
-            tcpip_adapter_get_ip_info(if_type, &ip_info);
-        } else {
-            // see on which subnet is the client ip address
-            tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip_info);
-            if ((ip_info.ip.addr & ip_info.netmask.addr) != (ip_info.netmask.addr & sClientAddress.sin_addr.s_addr)) {
-                tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info);
+            if (*ip_addr == 0) {
+                ESP_LOGE(FTP_TAG, "No IP address detected (?!)");
             }
         }
-        *ip_addr = ip_info.ip.addr;
+        else {
+            ESP_LOGE(FTP_TAG, "No active interface (?!)");
+        }
     }
 
     // enable non-blocking mode if not data channel connection
@@ -1120,16 +1128,32 @@ void ftp_deinit(void) {
 }
 
 //-------------------
-void ftp_init(void) {
+bool ftp_init(void) {
 	ftp_stop = 0;
     // Allocate memory for the data buffer, and the file system structures (from the RTOS heap)
 	ftp_deinit();
 
 	memset(&ftp_data, 0, sizeof(ftp_data_t));
 	ftp_data.dBuffer = malloc(ftp_buff_size+1);
+	if (ftp_data.dBuffer == NULL) return false;
 	ftp_path = malloc(FTP_MAX_PARAM_SIZE);
+	if (ftp_path == NULL) {
+	    free(ftp_data.dBuffer);
+	    return false;
+	}
 	ftp_scratch_buffer = malloc(FTP_MAX_PARAM_SIZE);
+    if (ftp_scratch_buffer == NULL) {
+        free(ftp_path);
+        free(ftp_data.dBuffer);
+        return false;
+    }
 	ftp_cmd_buffer = malloc(FTP_MAX_PARAM_SIZE + FTP_CMD_SIZE_MAX);
+    if (ftp_cmd_buffer == NULL) {
+        free(ftp_scratch_buffer);
+        free(ftp_path);
+        free(ftp_data.dBuffer);
+        return false;
+    }
 
     //SOCKETFIFO_Init((void *)ftp_fifoelements, FTP_SOCKETFIFO_ELEMENTS_MAX);
 
@@ -1142,6 +1166,7 @@ void ftp_init(void) {
     ftp_data.substate = E_FTP_STE_SUB_DISCONNECTED;
 
     if (ftp_mutex == NULL) ftp_mutex = xSemaphoreCreateMutex();
+    return true;
 }
 
 //============================
@@ -1282,12 +1307,12 @@ int ftp_run (uint32_t elapsed)
 			ESP_LOGD(FTP_TAG, "Data socket connected");
         }
         else if (ftp_data.dtimeout > FTP_DATA_TIMEOUT_MS) {
+            ESP_LOGW(FTP_TAG, "Waiting for data connection timeout (%d)", ftp_data.dtimeout);
             ftp_data.dtimeout = 0;
             // close the listening socket
             closesocket(ftp_data.ld_sd);
             ftp_data.ld_sd = -1;
             ftp_data.substate = E_FTP_STE_SUB_DISCONNECTED;
-            ESP_LOGW(FTP_TAG, "Waiting for data connection timeout");
         }
         break;
     case E_FTP_STE_SUB_DATA_CONNECTED:

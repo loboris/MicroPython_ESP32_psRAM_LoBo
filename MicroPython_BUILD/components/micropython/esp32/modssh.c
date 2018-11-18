@@ -45,12 +45,13 @@
 #include "libs/espcurl.h"
 #include "extmod/vfs_native.h"
 #include "libssh2.h"
+#include "modnetwork.h"
 
 
 //-------------------------------------------------------------------------------------------------------
 STATIC mp_obj_t curl_SSH_helper(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args, uint8_t type)
 {
-	checkConnection();
+	network_checkConnection();
     enum { ARG_url, ARG_user, ARG_pass, ARG_key, ARG_file, ARG_port };
 	const mp_arg_t allowed_args[] = {
         { MP_QSTR_url,  	MP_ARG_REQUIRED | MP_ARG_OBJ, { .u_obj = mp_const_none } },

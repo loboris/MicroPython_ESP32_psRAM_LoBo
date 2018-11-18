@@ -280,8 +280,8 @@ static int ldht_compute_data11( uint8_t *data, double *temp, double *humi )
 //-------------------------------------------------------------------------
 static int ldht_compute_data2x( uint8_t *data, double *temp, double *humi )
 {
-  *humi = (uint16_t)((data[0] * 256 + data[1])) / 10;
-  *temp = (uint16_t)(((data[2] & 0x7f) * 256 + data[3])) / 10;
+  *humi = (double)((data[0] * 256 + data[1])) / 10;
+  *temp = (double)(((data[2] & 0x7f) * 256 + data[3])) / 10;
 
   if (data[2] & 0x80)
     *temp = - *temp;

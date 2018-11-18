@@ -118,9 +118,9 @@ static void _pin_disable_irq(machine_pin_obj_t *self)
 static void _pin_enable_irq(machine_pin_obj_t *self)
 {
 	if (self->irq_type == GPIO_INTR_ANYEDGE) {
-		// use level interrupts for any edge interrupt type!
-		self->irq_any_level = gpio_get_level(self->id) ^ 1;
-		gpio_set_intr_type(self->id, self->irq_any_level ? GPIO_INTR_HIGH_LEVEL : GPIO_INTR_LOW_LEVEL);
+		// use level interrupts for 'any edge' interrupt type!
+		self->irq_any_level = gpio_get_level(self->id);
+		gpio_set_intr_type(self->id, self->irq_any_level ? GPIO_INTR_LOW_LEVEL : GPIO_INTR_HIGH_LEVEL);
 	}
 	else gpio_set_intr_type(self->id, self->irq_type);
 }
@@ -131,57 +131,62 @@ static void debounce_task(void *pvParameters)
 {
 	machine_pin_obj_t *self = (machine_pin_obj_t *)pvParameters;
 
-	if (self->irq_debounce) {
-		// get current pin level
-		uint8_t levl = 0;
-		uint8_t active_level = 0;
-		if ((self->irq_type == GPIO_INTR_POSEDGE) || (self->irq_type == GPIO_INTR_POSEDGE)) active_level = 1;
-		else if (self->irq_type == GPIO_INTR_ANYEDGE) active_level = self->irq_any_level;
+    // get current pin level
+    uint8_t levl = 0;
+    uint8_t active_level = 0;
+    if (self->irq_type == GPIO_INTR_POSEDGE) active_level = 1;
+    else if (self->irq_type == GPIO_INTR_NEGEDGE) active_level = 0;
+    else if (self->irq_type == GPIO_INTR_ANYEDGE) active_level = self->irq_any_level;
 
-		int64_t curr_time = mp_hal_ticks_us();
-		int64_t start_time = curr_time;
-		int64_t total_time = 0;
-		int32_t loop_time = 0;
-		int32_t active_time = 0;
+    int64_t curr_time = mp_hal_ticks_us();
+    int64_t start_time = curr_time;
+    int64_t total_time = 0;
+    int32_t loop_time = 0;
+    int32_t active_time = 0;
 
-		while (total_time < self->irq_debounce) {
-			ets_delay_us(100);
-			curr_time = mp_hal_ticks_us();
-			loop_time = (curr_time - start_time);
-			start_time = curr_time;
-			total_time += loop_time;
-			active_time += loop_time;
+    if (self->irq_active_time > 0) {
+        // Pin must on active level for some time
+        while (total_time < self->irq_active_time) {
+            ets_delay_us(100);
+            curr_time = mp_hal_ticks_us();
+            loop_time = (curr_time - start_time);
+            start_time = curr_time;
+            total_time += loop_time;
+            active_time += loop_time;
 
-			levl = gpio_get_level(self->id);
-			if (levl == active_level) active_time += loop_time;
-			else active_time = 0;
-			if (active_time >= self->irq_active_time) {
-				self->irq_retvalue = levl;
-				if (self->irq_handler) {
-					// schedule the callback function
-					mp_sched_schedule(self->irq_handler, MP_OBJ_FROM_PTR(self), NULL);
-				}
-				break;
-			}
-		    vTaskDelay(0);
-		}
+            levl = gpio_get_level(self->id);
+            if (levl == active_level) active_time += loop_time;
+            else active_time = 0;
 
-		int32_t remaining_time = self->irq_debounce - total_time;
-		if (remaining_time > 0) {
-			if (remaining_time > 2000) {
-				uint32_t dus = remaining_time % 2000;	// remaining micro seconds
-				vTaskDelay(remaining_time/2000);
-			    if (dus) ets_delay_us(dus);
-			}
-			else ets_delay_us(remaining_time);
-		}
-	}
-	else if (self->irq_handler) {
+            if (active_time >= self->irq_active_time) {
+                self->irq_retvalue = levl;
+                if (self->irq_handler) {
+                    // schedule the callback function
+                    mp_sched_schedule(self->irq_handler, MP_OBJ_FROM_PTR(self), NULL);
+                }
+                break;
+            }
+            vTaskDelay(0);
+        }
+    }
+
+    int32_t remaining_time = self->irq_debounce - total_time;
+    if (remaining_time > 0) {
+        if (remaining_time > 2000) {
+            uint32_t dus = remaining_time % 2000;	// remaining micro seconds
+            vTaskDelay(remaining_time/2000);
+            if (dus) ets_delay_us(dus);
+        }
+        else ets_delay_us(remaining_time);
+    }
+
+	if (self->irq_handler) {
 		// schedule the callback function
+        self->irq_retvalue = gpio_get_level(self->id);
 		mp_sched_schedule(self->irq_handler, MP_OBJ_FROM_PTR(self), NULL);
 	}
 
-	// Re-enable interrupt for edge types
+	// Re-enable interrupt ONLY for edge types
 	if ((self->irq_type != GPIO_INTR_LOW_LEVEL) && (self->irq_type != GPIO_INTR_HIGH_LEVEL)) {
 		_pin_enable_irq(self);
 	}
@@ -194,13 +199,28 @@ STATIC void machine_pin_isr_handler(void *arg)
 {
 	// Disable gpio interrupt
 	gpio_set_intr_type(((machine_pin_obj_t *)arg)->id, GPIO_PIN_INTR_DISABLE);
+    machine_pin_obj_t *self = (machine_pin_obj_t *)arg;
 
-	// Start the debounce task
-	#if CONFIG_MICROPY_USE_BOTH_CORES
-	xTaskCreate(debounce_task, "pin_task", 768, (void *)arg, CONFIG_MICROPY_TASK_PRIORITY, NULL);
-	#else
-	xTaskCreatePinnedToCore(debounce_task, "pin_task", 768, (void *)arg, CONFIG_MICROPY_TASK_PRIORITY, NULL, MainTaskCore);
-	#endif
+    if (self->irq_debounce > 0) {
+        // Start the debounce task
+        #if CONFIG_MICROPY_USE_BOTH_CORES
+        xTaskCreate(debounce_task, "pin_task", 768, (void *)arg, CONFIG_MICROPY_TASK_PRIORITY, NULL);
+        #else
+        xTaskCreatePinnedToCore(debounce_task, "pin_task", 768, (void *)arg, CONFIG_MICROPY_TASK_PRIORITY, NULL, MainTaskCore);
+        #endif
+    }
+    else {
+        if (self->irq_handler) {
+            // schedule the callback function
+            self->irq_retvalue = gpio_get_level(self->id);
+            mp_sched_schedule(self->irq_handler, MP_OBJ_FROM_PTR(self), NULL);
+        }
+
+        // Re-enable interrupt ONLY for edge types
+        if ((self->irq_type != GPIO_INTR_LOW_LEVEL) && (self->irq_type != GPIO_INTR_HIGH_LEVEL)) {
+            _pin_enable_irq(self);
+        }
+    }
 }
 
 //----------------------------------------------------------------------------------------------
@@ -224,16 +244,23 @@ STATIC void machine_pin_print(const mp_print_t *print, mp_obj_t self_in, mp_prin
 
     mp_printf(print, "Pin(%u) mode=%s", self->id, smode);
     if (self->irq_handler) {
-    	uint32_t pin_irq_type = GPIO.pin[self->id].int_type;
-        char sirq[16];
+    	uint32_t pin_irq_type = self->irq_type;
+        char sirq[32];
         if (pin_irq_type == GPIO_INTR_DISABLE) sprintf(sirq, "IRQ_DISABLED");
         else if (pin_irq_type == GPIO_INTR_POSEDGE) sprintf(sirq, "IRQ_RISING");
         else if (pin_irq_type == GPIO_INTR_NEGEDGE) sprintf(sirq, "IRQ_FALLING");
-        else if (pin_irq_type == GPIO_INTR_ANYEDGE) sprintf(sirq, "IRQ_ANYEDGE");
+        else if (pin_irq_type == GPIO_INTR_ANYEDGE) {
+            uint32_t pin_irq_type_any = GPIO.pin[self->id].int_type;
+            char sirq_any[8];
+            if (pin_irq_type_any == GPIO_INTR_LOW_LEVEL) sprintf(sirq_any, "LOLEVEL");
+            else if (pin_irq_type_any == GPIO_INTR_HIGH_LEVEL) sprintf(sirq_any, "HILEVEL");
+            else sprintf(sirq_any, "?");
+            sprintf(sirq, "IRQ_ANYEDGE (%s)", sirq_any);
+        }
         else if (pin_irq_type == GPIO_INTR_LOW_LEVEL) sprintf(sirq, "IRQ_LOLEVEL");
         else if (pin_irq_type == GPIO_INTR_HIGH_LEVEL) sprintf(sirq, "IRQ_HILEVEL");
         else sprintf(sirq, "Unknown");
-    	mp_printf(print, ", irq=%s, debounce=%u, actTimel=%d", sirq, self->irq_debounce, self->irq_active_time);
+    	mp_printf(print, ", irq=%s, debounce=%u, actTime=%d", sirq, self->irq_debounce, self->irq_active_time);
     }
 }
 
@@ -271,6 +298,7 @@ mp_obj_t mp_pin_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
 	// Create Pin object
     //machine_pin_obj_t *self = m_new_obj(machine_pin_obj_t);
     machine_pin_obj_t *self = m_new_obj_with_finaliser(machine_pin_obj_t);
+    memset(self, 0, sizeof(machine_pin_obj_t));
     self->base.type = &machine_pin_type;
     self->id = wanted_pin;
     self->mode = GPIO_MODE_INPUT;
@@ -344,23 +372,25 @@ mp_obj_t mp_pin_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
 
     _pin_disable_irq(self);
 	if ((self->mode != GPIO_MODE_OUTPUT) && (self->mode != GPIO_MODE_OUTPUT_OD)) {
-		// Configure interrupt
+		// Only input modes can have interrupts, configure it
 		if (args[ARG_handler].u_obj != mp_const_none) {
-			// configure pin interrupt
+            // Disable pin interrupts and remove isr handler
+            gpio_set_intr_type(self->id, GPIO_PIN_INTR_DISABLE);
+            gpio_isr_handler_remove(self->id);
+
+            // Check arguments
 			if ((!MP_OBJ_IS_FUN(args[ARG_handler].u_obj)) && (!MP_OBJ_IS_METH(args[ARG_handler].u_obj))) {
 				mp_raise_ValueError("callback function expected");
 			}
 			if ((args[ARG_trigger].u_int < GPIO_PIN_INTR_DISABLE) || (args[ARG_trigger].u_int >= GPIO_INTR_MAX)) {
 				mp_raise_ValueError("invalid trigger type");
 			}
-			if ((args[ARG_debounce].u_int < 100) || (args[ARG_debounce].u_int > 500000)) {
-				mp_raise_ValueError("out of debounce range (100 - 500000 us)");
+			if ((args[ARG_debounce].u_int != 0) && ((args[ARG_debounce].u_int < 100) || (args[ARG_debounce].u_int > 500000))) {
+				mp_raise_ValueError("wrong debounce range (0 or 100 - 500000 us)");
 			}
-			if ((args[ARG_acttime].u_int < 0) || (args[ARG_acttime].u_int > 500000)) {
-				mp_raise_ValueError("out of active time range (100 - 500000 us)");
+            if ((args[ARG_acttime].u_int != 0) && ((args[ARG_acttime].u_int < 100) || (args[ARG_acttime].u_int > 500000))) {
+				mp_raise_ValueError("wrong active time range (0 or 100 - 500000 us)");
 			}
-
-			gpio_set_intr_type(self->id, GPIO_PIN_INTR_DISABLE);
 			self->irq_handler = NULL;
 			self->irq_type = (int8_t)args[ARG_trigger].u_int;
 
@@ -368,10 +398,9 @@ mp_obj_t mp_pin_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
 			self->irq_active_time = args[ARG_acttime].u_int;
 			if (self->irq_active_time > self->irq_debounce) self->irq_active_time = self->irq_debounce;
 
-			gpio_isr_handler_remove(self->id);
-
 			self->irq_handler = args[ARG_handler].u_obj;
 
+            // Add pin ISR handler
 			if (gpio_isr_handler_add(self->id, machine_pin_isr_handler, (void*)self) != ESP_OK) {
 				self->irq_handler = NULL;
 				self->irq_type = GPIO_PIN_INTR_DISABLE;
@@ -379,7 +408,7 @@ mp_obj_t mp_pin_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
 				gpio_set_intr_type(self->id, GPIO_PIN_INTR_DISABLE);
 				mp_raise_ValueError("error adding ISR handler");
 			}
-			// Enable interrupts
+			// Enable pin interrupt
 			_pin_enable_irq(self);
 		}
 	}
@@ -407,7 +436,7 @@ STATIC mp_obj_t machine_pin_obj_init(mp_uint_t n_args, const mp_obj_t *pos_args,
     mp_arg_parse_all(n_args-1, pos_args+1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
     if (self->irq_handler) {
-    	// Disable interrupt
+    	// Disable pin interrupt
         gpio_set_intr_type(self->id, GPIO_PIN_INTR_DISABLE);
     }
 
@@ -495,7 +524,7 @@ STATIC mp_obj_t machine_pin_obj_init(mp_uint_t n_args, const mp_obj_t *pos_args,
 
 		if (self->irq_handler) {
 			// set debounce
-			if ((args[ARG_debounce].u_int >= 100) && (args[ARG_debounce].u_int <= 500000)) {
+			if ((args[ARG_debounce].u_int == 0) || ((args[ARG_debounce].u_int >= 100) && (args[ARG_debounce].u_int <= 500000))) {
 				self->irq_debounce = args[ARG_debounce].u_int;
 			}
 			else if (args[ARG_debounce].u_int > 0) {
@@ -504,7 +533,7 @@ STATIC mp_obj_t machine_pin_obj_init(mp_uint_t n_args, const mp_obj_t *pos_args,
 			}
 
 			// set active time
-			if ((args[ARG_acttime].u_int >= 100) && (args[ARG_acttime].u_int <= 500000)) {
+			if ((args[ARG_acttime].u_int == 0) || ((args[ARG_acttime].u_int >= 100) && (args[ARG_acttime].u_int <= 500000))) {
 				self->irq_active_time = args[ARG_acttime].u_int;
 			}
 			else if (args[ARG_acttime].u_int > 0) {
@@ -521,6 +550,8 @@ STATIC mp_obj_t machine_pin_obj_init(mp_uint_t n_args, const mp_obj_t *pos_args,
 						mp_raise_ValueError("invalid trigger type");
 					}
 					self->irq_type = (int8_t)args[ARG_trigger].u_int;
+		            // Enable interrupts
+		            _pin_enable_irq(self);
 				}
 			}
 

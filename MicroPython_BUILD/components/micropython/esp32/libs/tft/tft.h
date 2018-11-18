@@ -32,8 +32,18 @@
 #ifndef _TFT_H_
 #define _TFT_H_
 
+#include "sdkconfig.h"
+
+#ifdef CONFIG_MICROPY_USE_TFT
+
 #include <stdlib.h>
 #include "tftspi.h"
+#include "py/obj.h"
+
+#define TFT_MODE_TFT    0
+#define TFT_MODE_EPD    1
+#define TFT_MODE_EVE    2
+
 
 typedef struct {
 	uint16_t        x1;
@@ -54,10 +64,24 @@ typedef struct {
 	color_t     color;
 } Font;
 
+typedef struct _tft_eve_obj_t {
+    mp_obj_base_t base;
+    uint32_t    addr;
+    uint32_t    size;
+    uint16_t    width;
+    uint16_t    height;
+    uint16_t    rowsize;
+    uint8_t     type;
+    uint8_t     byte_per_pixel;
+    uint8_t     prev_tft_mode;
+    uint8_t     loaded;
+} tft_eve_obj_t;
+
 
 //==========================================================================================
 // ==== Global variables ===================================================================
 //==========================================================================================
+
 extern uint8_t   orientation;		// current screen orientation
 extern uint16_t  font_rotate;   	// current font font_rotate angle (0~395)
 extern uint8_t   font_transparent;	// if not 0 draw fonts transparent
@@ -78,6 +102,13 @@ extern int	TFT_Y;					// Y position of the next character after TFT_print() func
 
 extern uint32_t tp_calx;			// touch screen X calibration constant
 extern uint32_t tp_caly;			// touch screen Y calibration constant
+
+extern uint8_t tft_active_mode;     // used tft driver mode (TFT, EPD or EVE)
+
+#if CONFIG_MICROPY_USE_EVE
+extern tft_eve_obj_t *eve_tft_obj;
+#endif
+
 // =========================================================================================
 
 
@@ -724,5 +755,7 @@ int compile_font_file(char *fontfile, uint8_t dbg);
  * Get all font's characters to buffer
  */
 void getFontCharacters(uint8_t *buf);
+
+#endif // CONFIG_MICROPY_USE_TFT
 
 #endif

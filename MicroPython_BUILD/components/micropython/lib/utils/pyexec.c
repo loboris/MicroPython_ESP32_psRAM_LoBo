@@ -349,8 +349,10 @@ raw_repl_reset:
             } else if (c == CHAR_CTRL_D) {
                 // input finished
                 if (line.len == 0) {
+                    // In raw_repl we only SIMULATE the reboot
+                    // This is used by some applications like RSHELL
                 	mp_hal_stdout_tx_str("soft reboot\r\n");
-                	vTaskDelay(1000);
+                	vTaskDelay(500);
                     goto raw_repl_reset;
                 }
                 break;

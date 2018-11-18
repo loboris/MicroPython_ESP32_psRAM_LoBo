@@ -26,7 +26,7 @@
 								</outputEntries>
 							</builder>
 							<tool id="cdt.managedbuild.tool.gnu.cross.c.compiler.746622695" name="Cross GCC Compiler" superClass="cdt.managedbuild.tool.gnu.cross.c.compiler">
-								<option id="gnu.c.compiler.option.include.paths.1930340268" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="gnu.c.compiler.option.include.paths.1930340268" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/vfs/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/newlib/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/esp32/include&quot;"/>
@@ -36,6 +36,8 @@
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/log/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/lwip/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/lwip/include/lwip&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/lwip/include/lwip/port&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/lwip/include/lwip/netif/ppp&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/tcpip_adapter/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/sdmmc/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/fatfs/src&quot;"/>
@@ -61,8 +63,9 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/MicroPython_BUILD/build/genhdr}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${PWD}/../Tools/xtensa-esp32-elf/bin&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${PWD}/../Tools/xtensa-esp32-elf/xtensa-esp32-elf/include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/esp_https_ota/include&quot;"/>
 								</option>
-								<option id="gnu.c.compiler.option.preprocessor.def.symbols.507238637" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="gnu.c.compiler.option.preprocessor.def.symbols.507238637" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="BUILD_TIME=100000"/>
 									<listOptionValue builtIn="false" value="LED_ACT=5"/>
 									<listOptionValue builtIn="false" value="LWIP_DNS=1"/>
@@ -143,8 +146,7 @@
 			</target>
 			<target name="BUILD (verbose)" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>${PWD}/BUILD.sh</buildCommand>
-				<buildArguments/>
-				<buildTarget>-v all</buildTarget>
+				<buildTarget>-v -f16 all</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>false</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
@@ -181,7 +183,8 @@
 			</target>
 			<target name="CLEAN &amp; BUILD" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>${PWD}/BUILD.sh</buildCommand>
-				<buildTarget>-j8 clean all</buildTarget>
+				<buildArguments/>
+				<buildTarget>-j8 -f16 clean all</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>false</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>

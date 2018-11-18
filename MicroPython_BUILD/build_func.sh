@@ -660,6 +660,13 @@ executeCommand() {
         echo "======================"
         make erase_flash${BUILD_COMPORT}${BUILD_BDRATE}
 
+    # ------------------------------------
+    elif [ "${arg}" == "miniterm" ]; then
+        echo "====================="
+        echo "Executing miniterm..."
+        echo "====================="
+        make simple_monitor${BUILD_COMPORT}
+
     # ----------------------------------
     elif [ "${arg}" == "monitor" ]; then
         echo "============================"

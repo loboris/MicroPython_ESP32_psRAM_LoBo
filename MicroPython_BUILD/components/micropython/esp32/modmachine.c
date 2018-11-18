@@ -454,8 +454,8 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
     uint32_t s_rtc_clk_cal = (uint64_t)REG_READ(RTC_SLOW_CLK_CAL_REG);
     stub_timeout = (uint64_t)(2000000) * (1 << RTC_CLK_CAL_FRACT) / s_rtc_clk_cal;
 
-    mp_int_t stub_sleep = 0;
-    mp_int_t sleep_time = args[ARG_sleep_ms].u_int;
+    int64_t stub_sleep = 0;
+    int64_t sleep_time = args[ARG_sleep_ms].u_int;
     if (sleep_time < 0) sleep_time = 0;
     if (sleep_time > 0) {
         stub_sleep = args[ARG_stub_ms].u_int;
@@ -472,7 +472,7 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
     if (stub_sleep > 0) {
         wait_in_stub = (int64_t)args[ARG_stub_wait].u_int;
         if (wait_in_stub < 0) wait_in_stub = 0;
-        if (wait_in_stub > (stub_sleep*1000)) wait_in_stub = (int64_t)stub_sleep*1000;
+        if (wait_in_stub > (stub_sleep*1000)) wait_in_stub = stub_sleep*1000;
         machine_rtc_config.stub_wait = wait_in_stub;
         stub_timer_inc = 1;
         if (wait_in_stub > 100000) stub_timer_inc = 100;
@@ -480,8 +480,8 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
     }
 
     if (sleep_time > 0) {
-        if (stub_sleep) esp_sleep_enable_timer_wakeup((uint64_t)(stub_sleep * 1000));
-        else esp_sleep_enable_timer_wakeup((uint64_t)(sleep_time * 1000));
+        if (stub_sleep) esp_sleep_enable_timer_wakeup(stub_sleep * 1000);
+        else esp_sleep_enable_timer_wakeup(sleep_time * 1000);
         machine_rtc_config.deepsleep_time = sleep_time;
     }
     else {
@@ -516,7 +516,7 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
         esp_sleep_enable_touchpad_wakeup();
     }
 
-    ESP_LOGD("DEEP SLEEP", "Sleep time: time=%d, interval=%d, pin=%d, level=%d, wait=%llu\n",
+    ESP_LOGD("DEEP SLEEP", "Sleep time: time=%llu, interval=%llu, pin=%d, level=%d, wait=%llu\n",
             sleep_time, stub_sleep, led_pin, args[ARG_stub_ledlevel].u_bool, wait_in_stub);
     prepareSleepReset(0, NULL);
 
@@ -533,8 +533,8 @@ STATIC mp_obj_t machine_deepsleep(size_t n_args, const mp_obj_t *pos_args, mp_ma
         if (stub_sleep) {
             // Get number of microseconds per RTC clock tick (scaled by 2^19)
             // Calculate RTC clock value for wakeup
-            machine_rtc_config.wakeup_delay_ticks = (uint64_t)(stub_sleep * 1000) * (1 << RTC_CLK_CAL_FRACT) / s_rtc_clk_cal;
-            machine_rtc_config.wakeup_delay_ticks_last = (uint64_t)((sleep_time % stub_sleep) * 1000) * (1 << RTC_CLK_CAL_FRACT) / s_rtc_clk_cal;;
+            machine_rtc_config.wakeup_delay_ticks = (stub_sleep * 1000) * (1 << RTC_CLK_CAL_FRACT) / s_rtc_clk_cal;
+            machine_rtc_config.wakeup_delay_ticks_last = ((sleep_time % stub_sleep) * 1000) * (1 << RTC_CLK_CAL_FRACT) / s_rtc_clk_cal;;
 
             // Set the wake stub function
             machine_rtc_config.deepsleep_interval = stub_sleep;

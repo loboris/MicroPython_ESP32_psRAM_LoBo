@@ -38,6 +38,10 @@
 // Memory usage : 1158 bytes
 // # characters : 95
 
+#include "sdkconfig.h"
+
+#ifdef CONFIG_MICROPY_USE_TFT
+
 const unsigned char tft_DefaultFont[] =
 {
 0x00, 0x0B, 0x86, 0x04,
@@ -331,3 +335,5 @@ const unsigned char tft_DefaultFont[] =
 // Terminator
 0xFF
 };
+
+#endif

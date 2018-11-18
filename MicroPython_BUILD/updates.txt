@@ -1,3 +1,97 @@
+=== 2018-09-04 ===
+Updated 'machine.DAC' module
+  added 'write_buffer()' method
+  which can be used to reproduce data collected with 'machine.ADC.collect'
+
+Updated 'machine.ADC' module
+  improved 'collect()' method, max frequency increased to 18000 Hz
+
+-------------------------------------------------------------------------------
+
+=== 2018-09-04 ===
+Updated 'EVE' module to build correctly for both FT80x and FT81x
+
+-------------------------------------------------------------------------------
+
+=== 2018-09-03 ===
+Fixed build errors if EVE module was selected without TFT module enabled
+
+Updated 'Curl' module
+  Adder custom request argument to 'getmail' method
+
+Updated frozen modules 'microWebSrv' and 'microWebSocket'
+  Removed unneede import of 'websocket' module
+
+-------------------------------------------------------------------------------
+
+=== 2018-09-01 ===
+Fixed wrong method name in 'requests' module
+
+-------------------------------------------------------------------------------
+
+=== 2018-09-01 ===
+
+Fixed bug in Ftp server preenting directory listing
+
+Updated 'ota' module
+  update over network now uses 'esp_http_client' componnent
+  update with SSL (https) is now possible
+  server certificate (with https) can be used to verify the firmware origin
+
+Updated 'gsm' module
+  added option to allow connection when in roaming
+  added method 'isconfig()' to get the IP, netmask and gateway
+  some small improvements
+
+Updated 'requests' module
+  added method 'certificate()' to set the server certificate from file (when using https)
+  added method 'debug()' to enable/disable logging
+  some cleaning and improvements
+
+Updated 'machine.DHT' module
+  fixed bug: When a DTH22 sensor is used, the results were always truncated after the decimal place
+
+Updated 'machine.Pin' module
+  improved irq handling
+
+-------------------------------------------------------------------------------
+
+=== 2018-08-26 ===
+
+Updated 'ethernet' module
+  updated all modules using network to work on any network interface, including ethernet
+  ftpserver and telnet server now also works over ethernet
+
+Updated 'uos.sdconfig()'
+  SPI host can be selected if SDCard mode is SPI
+
+Updated 'Curl' module
+  added 'getmail' method
+  added option to set maximum write buffer size, lower size can make it more usable on boards without psRAM
+  tab character (0x09) is now accepted in response body
+
+Updated 'machine' module
+  fixed bug in 'deepsleep' method, deepslep for all timeout values now works as expected
+
+Updated 'DAC' module
+  fixed bug in 'waveform' method, the 'duration' argument now works for waveform types
+
+Updated 'machine.Pin' module
+  fixed bug in handling the 'debounce' argument
+
+Added 'requests' module implemented in C, based on 'esp_http_client' componnent
+  get, post, head, put, patch methods
+
+Refactored 'display' module
+  added full support for FTDI EVE chips (FT8xx)
+  prepared for implementation of e-paper displays support
+
+Updated sdcard support
+
+Updated esp-idf to version v3.1-rc1-53509c7b
+
+-------------------------------------------------------------------------------
+
 === 2018-06-27 ===
 
 Removed option to run REPL in separate thread
@@ -37,6 +131,7 @@ Updated 'mdns' module
 
 Other minor updates, improvements and bug fixes
 
+-------------------------------------------------------------------------------
 
 === 2018-06-04 ===
 
@@ -85,9 +180,7 @@ Menuconfig:
 
 Other minor updates, improvements and bug fixes
 
-
 -------------------------------------------------------------------------------
-
 
 === 2018-05-15 ===
 
@@ -100,9 +193,7 @@ Added MicroPython system options in 'menuconfig'
 Updated some frozen modules
   upip, urequests, logging
 
-
 -------------------------------------------------------------------------------
-
 
 === 2018-05-15 ===
 
@@ -126,9 +217,7 @@ Some new MicroPython system options added to menuconfig
 Temporary solution for esp-idf bug:
   cannot set the QIO mode on some Flash chips
 
-
 -------------------------------------------------------------------------------
-
 
 === 2018-05-10 ===
 

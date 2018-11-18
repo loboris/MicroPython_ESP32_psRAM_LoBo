@@ -640,6 +640,8 @@ const char* curlmail_protocol_send(curl_mail mail_object, const char* smtpserver
 	if (curl_progress) curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
 	curl_easy_setopt(curl, CURLOPT_FORBID_REUSE, 1L);
 
+	curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 2048);
+
 	//send the message
 	MP_THREAD_GIL_EXIT();
 	result = curl_easy_perform(curl);

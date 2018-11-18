@@ -30,6 +30,8 @@
  *   https://cool.haxx.se/mailman/listinfo/curl-library/
  */
 
+#include "sdkconfig.h"
+
 #define SIZEOF_CURL_OFF_T   4
 
 #ifdef CURL_NO_OLDIES
@@ -218,7 +220,7 @@ typedef int (*curl_xferinfo_callback)(void *clientp,
 
 #ifndef CURL_MAX_READ_SIZE
   /* The maximum receive buffer size configurable via CURLOPT_BUFFERSIZE. */
-#define CURL_MAX_READ_SIZE 524288
+#define CURL_MAX_READ_SIZE 16384
 #endif
 
 #ifndef CURL_MAX_WRITE_SIZE
@@ -228,7 +230,11 @@ typedef int (*curl_xferinfo_callback)(void *clientp,
      time for those who feel adventurous. The practical minimum is about
      400 bytes since libcurl uses a buffer of this size as a scratch area
      (unrelated to network send operations). */
+#ifdef CONFIG_MICROPY_CURL_MAX_WRITE_SIZE
+#define CURL_MAX_WRITE_SIZE CONFIG_MICROPY_CURL_MAX_WRITE_SIZE
+#else
 #define CURL_MAX_WRITE_SIZE 16384
+#endif
 #endif
 
 #ifndef CURL_MAX_HTTP_HEADER

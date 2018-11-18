@@ -77,8 +77,8 @@ typedef struct
  * If 'wait' = 1, wait until connected
  * If 'doconn' = 0, only initialize the task, do not connect to Internet
  */
-//===================================================================================================================
-int ppposInit(int tx, int rx, int rts, int cts, int bdr, char *user, char *pass, char *apn, uint8_t wait, int doconn);
+//=================================================================================================================================
+int ppposInit(int tx, int rx, int rts, int cts, int bdr, char *user, char *pass, char *apn, uint8_t wait, int doconn, bool roaming);
 
 /*
  * Disconnect from Internet
@@ -86,8 +86,8 @@ int ppposInit(int tx, int rx, int rts, int cts, int bdr, char *user, char *pass,
  * If 'rfoff' = 1, turns off GSM RF section to preserve power
  * If already disconnected, this function does nothing
  */
-//====================================================
-void ppposDisconnect(uint8_t end_task, uint8_t rfoff);
+//===================================================
+int ppposDisconnect(uint8_t end_task, uint8_t rfoff);
 
 /*
  * Connect from Internet
@@ -118,8 +118,8 @@ void resetRxTxCount();
  * GSM_STATE_IDLE			(89)	Disconnected from Internet, Task idle, waiting for reconnect request
  * GSM_STATE_FIRSTINIT		(98)	Task started, initializing PPPoS
  */
-//================
-int ppposStatus();
+//============================================================
+int ppposStatus(uint32_t *ip, uint32_t *netmask, uint32_t *gw);
 
 /*
  * Turn GSM RF Off

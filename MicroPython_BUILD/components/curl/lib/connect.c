@@ -1409,11 +1409,13 @@ void Curl_conncontrol(struct connectdata *conn,
   bool closeit = (ctrl == CONNCTRL_CONNECTION) ||
     ((ctrl == CONNCTRL_STREAM) && !(conn->handler->flags & PROTOPT_STREAM));
   if((ctrl == CONNCTRL_STREAM) &&
-     (conn->handler->flags & PROTOPT_STREAM))
-    DEBUGF(infof(conn->data, "Kill stream: %s\n", reason));
+     (conn->handler->flags & PROTOPT_STREAM)) {
+    //DEBUGF(infof(conn->data, "Kill stream: %s\n", reason));
+    DEBUGF(infof(conn->data, "Kill stream\n"));
+  }
   else if(closeit != conn->bits.close) {
-    DEBUGF(infof(conn->data, "Marked for [%s]: %s\n",
-                 closeit?"closure":"keep alive", reason));
+    //DEBUGF(infof(conn->data, "Marked for [%s]: %s\n", closeit?"closure":"keep alive", reason));
+    DEBUGF(infof(conn->data, "Marked for [%s]\n", closeit?"closure":"keep alive"));
     conn->bits.close = closeit; /* the only place in the source code that
                                    should assign this bit */
   }

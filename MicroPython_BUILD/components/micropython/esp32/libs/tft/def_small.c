@@ -22,6 +22,10 @@
 // Number Of Characters (Reserved. 0x00)
 
 
+#include "sdkconfig.h"
+
+#ifdef CONFIG_MICROPY_USE_TFT
+
 const unsigned char tft_def_small[] = 
 {
 0x00, 0x08, 0x00, 0x00,
@@ -330,3 +334,5 @@ const unsigned char tft_def_small[] =
 // Terminator
 0xFF
 };
+
+#endif
