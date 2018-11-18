@@ -1,0 +1,6 @@
+[submodule "MicroPython_BUILD/components/micropython/esp32/libs/sgp"]
+	path = MicroPython_BUILD/components/micropython/esp32/libs/sgp
+	url = https://github.com/Sensirion/embedded-sgp.git
+[submodule "MicroPython_BUILD/components/micropython/esp32/libs/sgp"]
+	path = MicroPython_BUILD/components/micropython/esp32/libs/sgp
+	url = git@github.com:Sensirion/embedded-sgp.git

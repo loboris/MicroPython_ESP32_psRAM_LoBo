@@ -322,6 +322,12 @@ menu "MicroPython"
             default n
             help
                 Include Display module into build
+                
+        config MICROPY_USE_SGP30_SENSOR
+            bool "Use SGP30 sensor"
+            default n
+            help
+                Include sensor driver SGP30 into build 
 
         config MICROPY_USE_TFT
             depends on MICROPY_USE_DISPLAY

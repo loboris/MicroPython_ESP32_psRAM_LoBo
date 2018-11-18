@@ -310,6 +310,13 @@ extern const struct _mp_obj_module_t mp_module_display;
 #define BUILTIN_MODULE_DISPLAY
 #endif
 
+#ifdef CONFIG_MICROPY_USE_SGP30_SENSOR
+extern const struct _mp_obj_module_t mp_module_sgp30;
+#define BUILTIN_MODULE_SGP30_SENSOR { MP_OBJ_NEW_QSTR(MP_QSTR_sgp30), (mp_obj_t)&mp_module_sgp30 },
+#else
+#define BUILTIN_MODULE_SGP30_SENSOR
+#endif
+
 #ifdef CONFIG_MICROPY_USE_GSM
 extern const struct _mp_obj_module_t mp_module_gsm;
 #define BUILTIN_MODULE_GSM { MP_OBJ_NEW_QSTR(MP_QSTR_gsm), (mp_obj_t)&mp_module_gsm },
@@ -340,6 +347,7 @@ extern const struct _mp_obj_module_t mp_module_bluetooth;
     { MP_OBJ_NEW_QSTR(MP_QSTR_ymodem),   (mp_obj_t)&mp_module_ymodem }, \
 	{ MP_OBJ_NEW_QSTR(MP_QSTR_uhashlib), (mp_obj_t)&mp_module_uhashlib }, \
 	BUILTIN_MODULE_DISPLAY \
+	BUILTIN_MODULE_SGP30_SENSOR \
 	BUILTIN_MODULE_CURL \
     BUILTIN_MODULE_REQUESTS \
 	BUILTIN_MODULE_SSH \
