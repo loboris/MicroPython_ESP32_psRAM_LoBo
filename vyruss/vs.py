@@ -138,5 +138,6 @@ def loop():
         except OSError:
             if last_b:
                 process(last_b)
+        utime.sleep_ms(15)
 
 loop()
