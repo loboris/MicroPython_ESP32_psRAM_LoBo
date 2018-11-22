@@ -23,7 +23,7 @@ def set_palette(palette):
 
 def get_sprite(num_sprite, pixmap, width, height, frames):
     data = povsprites.getaddress(num_sprite)
-    sp = uctypes.struct(data, sprite_struct, uctypes.BIG_ENDIAN)
+    sp = uctypes.struct(data, sprite_struct) #, uctypes.LITLE_ENDIAN)
     #sp.image = uctypes.addressof(pixmap)
     sp.width = width
     sp.height = height
