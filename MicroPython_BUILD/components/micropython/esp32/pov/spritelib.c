@@ -6,7 +6,11 @@
 
 #define COLUMNS 256
 #define PIXELS 52
+#define ROWS 128
+
 const byte TRANSPARENT = 0xFF;
+byte deepspace[] = {51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 35, 34, 33, 32, 31, 30, 30, 29, 28, 27, 27, 26, 25, 25, 24, 23, 23, 22, 21, 21, 20, 19, 19, 18, 18, 17, 17, 16, 16, 15, 15, 14, 14, 13, 13, 12, 12, 11, 11, 11, 10, 10, 9, 9, 9, 8, 8, 8, 7, 7, 7, 6, 6, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
 
 extern const uint32_t palette_pal[];
 extern const uint8_t galaga_8_png[];
@@ -84,9 +88,9 @@ void init_sprites() {
   nave->enabled = true;
   nave->w = 16;
   nave->h = 16;
-  nave->x = 250;
-  nave->y = 52-16;
-  nave->image = galaga_png + 16*16*5*2; // w*h*skip_imgs*frames
+  nave->x = 256-8;
+  nave->y = 0;
+  nave->image = galaga_png; // w*h*skip_imgs*frames
 
 }
 
@@ -142,7 +146,7 @@ void render(int x) {
     int visible_column = get_visible_column(s->x, s->w, x);
     if (visible_column != -1) {
       int desde = MAX(s->y, 0);
-      int hasta = MIN(s->y + s->h, PIXELS);
+      int hasta = MIN(s->y + s->h, ROWS-1);
       int comienzo = MAX(-s->y, 0);
       int base = visible_column * s->h + (s->frame * s->w * s->h);
 
@@ -150,7 +154,7 @@ void render(int x) {
       for(int y=desde; y<hasta; y++, imagen++) {
         byte color = *imagen;
         if (color != TRANSPARENT) {
-          pixels[y] = palette_pal[color];
+          pixels[deepspace[y]] = palette_pal[color];
         }
       }
     }
