@@ -32,6 +32,9 @@ nave = spritelib.get_sprite(0, imagenes.galaga_png, width=16, height=16, frames=
 disparo = spritelib.get_sprite(1, imagenes.disparo_png, width=3, height=5, frames=1)
 spritelib.debug(nave)
 
+imagen_base = nave.image
+imagen_nave = 0
+
 def sock_send(what):
     sock.sendto(what, other_addr)
 
@@ -113,6 +116,11 @@ def process(b):
     if where is not None:
         step(where)
 
+    if (boton and not disparo.enabled):
+        global imagen_nave
+        imagen_nave = (imagen_nave + 1) % 6
+        nave.image = imagen_base + imagen_base * (16*16*2)
+
     disparo.enabled = boton
 
     if accel:
@@ -120,7 +128,7 @@ def process(b):
     if decel:
         nave.y +=1
     if not accel and not decel:
-        nave.y = 52-16
+        nave.y = 0
 
     #text = "\r{0} {2} {1} {3} {4}   ".format(direction, boton, int(nave.x), decel, accel)
     #sock_send(bytes(text, "utf-8"))
