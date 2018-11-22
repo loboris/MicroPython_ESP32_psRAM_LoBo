@@ -102,3 +102,9 @@ ENV/
 
 # vim swap files
 *.swp
+
+###########
+
+MicroPython_BUILD/components/micropython/component.mk.orig
+MicroPython_BUILD/components/micropython/esp32/mpconfigport.h.orig
+
