@@ -12,14 +12,14 @@
 #define GPIO_HALL     GPIO_NUM_22
 #define ESP_INTR_FLAG_DEFAULT 0
 #define COLUMNS 256
+#define FASTEST_CREDIBLE_TURN 200
 
 char* sendbuf;
 int num_bytes;
 uint32_t* pixels; 
 
-volatile uint32_t last_turn = 0;
-volatile uint32_t last_turn_duration = 355 * COLUMNS;
-volatile uint32_t column_duration = 355;
+volatile int64_t last_turn = 0;
+volatile int64_t last_turn_duration = 355 * COLUMNS;
 
 extern void render(int n);
 extern void init_sprites();
@@ -79,11 +79,12 @@ static xQueueHandle gpio_evt_queue = NULL;
 
 static void IRAM_ATTR hall_sensed(void* arg)
 {
-    uint32_t this_turn = esp_timer_get_time();
-    uint32_t this_turn_duration = this_turn - last_turn;
-    last_turn_duration = max(this_turn_duration,1);
-    last_turn = this_turn;
-    column_duration = last_turn_duration / COLUMNS;
+    int64_t this_turn = esp_timer_get_time();
+    int64_t this_turn_duration = this_turn - last_turn;
+    if (this_turn_duration > FASTEST_CREDIBLE_TURN) {
+        last_turn_duration = this_turn_duration;
+        last_turn = this_turn;
+    }
     //uint32_t gpio_num = (uint32_t) GPIO_HALL;
     //xQueueSendFromISR(gpio_evt_queue, &column_duration, NULL);
 }
@@ -154,8 +155,8 @@ void coreTask( void * pvParameters ){
  //       for (uint32_t n = 0; n < BIFLEN; n++) {
  //           biff[n] = esp_timer_get_time();
 
-            uint32_t now = esp_timer_get_time();
-            uint32_t column = ((now - last_turn) / max(column_duration, 1)) % COLUMNS;
+            int64_t now = esp_timer_get_time();
+            uint32_t column = ((now - last_turn) * COLUMNS / last_turn_duration) % COLUMNS;
             if (column != last_column) {
                 //printf("now %u, column %u\n", now, column);
                 render(column);
