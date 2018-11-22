@@ -1,7 +1,7 @@
 import pyglet
 from pyglet.gl import *
 
-from espnetwork import UDP_THIS, UDP_OTHER
+from espnetwork import sock_send, sock_iterator
 
 joysticks = pyglet.input.get_joysticks()
 assert joysticks, 'No joystick device is connected'
