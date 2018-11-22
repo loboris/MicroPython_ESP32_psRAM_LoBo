@@ -17,9 +17,8 @@ extern const uint8_t disparo_png[];
 extern uint32_t* pixels;
 
 Sprite sprites[NUM_SPRITES];
-Sprite* nave2 = &sprites[45];
-Sprite* nave = &sprites[46];
-Sprite* disparo = &sprites[47];
+Sprite* nave = &sprites[0];
+Sprite* disparo = &sprites[1];
 
 #define STARS COLUMNS/2
 
@@ -61,9 +60,9 @@ void init_sprites() {
         break;
     }
     for (int n = 0; n<6; n++) {
-        Sprite* s = &sprites[n + 6*i];
+        Sprite* s = &sprites[10 + n + 6*i];
   
-        s->enabled = true;
+        s->enabled = false;
         s->w = w;
         s->h = w;
         s->x = x; x+=w+1;
@@ -75,26 +74,19 @@ void init_sprites() {
   }
 
 
-  nave->enabled = true;
-  nave->w = 16;
-  nave->h = 16;
-  nave->x = 0;
-  nave->y = -8;
-  nave->image = galaga_png;
-
-  disparo->enabled = true;
+  disparo->enabled = false;
   disparo->w = 3;
   disparo->h = 5;
   disparo->x = 48;
   disparo->y = 12;
   disparo->image = disparo_png;
 
-  nave2->enabled = true;
-  nave2->w = 16;
-  nave2->h = 16;
-  nave2->x = 250;
-  nave2->y = 52-16;
-  nave2->image = galaga_png + 16*16*5*2; // w*h*skip_imgs*frames
+  nave->enabled = true;
+  nave->w = 16;
+  nave->h = 16;
+  nave->x = 250;
+  nave->y = 52-16;
+  nave->image = galaga_png + 16*16*5*2; // w*h*skip_imgs*frames
 
 }
 
@@ -141,7 +133,8 @@ void render(int x) {
   }
   */
 
-  for (int n=0; n<NUM_SPRITES; n++) {
+  // el sprite 0 se dibuja arriba de todos los otros
+  for (int n=NUM_SPRITES-1; n>=0; n--) {
     Sprite* s = &sprites[n%NUM_SPRITES];
     if (!s->enabled) {
       continue;
