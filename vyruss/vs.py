@@ -33,7 +33,13 @@ disparo = spritelib.get_sprite(1, imagenes.disparo_png, width=3, height=5, frame
 spritelib.debug(nave)
 
 imagen_base = nave.image
+print("nave!", hex(nave.image))
 imagen_nave = 0
+
+for n in range(10, 16):
+    otra = spritelib.get_sprite(n, None, 16, 16, 2)
+    print("otra nave!", n, hex(otra.image_data))
+
 
 def sock_send(what):
     sock.sendto(what, other_addr)
@@ -119,7 +125,7 @@ def process(b):
     if (boton and not disparo.enabled):
         global imagen_nave
         imagen_nave = (imagen_nave + 1) % 6
-        nave.image = imagen_base + imagen_base * (16*16*2)
+        nave.image = imagen_base + imagen_nave * (16*16*2)
 
     disparo.enabled = boton
 
