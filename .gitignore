@@ -9,7 +9,12 @@
 *.dis
 #*.exe
 
-# Packages 
+# BEB
+############
+.direnv
+LoBo_make.md
+
+# Packages
 ############
 
 # Logs and Databases
