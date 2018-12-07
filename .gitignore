@@ -9,7 +9,11 @@
 *.dis
 #*.exe
 
-# Packages 
+# BEB
+############
+.direnv
+
+# Packages
 ############
 
 # Logs and Databases
