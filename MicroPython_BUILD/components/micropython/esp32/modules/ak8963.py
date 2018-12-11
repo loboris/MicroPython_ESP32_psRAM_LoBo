@@ -64,7 +64,7 @@ class AK8963:
         if 0x48 != self.whoami:
             raise RuntimeError("AK8963 not found in I2C bus.")
 
-        # Sensitivity adjustement values
+        # Sensitivity adjustment values
         self._register_char(_CNTL1, _MODE_FUSE_ROM_ACCESS)
         asax = self._register_char(_ASAX)
         asay = self._register_char(_ASAY)
@@ -72,7 +72,7 @@ class AK8963:
         self._register_char(_CNTL1, _MODE_POWER_DOWN)
 
         # Should wait atleast 100us before next mode
-        self._adjustement = (
+        self._adjustment = (
             (0.5 * (asax - 128)) / 128 + 1,
             (0.5 * (asay - 128)) / 128 + 1,
             (0.5 * (asaz - 128)) / 128 + 1
@@ -94,10 +94,10 @@ class AK8963:
         xyz = list(self._register_three_shorts(_HXL))
         self._register_char(_ST2) # Enable updating readings again
 
-        # Apply factory axial sensitivy adjustements
-        xyz[0] *= self._adjustement[0]
-        xyz[1] *= self._adjustement[1]
-        xyz[2] *= self._adjustement[2]
+        # Apply factory axial sensitivy adjustments
+        xyz[0] *= self._adjustment[0]
+        xyz[1] *= self._adjustment[1]
+        xyz[2] *= self._adjustment[2]
 
         # Apply output scale determined in constructor
         so = self._so
@@ -118,8 +118,8 @@ class AK8963:
         return tuple(xyz)
 
     @property
-    def adjustement(self):
-        return self._adjustement
+    def adjustment(self):
+        return self._adjustment
 
     @property
     def whoami(self):
