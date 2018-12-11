@@ -30,7 +30,7 @@ _ACCEL_XOUT_L = const(0x3c)
 _ACCEL_YOUT_H = const(0x3d)
 _ACCEL_YOUT_L = const(0x3e)
 _ACCEL_ZOUT_H = const(0x3f)
-_ACCEL_ZOUT_L= const(0x40)
+_ACCEL_ZOUT_L = const(0x40)
 _TEMP_OUT_H = const(0x41)
 _TEMP_OUT_L = const(0x42)
 _GYRO_XOUT_H = const(0x43)
@@ -59,7 +59,7 @@ GYRO_FS_SEL_1000DPS = const(0b00010000)
 GYRO_FS_SEL_2000DPS = const(0b00011000)
 
 _GYRO_SO_250DPS = 131
-_GYRO_SO_500DPS = 62.5
+_GYRO_SO_500DPS = 65.5
 _GYRO_SO_1000DPS = 32.8
 _GYRO_SO_2000DPS = 16.4
 
@@ -71,7 +71,7 @@ _I2C_BYPASS_DIS = const(0b00000000)
 SF_G = 1
 SF_M_S2 = 9.80665 # 1 g = 9.80665 m/s2 ie. standard gravity
 SF_DEG_S = 1
-SF_RAD_S = 57.295779578552 # 1 rad/s is 57.295779578552 deg/s
+SF_RAD_S = 57.295779513082 # 1 rad/s is 57.295779513082 deg/s
 
 class MPU6500:
     """Class which provides interface to MPU6500 6-axis motion tracking device."""
