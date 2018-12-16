@@ -89,7 +89,7 @@ STATIC void connected_cb(mqtt_obj_t *self)
 		mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_SINGLE);
 		if (!carg) return;
 		if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(self->name), (const uint8_t *)self->name, NULL)) return;
-		mp_sched_schedule(self->mpy_connected_cb, mp_const_none, carg);
+		mp_sched_schedule_ex(self->mpy_connected_cb, mp_const_none, carg);
     }
 }
 
@@ -100,7 +100,7 @@ STATIC void disconnected_cb(mqtt_obj_t *self)
 		mp_sched_carg_t *carg = make_cargs(MP_SCHED_CTYPE_SINGLE);
 		if (!carg) return;
 		if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(self->name), (const uint8_t *)self->name, NULL)) return;
-		mp_sched_schedule(self->mpy_disconnected_cb, mp_const_none, carg);
+		mp_sched_schedule_ex(self->mpy_disconnected_cb, mp_const_none, carg);
     }
 }
 
@@ -117,7 +117,7 @@ STATIC void subscribed_cb(mqtt_obj_t *self, const char *topic)
    		else {
    	   		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, 1, (const uint8_t *)"?", NULL)) return;
    		}
-    	mp_sched_schedule(self->mpy_subscribed_cb, mp_const_none, carg);
+    	mp_sched_schedule_ex(self->mpy_subscribed_cb, mp_const_none, carg);
     }
 }
 
@@ -134,7 +134,7 @@ STATIC void unsubscribed_cb(mqtt_obj_t *self, const char *topic)
    		else {
    	   		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, 1, (const uint8_t *)"?", NULL)) return;
    		}
-    	mp_sched_schedule(self->mpy_unsubscribed_cb, mp_const_none, carg);
+   		mp_sched_schedule_ex(self->mpy_unsubscribed_cb, mp_const_none, carg);
     }
 }
 
@@ -152,7 +152,7 @@ STATIC void published_cb(mqtt_obj_t *self, const char *topic, int type)
    	   		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, 1, (const uint8_t *)"?", NULL)) return;
    		}
    		if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_INT, type, NULL, NULL)) return;
-    	mp_sched_schedule(self->mpy_published_cb, mp_const_none, carg);
+   		mp_sched_schedule_ex(self->mpy_published_cb, mp_const_none, carg);
     }
 }
 
@@ -196,7 +196,7 @@ STATIC void data_cb(mqtt_obj_t *self, void *params)
 			if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(self->name), (const uint8_t *)self->name, NULL)) return;
 			if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, event->topic_len, (const uint8_t *)event->topic, NULL)) return;
 			if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_STR, event->data_len, (const uint8_t *)event->data, NULL)) return;
-			mp_sched_schedule(self->mpy_data_cb, mp_const_none, carg);
+			mp_sched_schedule_ex(self->mpy_data_cb, mp_const_none, carg);
 		}
 	}
 	else {
@@ -212,7 +212,7 @@ STATIC void data_cb(mqtt_obj_t *self, void *params)
 				if (!make_carg_entry(carg, 0, MP_SCHED_ENTRY_TYPE_STR, strlen(self->name), (const uint8_t *)self->name, NULL)) goto freebufs;
 				if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_STR, strlen((const char *)self->topicbuf), self->topicbuf, NULL)) goto freebufs;
 				if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_STR, event->total_data_len, self->msgbuf, NULL)) goto freebufs;
-				mp_sched_schedule(self->mpy_data_cb, mp_const_none, carg);
+				mp_sched_schedule_ex(self->mpy_data_cb, mp_const_none, carg);
 freebufs:
 				// Free the buffers
 				free(self->msgbuf);
