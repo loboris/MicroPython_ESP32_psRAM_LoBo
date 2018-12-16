@@ -218,7 +218,7 @@ static void adc_task(void *pvParameters)
         if (buff16) free(buff16);
     }
 
-    if (self->callback) mp_sched_schedule(self->callback, self, NULL);
+    if (self->callback) mp_sched_schedule_ex(self->callback, self, NULL);
 
 exit:
     // i2s cleanup
@@ -302,7 +302,7 @@ STATIC void adc_timer_isr(void *self_in)
             adc_timer_handle = NULL;
         }
         collect_end_time = esp_timer_get_time(); //mp_hal_ticks_us();
-        if (self->callback) mp_sched_schedule(self->callback, self, NULL);
+        if (self->callback) mp_sched_schedule_ex(self->callback, self, NULL);
         self->buffer = NULL;
         adc_timer_active = false;
         collect_active = false;

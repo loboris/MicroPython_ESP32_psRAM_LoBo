@@ -208,7 +208,7 @@ STATIC void machine_timer_isr(void *self_in)
     }
     self->event_num++;
 
-    if ((self->callback) && (mp_sched_schedule(self->callback, self, NULL))) self->cb_num++;
+    if ((self->callback) && (mp_sched_schedule_ex(self->callback, self, NULL))) self->cb_num++;
 }
 
 //----------------------------------------------
@@ -235,7 +235,7 @@ STATIC void machine_ext_timer_isr(void *self_in)
 				    extmr->event_num++;
 					if (extmr->counter == extmr->alarm) {
 						// Schedule the callback execution
-						if ((extmr->callback) && (mp_sched_schedule(extmr->callback, extmr, NULL))) {
+						if ((extmr->callback) && (mp_sched_schedule_ex(extmr->callback, extmr, NULL))) {
 							extmr->cb_num++;
 							self->cb_num++;
 						}

@@ -215,7 +215,7 @@ static void processPROBEREQRECVED(const uint8_t *frame, int len, int rssi)
 		if (!make_carg_entry(carg, 1, MP_SCHED_ENTRY_TYPE_INT, len, NULL, "len")) goto end;
 		if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_STR, len, frame, "frame")) goto end;
 
-		mp_sched_schedule(probereq_callback, mp_const_none, carg);
+		mp_sched_schedule_ex(probereq_callback, mp_const_none, carg);
 end:
 		if (probereq_mutex) xSemaphoreGive(probereq_mutex);
 	}
@@ -358,7 +358,7 @@ static void processEvent_callback(system_event_t *event)
 			// the 3rd tuple item was not added, add it now
 			if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_NONE, 0, NULL, NULL)) return;
 		}
-		mp_sched_schedule(event_callback, mp_const_none, carg);
+		mp_sched_schedule_ex(event_callback, mp_const_none, carg);
 	}
 }
 
