@@ -108,7 +108,11 @@ void mp_handle_pending_tail(mp_uint_t atomic_state);
 void mp_sched_lock(void);
 void mp_sched_unlock(void);
 static inline unsigned int mp_sched_num_pending(void) { return MP_STATE_VM(sched_sp); }
-bool mp_sched_schedule(mp_obj_t function, mp_obj_t arg, void *carg);
+bool mp_sched_schedule_ex(mp_obj_t function, mp_obj_t arg, void *carg);
+inline bool mp_sched_schedule(mp_obj_t function, mp_obj_t arg)
+{
+    return mp_sched_schedule_ex(function, arg, NULL);
+}
 
 void free_carg(mp_sched_carg_t *carg);
 mp_sched_carg_t *make_carg_entry(mp_sched_carg_t *carg, int idx, uint8_t type, int val, const uint8_t *sval, const char *key);

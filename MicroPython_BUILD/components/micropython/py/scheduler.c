@@ -345,7 +345,7 @@ void mp_sched_unlock(void) {
 }
 
 //-------------------------------------------------------------------
-bool mp_sched_schedule(mp_obj_t function, mp_obj_t arg, void *carg) {
+bool mp_sched_schedule_ex(mp_obj_t function, mp_obj_t arg, void *carg) {
     mp_uint_t atomic_state = MICROPY_BEGIN_ATOMIC_SECTION();
     bool ret;
     if (MP_STATE_VM(sched_sp) < MICROPY_SCHEDULER_DEPTH) {

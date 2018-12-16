@@ -242,7 +242,7 @@ STATIC void _sched_callback(mp_obj_t function, int cbtype, int addr, int len, in
     else {
         if (!make_carg_entry(carg, 4, MP_SCHED_ENTRY_TYPE_NONE, 0, NULL, NULL)) return;
     }
-    mp_sched_schedule(function, mp_const_none, carg);
+    mp_sched_schedule_ex(function, mp_const_none, carg);
 }
 
 //--------------------------------------------

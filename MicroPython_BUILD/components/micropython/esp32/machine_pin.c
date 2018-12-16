@@ -162,7 +162,7 @@ static void debounce_task(void *pvParameters)
                 self->irq_retvalue = levl;
                 if (self->irq_handler) {
                     // schedule the callback function
-                    mp_sched_schedule(self->irq_handler, MP_OBJ_FROM_PTR(self), NULL);
+                    mp_sched_schedule_ex(self->irq_handler, MP_OBJ_FROM_PTR(self), NULL);
                 }
                 break;
             }
@@ -183,7 +183,7 @@ static void debounce_task(void *pvParameters)
 	if (self->irq_handler) {
 		// schedule the callback function
         self->irq_retvalue = gpio_get_level(self->id);
-		mp_sched_schedule(self->irq_handler, MP_OBJ_FROM_PTR(self), NULL);
+		mp_sched_schedule_ex(self->irq_handler, MP_OBJ_FROM_PTR(self), NULL);
 	}
 
 	// Re-enable interrupt ONLY for edge types
@@ -213,7 +213,7 @@ STATIC void machine_pin_isr_handler(void *arg)
         if (self->irq_handler) {
             // schedule the callback function
             self->irq_retvalue = gpio_get_level(self->id);
-            mp_sched_schedule(self->irq_handler, MP_OBJ_FROM_PTR(self), NULL);
+            mp_sched_schedule_ex(self->irq_handler, MP_OBJ_FROM_PTR(self), NULL);
         }
 
         // Re-enable interrupt ONLY for edge types

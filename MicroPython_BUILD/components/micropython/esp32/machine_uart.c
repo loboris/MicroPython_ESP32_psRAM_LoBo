@@ -124,7 +124,7 @@ static void _sched_callback(mp_obj_t function, int uart, int type, int iarglen, 
 	else {
 		if (!make_carg_entry(carg, 2, MP_SCHED_ENTRY_TYPE_INT, iarglen, NULL, NULL)) return;
 	}
-	mp_sched_schedule(function, mp_const_none, carg);
+	mp_sched_schedule_ex(function, mp_const_none, carg);
 }
 
 //---------------------------------------------
