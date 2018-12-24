@@ -1,6 +1,6 @@
 UDP_THIS = "0.0.0.0", 5225
-UDP_OTHER = "127.0.0.1", 5005
-#UDP_OTHER = "192.168.4.1", 5005
+#UDP_OTHER = "127.0.0.1", 5005
+UDP_OTHER = "192.168.4.1", 5005
 
 import socket
 

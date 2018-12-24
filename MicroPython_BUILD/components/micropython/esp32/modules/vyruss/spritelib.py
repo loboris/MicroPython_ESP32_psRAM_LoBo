@@ -25,8 +25,8 @@ def get_sprite(num_sprite, pixmap, width, height, frames):
     data = povsprites.getaddress(num_sprite)
     sp = uctypes.struct(data, sprite_struct) #, uctypes.LITLE_ENDIAN)
     #sp.image = uctypes.addressof(pixmap)
-    sp.width = width
-    sp.height = height
+    #sp.width = width
+    #sp.height = height
     return sp
 
 def debug(s):

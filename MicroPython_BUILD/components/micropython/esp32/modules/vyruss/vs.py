@@ -16,7 +16,7 @@ except:
 
 UDP_THIS = "0.0.0.0", 5005
 #UDP_OTHER = "127.0.0.1", 5225
-UDP_OTHER = "192.168.4.99", 5225
+UDP_OTHER = "192.168.4.2", 5225
 
 print ("connecting....")
 this_addr = usocket.getaddrinfo(*UDP_THIS)[0][-1]
@@ -36,9 +36,15 @@ imagen_base = nave.image
 print("nave!", hex(nave.image))
 imagen_nave = 0
 
-for n in range(10, 16):
+malos = []
+
+for n in range(11, 10+6):
     otra = spritelib.get_sprite(n, None, 16, 16, 2)
-    print("otra nave!", n, hex(otra.image_data))
+    otra.enabled = True
+    otra.y = n * 3
+    malos.append(otra)
+    #otra.x = (n - 10) * 16
+    #otra.y = 30 + (n-10) * 4
 
 
 def sock_send(what):
@@ -136,6 +142,7 @@ def process(b):
     if not accel and not decel:
         nave.y = 0
 
+
     #text = "\r{0} {2} {1} {3} {4}   ".format(direction, boton, int(nave.x), decel, accel)
     #sock_send(bytes(text, "utf-8"))
     #print(text, end="")
@@ -152,6 +159,12 @@ def loop():
         except OSError:
             if last_b:
                 process(last_b)
+
+        for otra in malos:
+            otra.y = otra.y - 1
+            if otra.y < 0:
+                otra.y = 127
+
         utime.sleep_ms(15)
 
 loop()
