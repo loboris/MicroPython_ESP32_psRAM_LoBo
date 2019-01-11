@@ -370,7 +370,7 @@ void np_show(pixel_settings_t *px, rmt_channel_t channel)
 	RMT.conf_ch[RMTchannel].conf1.tx_start = 1;
 
 	// Wait for operation to finish
-	if (xSemaphoreTake(neopixel_sem, 0) == pdTRUE) {
+	if (xSemaphoreTake(neopixel_sem, 0) == pdFALSE) {
 		xSemaphoreTake(neopixel_sem, portMAX_DELAY);
 	}
 	xSemaphoreGive(neopixel_sem);
