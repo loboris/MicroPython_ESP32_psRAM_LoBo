@@ -70,6 +70,7 @@ static const char* const display_types[] = {
     "ST7789V",
     "ST7735",
     "ST7735R",
+    "ST7735R144G",
     "ST7735B",
     "M5STACK",
     "Unknown",
@@ -109,8 +110,21 @@ STATIC void display_tft_printinfo(const mp_print_t *print, mp_obj_t self_in, mp_
     display_tft_obj_t *self = self_in;
     if (self->disp_spi->handle) {
         mp_printf(print, "TFT   (%dx%d, Type=%s, Ready: %s, Color mode: %d-bit, Clk=%u Hz, RdClk=%u Hz, Touch: %s)\n",
-                self->dconfig.width, self->dconfig.height, display_types[self->dconfig.type], ((self->disp_spi->handle) ? "yes" : "no"), self->dconfig.color_bits, self->dconfig.speed, self->dconfig.rdspeed, ((self->ts_spi->handle) ? "yes" : "no"));
-        mp_printf(print, "Pins  (miso=%d, mosi=%d, clk=%d, cs=%d, dc=%d, reset=%d, backlight=%d)", self->dconfig.miso, self->dconfig.mosi, self->dconfig.sck, self->dconfig.cs, self->dconfig.dc, self->dconfig.rst, self->dconfig.bckl);
+                self->dconfig.width, 
+                self->dconfig.height, 
+                display_types[self->dconfig.type], 
+               ((self->disp_spi->handle) ? "yes" : "no"), 
+                self->dconfig.color_bits, 
+                self->dconfig.speed, 
+                self->dconfig.rdspeed, ((self->ts_spi->handle) ? "yes" : "no"));
+        mp_printf(print, "Pins  (miso=%d, mosi=%d, clk=%d, cs=%d, dc=%d, reset=%d, backlight=%d)",                  self->dconfig.miso, 
+                  self->dconfig.mosi, 
+                  self->dconfig.sck, 
+                  self->dconfig.cs, 
+                  self->dconfig.dc, 
+                  self->dconfig.rst, 
+                  self->dconfig.bckl);
+
         if (self->ts_spi->handle) {
             mp_printf(print, "\nTouch (Enabled, type: %s, cs=%d)", touch_types[self->dconfig.touch], self->dconfig.tcs);
         }
@@ -261,6 +275,7 @@ STATIC mp_obj_t display_tft_init(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
         if ((self->dconfig.type == DISP_TYPE_ST7789V) ||
                 (self->dconfig.type == DISP_TYPE_ST7735) ||
                 (self->dconfig.type == DISP_TYPE_ST7735R) ||
+                (self->dconfig.type == DISP_TYPE_ST7735R144G) ||
                 (self->dconfig.type == DISP_TYPE_ST7735B)) self->dconfig.invrot = 1;
         else if (self->dconfig.type == DISP_TYPE_M5STACK) self->dconfig.invrot = 3;
         else self->dconfig.invrot = 0;
@@ -1632,6 +1647,7 @@ STATIC const mp_rom_map_elem_t display_tft_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_ILI9488),             MP_ROM_INT(DISP_TYPE_ILI9488) },
     { MP_ROM_QSTR(MP_QSTR_ST7735),              MP_ROM_INT(DISP_TYPE_ST7735) },
     { MP_ROM_QSTR(MP_QSTR_ST7735R),             MP_ROM_INT(DISP_TYPE_ST7735R) },
+    { MP_ROM_QSTR(MP_QSTR_ST7735R144G),         MP_ROM_INT(DISP_TYPE_ST7735R144G) },
     { MP_ROM_QSTR(MP_QSTR_ST7735B),             MP_ROM_INT(DISP_TYPE_ST7735B) },
     { MP_ROM_QSTR(MP_QSTR_M5STACK),             MP_ROM_INT(DISP_TYPE_M5STACK) },
     { MP_ROM_QSTR(MP_QSTR_GENERIC),             MP_ROM_INT(DISP_TYPE_GENERIC) },

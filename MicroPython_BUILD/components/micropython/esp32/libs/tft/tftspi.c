@@ -1251,6 +1251,12 @@ esp_err_t TFT_display_init(display_config_t *dconfig)
         commandList(Rcmd2green);
         commandList(Rcmd3);
     }
+    else if (tft_disp_type == DISP_TYPE_ST7735R144G) {
+        //ESP_LOGW(TAG, "Display type DISP_TYPE_ST7735R144G.");
+        commandList(STP7735R_init);
+        commandList(Rcmd2green144);
+        commandList(Rcmd3);
+    }
     else if (tft_disp_type == DISP_TYPE_ST7735B) {
         commandList(STP7735R_init);
         commandList(Rcmd2red);

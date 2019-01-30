@@ -91,15 +91,16 @@ typedef struct __attribute__((__packed__)) {
 #define PORTRAIT_FLIP	2
 #define LANDSCAPE_FLIP	3
 
-#define DISP_TYPE_ILI9341	0
-#define DISP_TYPE_ILI9488	1
-#define DISP_TYPE_ST7789V	2
-#define DISP_TYPE_ST7735	3
-#define DISP_TYPE_ST7735R	4
-#define DISP_TYPE_ST7735B	5
-#define DISP_TYPE_M5STACK	6
-#define DISP_TYPE_GENERIC	7
-#define DISP_TYPE_MAX		8
+#define DISP_TYPE_ILI9341     0
+#define DISP_TYPE_ILI9488     1
+#define DISP_TYPE_ST7789V     2
+#define DISP_TYPE_ST7735      3
+#define DISP_TYPE_ST7735R     4
+#define DISP_TYPE_ST7735R144G 5 // ST7735 1.44" GREEN TAB
+#define DISP_TYPE_ST7735B     6
+#define DISP_TYPE_M5STACK     7
+#define DISP_TYPE_GENERIC     8
+#define DISP_TYPE_MAX         9
 
 #define DEFAULT_TFT_DISPLAY_WIDTH  240
 #define DEFAULT_TFT_DISPLAY_HEIGHT 320
@@ -484,7 +485,9 @@ static const uint8_t STP7735_init[] = {
 // Init for 7735R, part 1 (red or green tab)
 // --------------------------------------
 static const uint8_t  STP7735R_init[] = {
-  14,                       // 14 commands in list
+  15,                       // 15 commands in list
+  ST7735_SWRESET, TFT_CMD_DELAY, // 1: Software reset, 0 args, w/delay
+  150,                          // 150 ms delay
   ST7735_SLPOUT ,   TFT_CMD_DELAY,	//  2: Out of sleep mode, 0 args, w/delay
   255,						//     500 ms delay
   ST7735_FRMCTR1, 3      ,	//  3: Frame rate ctrl - normal mode, 3 args:
@@ -530,6 +533,18 @@ static const uint8_t Rcmd2green[] = {
   TFT_PASET  , 4      ,	    //  2: Row addr set, 4 args, no delay:
   0x00, 0x01,				//     XSTART = 0
   0x00, 0x9F+0x01			//     XEND = 160
+};
+
+// Init for 7735R, part 2 (green tab, 1.44")
+// -----------------------------------------
+static const uint8_t Rcmd2green144[] = {
+  2,                        // 2 commands in list:
+  TFT_CASET , 4 ,           // 1: Column addr set, 4 args, no delay:
+    0x00, 0x00,             //    XSTART = 2
+    0x00, 0x7F,             //    XEND   = 127
+  TFT_PASET , 4 ,           // 2: Row addr set, 4 args, no delay:
+    0x00, 0x00,             //    XSTART = 3
+    0x00, 0x7F,             //    XEND = 127 
 };
 
 // Init for 7735R, part 2 (red tab only)
