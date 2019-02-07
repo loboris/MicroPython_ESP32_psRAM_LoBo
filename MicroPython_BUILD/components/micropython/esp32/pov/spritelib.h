@@ -2,17 +2,35 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef uint8_t byte;
-
 typedef struct {
-  const byte* image;
-  byte x;
+  uint8_t x;
   int8_t y;
-  byte w; // width
-  byte h; // height
-  byte frame;
-  bool enabled;
+  uint8_t image_strip;
+  int8_t frame;
+  //const byte* image;
+  //byte x;
+  //int8_t y;
+  //byte w; // width
+  //byte h; // height
+  //byte frame;
+  //bool enabled;
 } Sprite;
 
-#define NUM_SPRITES 48
+uint8_t sprite_h(Sprite* s); // height
+uint8_t sprite_w(Sprite* s); // width
+
+typedef struct {
+  const uint8_t width;
+  const uint8_t height;
+  const uint8_t frames;
+  const uint8_t palette;
+  const uint8_t data[];
+} ImageStrip;
+
+#define NUM_SPRITES 64
 extern Sprite sprites[NUM_SPRITES];
+
+#define NUM_IMAGES 16
+extern ImageStrip *image_stripes[NUM_IMAGES];
+
+const int8_t DISABLED_FRAME = -1;
