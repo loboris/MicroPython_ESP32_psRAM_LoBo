@@ -7,13 +7,6 @@ typedef struct {
   int8_t y;
   uint8_t image_strip;
   int8_t frame;
-  //const byte* image;
-  //byte x;
-  //int8_t y;
-  //byte w; // width
-  //byte h; // height
-  //byte frame;
-  //bool enabled;
 } Sprite;
 
 uint8_t sprite_h(Sprite* s); // height
