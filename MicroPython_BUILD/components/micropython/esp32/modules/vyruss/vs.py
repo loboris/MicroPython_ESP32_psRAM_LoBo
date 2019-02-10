@@ -40,7 +40,7 @@ malos = []
 
 for n in range(11, 10+6):
     otra = spritelib.get_sprite(n, None, 16, 16, 2)
-    otra.enabled = True
+    otra.frame = 0
     otra.y = n * 3
     malos.append(otra)
     #otra.x = (n - 10) * 16
@@ -128,12 +128,13 @@ def process(b):
     if where is not None:
         step(where)
 
-    if (boton and not disparo.enabled):
+    if (boton and disparo.frame == DISABLED_FRAME):
         global imagen_nave
         imagen_nave = (imagen_nave + 1) % 6
-        nave.image = imagen_base + imagen_nave * (16*16*2)
+        #nave.image = imagen_base + imagen_nave * (16*16*2)
+        nave.frame = imagen_nave
 
-    disparo.enabled = boton
+    disparo.frame = 0 if boton else DISABLED_FRAME
 
     if accel:
         nave.y -=1
