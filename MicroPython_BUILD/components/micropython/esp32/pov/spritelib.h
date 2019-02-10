@@ -13,9 +13,9 @@ uint8_t sprite_h(Sprite* s); // height
 uint8_t sprite_w(Sprite* s); // width
 
 typedef struct {
-  const uint8_t width;
-  const uint8_t height;
-  const uint8_t frames;
+  const uint8_t frame_width;
+  const uint8_t frame_height;
+  const uint8_t total_frames;
   const uint8_t palette;
   const uint8_t data[];
 } ImageStrip;

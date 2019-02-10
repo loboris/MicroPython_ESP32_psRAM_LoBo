@@ -42,14 +42,6 @@ typedef struct {
 } Star;
 Star starfield[STARS];
 
-inline uint8_t sprite_h(Sprite* s) {
-    return image_stripes[s->image_strip]->height;
-}
-
-inline uint8_t sprite_w(Sprite* s) {
-    return image_stripes[s->image_strip]->width;
-}
-
 int random(int max) {
     return esp_random() % max;
 }
@@ -83,9 +75,10 @@ void init_sprites() {
     }
     for (int n = 0; n<6; n++) {
         Sprite* s = &sprites[10 + n + 6*i];
+        uint8_t height = image_stripes[im]->frame_height;
   
         s->x = x; x+=w+1;
-        s->y = PIXELS - sprite_h(s) + n;
+        s->y = PIXELS - height + n;
         s->image_strip = im;
         s->frame = n * 2;
     }
@@ -150,17 +143,20 @@ void render(int x) {
   // el sprite 0 se dibuja arriba de todos los otros
   for (int n=NUM_SPRITES-1; n>=0; n--) {
     Sprite* s = &sprites[n%NUM_SPRITES];
+    ImageStrip* is = image_stripes[s->image_strip];
     if (s->frame == DISABLED_FRAME) {
       continue;
     }
-    int visible_column = get_visible_column(s->x, sprite_w(s), x);
+    uint8_t width = is->frame_width;
+    int visible_column = get_visible_column(s->x, width, x);
     if (visible_column != -1) {
+      uint8_t height = is->frame_height;
       int desde = MAX(s->y, 0);
-      int hasta = MIN(s->y + sprite_h(s), ROWS-1);
+      int hasta = MIN(s->y + height, ROWS-1);
       int comienzo = MAX(-s->y, 0);
-      int base = visible_column * sprite_h(s) + (s->frame * sprite_w(s) * sprite_h(s));
+      int base = visible_column * height + (s->frame * width * height);
+      const uint8_t* imagen = is->data + base + comienzo;
 
-      const uint8_t* imagen = image_stripes[s->image_strip]->data + base + comienzo;
       for(int y=desde; y<hasta; y++, imagen++) {
         uint8_t color = *imagen;
         if (color != TRANSPARENT) {
