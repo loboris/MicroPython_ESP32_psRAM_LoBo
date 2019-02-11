@@ -75,8 +75,6 @@ int color = 0;
 uint32_t count = 0;
 
  
-static xQueueHandle gpio_evt_queue = NULL;
-
 static void IRAM_ATTR hall_sensed(void* arg)
 {
     int64_t this_turn = esp_timer_get_time();
@@ -84,21 +82,6 @@ static void IRAM_ATTR hall_sensed(void* arg)
     if (this_turn_duration > FASTEST_CREDIBLE_TURN) {
         last_turn_duration = this_turn_duration;
         last_turn = this_turn;
-    }
-    //uint32_t gpio_num = (uint32_t) GPIO_HALL;
-    //xQueueSendFromISR(gpio_evt_queue, &column_duration, NULL);
-}
-
-
-static void gpio_task_example(void* arg)
-{
-    printf("gpio_task_example running on core %d\n", xPortGetCoreID());
-    uint32_t turn_duration;
-    for(;;) {
-        if(xQueueReceive(gpio_evt_queue, &turn_duration, portMAX_DELAY)) {
-            printf("==================running on core %d\n", xPortGetCoreID());
-            printf("==================new turn duration: %u\n", turn_duration);
-        }
     }
 }
 
@@ -197,9 +180,6 @@ void coreTask( void * pvParameters ){
 STATIC mp_obj_t povsprites_init(mp_obj_t num_pixels, mp_obj_t columns, mp_obj_t num_sprites) {
     spi_init(mp_obj_get_int(num_pixels));
     printf("creating task, running on core %d\n", xPortGetCoreID());
-
-    //gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
-    //xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
 
     xTaskCreatePinnedToCore(
             coreTask,   /* Function to implement the task */
