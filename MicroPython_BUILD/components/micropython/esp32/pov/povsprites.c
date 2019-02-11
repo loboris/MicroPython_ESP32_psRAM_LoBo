@@ -1,5 +1,6 @@
 #include "py/nlr.h"
 #include "py/obj.h"
+#include "py/objstr.h"
 #include "py/runtime.h"
 #include "py/binary.h"
 
@@ -97,18 +98,15 @@ void hall_init() {
 }
 
 
-//char buf[4000];
-STATIC mp_obj_t povsprites_setcolor(mp_obj_t new_color) {
-    color = mp_obj_get_int(new_color) % 4;
-    uint32_t retval = count;
-    count = 0;
+STATIC mp_obj_t povsprites_set_imagestrip(mp_obj_t strip_number, mp_obj_t strip_data) {
+    int strip_nr = mp_obj_get_int(strip_number);
+    char* strip_data_ptr = mp_obj_str_get_str(strip_data);
 
-    //vTaskGetRunTimeStats(buf);
-    //printf(buf);
+    image_stripes[strip_nr] = (ImageStrip *)strip_data_ptr;
 
-    return mp_obj_new_int(retval);
+    return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(povsprites_setcolor_obj, povsprites_setcolor);
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(povsprites_set_imagestrip_obj, povsprites_set_imagestrip);
  
 //#define BIFLEN 10000
 //uint32_t biff[BIFLEN];
@@ -177,8 +175,9 @@ void coreTask( void * pvParameters ){
  
 }
 
-STATIC mp_obj_t povsprites_init(mp_obj_t num_pixels, mp_obj_t columns, mp_obj_t num_sprites) {
+STATIC mp_obj_t povsprites_init(mp_obj_t num_pixels, mp_obj_t palette) {
     spi_init(mp_obj_get_int(num_pixels));
+    palette_pal = (uint32_t *) mp_obj_str_get_str(palette);
     printf("creating task, running on core %d\n", xPortGetCoreID());
 
     xTaskCreatePinnedToCore(
@@ -192,21 +191,7 @@ STATIC mp_obj_t povsprites_init(mp_obj_t num_pixels, mp_obj_t columns, mp_obj_t 
     printf("task created...\n");
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(povsprites_init_obj, povsprites_init);
-
-STATIC mp_obj_t povsprites_sprite_x(mp_obj_t sprite_num, mp_obj_t x) {
-    int num = mp_obj_get_int(sprite_num);
-    sprites[num].x = mp_obj_get_int(x);
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(povsprites_sprite_x_obj, povsprites_sprite_x);
-
-STATIC mp_obj_t povsprites_sprite_y(mp_obj_t sprite_num, mp_obj_t y) {
-    int num = mp_obj_get_int(sprite_num);
-    sprites[num].y = mp_obj_get_int(y);
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(povsprites_sprite_y_obj, povsprites_sprite_y);
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(povsprites_init_obj, povsprites_init);
 
 STATIC mp_obj_t povsprites_getaddress(mp_obj_t sprite_num) {
     int num = mp_obj_get_int(sprite_num);
@@ -218,9 +203,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(povsprites_getaddress_obj, povsprites_getaddres
 STATIC const mp_map_elem_t povsprites_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_povsprites) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_init), (mp_obj_t)&povsprites_init_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_setcolor), (mp_obj_t)&povsprites_setcolor_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_sprite_x), (mp_obj_t)&povsprites_sprite_x_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_sprite_y), (mp_obj_t)&povsprites_sprite_y_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_set_imagestrip), (mp_obj_t)&povsprites_set_imagestrip_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_getaddress), (mp_obj_t)&povsprites_getaddress_obj },
 };
 

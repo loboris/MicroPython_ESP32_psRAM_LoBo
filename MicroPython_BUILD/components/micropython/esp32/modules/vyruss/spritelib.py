@@ -1,5 +1,6 @@
 import povsprites
 import uctypes
+import imagenes
 
 sprite_struct = {
     "x": uctypes.UINT8 | 0,
@@ -10,21 +11,16 @@ sprite_struct = {
 
 PIXELS=52
 DISABLED_FRAME = -1
-SPRITES=-1
-COLUMNS=-1
 
-povsprites.init(PIXELS, COLUMNS, SPRITES)
+povsprites.init(PIXELS, imagenes.palette_pal)
 
-def set_palette(palette):
-    povsprites.set_palette(palette)
-
-def get_sprite(num_sprite, pixmap, width, height, frames):
+def create_sprite(num_sprite):
     data = povsprites.getaddress(num_sprite)
     sp = uctypes.struct(data, sprite_struct) #, uctypes.LITLE_ENDIAN)
-    #sp.image = uctypes.addressof(pixmap)
-    #sp.width = width
-    #sp.height = height
     return sp
 
+def set_imagestrip(n, stripmap):
+    povsprites.set_imagestrip(n, stripmap)
+
 def debug(s):
-    print("nave@%x (%d,%d,%d,%d) %d %x" % (s.image, s.x, s.y, s.width, s.height, s.frame, s.enabled))
+    print("nave@%d (%d,%d,%d,%d) %d" % (s.image_strip, s.x, s.y, 0, 0, s.frame))

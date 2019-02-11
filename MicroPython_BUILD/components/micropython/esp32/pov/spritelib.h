@@ -9,9 +9,6 @@ typedef struct {
   int8_t frame;
 } Sprite;
 
-uint8_t sprite_h(Sprite* s); // height
-uint8_t sprite_w(Sprite* s); // width
-
 typedef struct {
   const uint8_t frame_width;
   const uint8_t frame_height;
@@ -26,4 +23,5 @@ extern Sprite sprites[NUM_SPRITES];
 #define NUM_IMAGES 16
 extern ImageStrip *image_stripes[NUM_IMAGES];
 
-const int8_t DISABLED_FRAME = -1;
+static const int8_t DISABLED_FRAME = -1;
+extern uint32_t* palette_pal;

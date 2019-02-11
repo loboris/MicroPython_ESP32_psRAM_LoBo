@@ -12,27 +12,12 @@ const uint8_t TRANSPARENT = 0xFF;
 uint8_t deepspace[] = {51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 35, 34, 33, 32, 31, 30, 30, 29, 28, 27, 27, 26, 25, 25, 24, 23, 23, 22, 21, 21, 20, 19, 19, 18, 18, 17, 17, 16, 16, 15, 15, 14, 14, 13, 13, 12, 12, 11, 11, 11, 10, 10, 9, 9, 9, 8, 8, 8, 7, 7, 7, 6, 6, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 
-extern const uint32_t palette_pal[];
-extern const ImageStrip galaga_8_png;
-extern const ImageStrip explosion_png[];
-extern const ImageStrip galaga_10_png[];
-extern const ImageStrip galaga_png[];
-extern const ImageStrip disparo_png[];
 extern uint32_t* pixels;
 
 Sprite sprites[NUM_SPRITES];
-Sprite* nave = &sprites[0];
-Sprite* disparo = &sprites[1];
 
-ImageStrip *image_stripes[NUM_IMAGES] = {
-    (ImageStrip*) &galaga_png,
-    (ImageStrip*) &galaga_8_png,
-    (ImageStrip*) &galaga_10_png,
-    (ImageStrip*) &explosion_png,
-    (ImageStrip*) &disparo_png,
-};
-
-enum stripes { GALAGA, GALAGA8, GALAGA10, EXPLOSION, DISPARO };
+uint32_t* palette_pal;
+ImageStrip *image_stripes[NUM_IMAGES];
 
 #define STARS COLUMNS/2
 
@@ -53,55 +38,23 @@ void init_sprites() {
     starfield[f].y = random(PIXELS);
   }
 
-  int x = 16;
 
-  for (int i = 0; i<3; i++) {
-    int w;
-    int im;
-    switch(i) {
-      default:
-      case 0:
-        w = 16;
-        im = GALAGA;
-        break;
-      case 1:
-        w = 10;
-        im = GALAGA10;
-        break;
-      case 2:
-        w = 8;
-        im = GALAGA8;
-        break;
-    }
-    for (int n = 0; n<6; n++) {
-        Sprite* s = &sprites[10 + n + 6*i];
-        uint8_t height = image_stripes[im]->frame_height;
-  
-        s->x = x; x+=w+1;
-        s->y = PIXELS - height + n;
-        s->image_strip = im;
-        s->frame = n * 2;
-    }
+  for (int i = 0; i < NUM_SPRITES; i++) {
+    sprites[i].x = 0;
+    sprites[i].y = 0;
+    sprites[i].image_strip = 0;
+    sprites[i].frame = DISABLED_FRAME;
   }
-
-
-  disparo->x = 48;
-  disparo->y = 12;
-  disparo->image_strip = DISPARO;
-  disparo->frame = DISABLED_FRAME;
-
-  nave->x = 256-8;
-  nave->y = 0;
-  nave->image_strip = GALAGA; // w*h*skip_imgs*frames
-  nave->frame = 0;
 
 }
 
 void step() {
+  /*
   for (int n = 0; n<40; n++) {
       Sprite* s = &sprites[n];
       s->frame = (s->frame+1) % 2;
   }
+  */
 }
 
 void step_starfield() {

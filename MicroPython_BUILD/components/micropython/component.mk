@@ -182,7 +182,6 @@ SRC_C =  $(addprefix esp32/,\
 	pov/povsprites.c \
 	pov/minispi.c \
 	pov/spritelib.c \
-	pov/rawfiles.c \
 	machine_hw_i2c.c \
 	machine_neopixel.c \
 	machine_dht.c \

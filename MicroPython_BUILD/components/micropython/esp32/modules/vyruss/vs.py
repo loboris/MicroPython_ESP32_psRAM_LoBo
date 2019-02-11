@@ -17,6 +17,7 @@ except:
 UDP_THIS = "0.0.0.0", 5005
 #UDP_OTHER = "127.0.0.1", 5225
 UDP_OTHER = "192.168.4.2", 5225
+DISABLED_FRAME = -1
 
 print ("connecting....")
 this_addr = usocket.getaddrinfo(*UDP_THIS)[0][-1]
@@ -28,23 +29,38 @@ sock.bind(this_addr)
 
 print ("connected!!!")
 
-nave = spritelib.get_sprite(0, imagenes.galaga_png, width=16, height=16, frames=2)
-disparo = spritelib.get_sprite(1, imagenes.disparo_png, width=3, height=5, frames=1)
+# init images
+spritelib.set_imagestrip(0, imagenes.galaga_png)
+spritelib.set_imagestrip(1, imagenes.galaga_alt8_png)
+spritelib.set_imagestrip(2, imagenes.galaga_alt10_png)
+spritelib.set_imagestrip(3, imagenes.disparo_png)
+
+# init nave
+nave = spritelib.create_sprite(0)
+nave.image_strip = 0
+nave.frame = 0
+nave.x = 256 - 8
+nave.y = 0
+
+# init disparo
+disparo = spritelib.create_sprite(1)
+disparo.image_strip = 3
+disparo.x = 48
+disparo.y = 12
+
 spritelib.debug(nave)
 
-imagen_base = nave.image
-print("nave!", hex(nave.image))
 imagen_nave = 0
 
 malos = []
 
-for n in range(11, 10+6):
-    otra = spritelib.get_sprite(n, None, 16, 16, 2)
-    otra.frame = 0
-    otra.y = n * 3
-    malos.append(otra)
-    #otra.x = (n - 10) * 16
-    #otra.y = 30 + (n-10) * 4
+for n in range(5):
+    malo = spritelib.create_sprite(n + 10)
+    malo.image_strip = 0
+    malo.frame = (n + 1) * 2
+    malo.y = (n + 11) * 3
+    malo.x = (n + 1) * 17
+    malos.append(malo)
 
 
 def sock_send(what):
@@ -163,7 +179,7 @@ def loop():
 
         for otra in malos:
             otra.y = otra.y - 1
-            if otra.y < 0:
+            if otra.y < -32:
                 otra.y = 127
 
         utime.sleep_ms(15)
