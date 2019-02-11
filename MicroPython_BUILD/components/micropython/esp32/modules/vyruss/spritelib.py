@@ -6,12 +6,6 @@ sprite_struct = {
     "y": uctypes.INT8 | 1,
     "image_strip": uctypes.UINT8 | 2,
     "frame": uctypes.INT8 | 3,
-#    "image_data": (uctypes.PTR | 0, uctypes.UINT8),
-#    "image": uctypes.UINT32 | 0,
-#    "width": uctypes.UINT8 | 6,
-#    "height": uctypes.UINT8 | 7,
-#    "frame": uctypes.UINT8 | 8,
-#    "enabled": uctypes.UINT8 | 9,
 }
 
 PIXELS=52
