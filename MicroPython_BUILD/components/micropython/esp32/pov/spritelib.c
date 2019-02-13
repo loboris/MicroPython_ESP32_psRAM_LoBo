@@ -75,13 +75,13 @@ int inline get_visible_column(int sprite_x, int sprite_width, int render_column)
     }
 }
 
-void render(int x) {
-  x = x % COLUMNS;
+void render(int column) {
+  column = column % COLUMNS;
   for (int y=0; y<PIXELS; y++) {
     pixels[y] = 0x000000ff;
   }
   for (int f=0; f<STARS; f++) {
-    if (starfield[f].x == x) {
+    if (starfield[f].x == column) {
       pixels[starfield[f].y] = 0x040404ff;
     }
   }
@@ -101,7 +101,7 @@ void render(int x) {
       continue;
     }
     uint8_t width = is->frame_width;
-    int visible_column = get_visible_column(s->x, width, x);
+    int visible_column = get_visible_column(s->x, width, column);
     if (visible_column != -1) {
       uint8_t height = is->frame_height;
       int desde = MAX(s->y, 0);
