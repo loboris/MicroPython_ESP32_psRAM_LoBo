@@ -111,7 +111,7 @@ class PygletEngine():
                 return -1
 
         def render(column):
-            pixels = [0xFF000000] * led_count
+            pixels = [0x00000000] * led_count
 
             # el sprite 0 se dibuja arriba de todos los otros
             for n in range(63, -1, -1):
