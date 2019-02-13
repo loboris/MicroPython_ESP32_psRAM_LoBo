@@ -69,7 +69,7 @@ else:
     iterator = file_iterator(f)
     vsync = lambda: f.seek(0)
 
-led_count = 50
+led_count = 52
 if len(sys.argv) >= 3:
     led_count = int(sys.argv[2])
 
