@@ -3,9 +3,8 @@ import socketserver
 import sys
 import threading
 from itertools import cycle
-from pygletengine import PygletEngine
+from pygletengine import PygletEngine, image_stripes, palette, spritedata
 
-image_stripes = {}
 
 LED_COUNT = 52
 LISTEN_IP = "0.0.0.0"
@@ -47,7 +46,10 @@ class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
     def handle(self):
         slot = self.rfile.readline().strip()
         data = bytes(self.rfile.read())
-        image_stripes[slot] = data
+        if slot == "pal":
+            palette = data
+        else:
+            image_stripes[slot] = data
         self.wfile.write(b"OK")
         self.finish()
         print(image_stripes)

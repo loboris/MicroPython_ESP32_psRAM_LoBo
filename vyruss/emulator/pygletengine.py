@@ -3,7 +3,11 @@ from pyglet.gl import *
 from pyglet.window import key
 from struct import pack, unpack
 
-window = pyglet.window.Window(config=Config(double_buffer=False))
+import imagenes
+image_stripes = {"0": imagenes.galaga_png}
+spritedata = b"\0\0\0\0" * 64
+
+window = pyglet.window.Window(config=Config(double_buffer=True))
 
 LED_DOT = 4
 LED_SIZE = min(window.width, window.height) / 1.9
@@ -31,6 +35,15 @@ key_release = {
     key.SPACE: b's',
 }
 
+def change_colors(colors):
+    # byteswap all longs
+    fmt_unpack = "<" + "L" * (len(colors)//4)
+    fmt_pack = ">" + "L" * (len(colors)//4)
+    b = unpack(fmt_unpack, colors)
+    return pack(fmt_pack, *b)
+
+palette = change_colors(imagenes.palette_pal)
+
 
 class PygletEngine():
     def __init__(self, led_count, line_iterator, vsync, keyhandler, revs_per_second):
@@ -41,8 +54,6 @@ class PygletEngine():
         self.keyhandler = keyhandler
         self.revs_per_second = revs_per_second
         led_step = int(LED_SIZE / led_count)
-        self.fmt_pack = "<" + "L" * led_count
-        self.fmt_unpack = "<" + "L" * led_count
 
         vertex_pos = []
         for i in range(led_count):
@@ -66,59 +77,25 @@ class PygletEngine():
             if symbol in key_release:
                 self.keyhandler(key_release[symbol])
 
-        pyglet.clock.schedule_interval(self.update, 1/10000)
-        self.loop()
+        self.i = 0
+        def render(column):
+            self.i = (self.i+1) % (204*4)
+            return palette[self.i:self.i+led_count*4]
 
-    def loop(self):
-        #pyglet.app.run()
-        while True:
-            pyglet.clock.tick()
-            window.dispatch_events()
+        @window.event
+        def on_draw():
+            window.clear()
 
-    def get_colors(self):
-        return next(self.line_iterator)
+            angle = 360.0 / 256.0
 
-    def draw_black(self):
-        glColor4f(0, 0, 0, 0.005)
-        pyglet.graphics.draw_indexed(4, pyglet.gl.GL_TRIANGLES,
-                                     [0, 1, 2, 0, 2, 3],
-                                     ('v2i', (R_ALPHA, -R_ALPHA,
-                                              R_ALPHA, R_ALPHA,
-                                              -R_ALPHA, R_ALPHA,
-                                              -R_ALPHA, -R_ALPHA)))
+            pyglet.gl.glPointSize(LED_DOT)
+            for column in range(256):
+                self.vertex_list.colors[:] = render(column)
+                self.vertex_list.draw(GL_POINTS)
+                glRotatef(angle, 0, 0, 1)
 
-    def change_colors(self, colors):
-        # byteswap all longs
-        b = unpack(self.fmt_unpack, colors)
-        colors = pack(self.fmt_pack, *b)
+        def x(dt):
+            pass
 
-        self.vertex_list.colors[:] = colors
-        return
-
-    def update(self, dt):
-        angle = 360 * self.revs_per_second * dt
-
-        colors = c2 = self.get_colors()
-        while c2:
-            colors = c2
-            c2 = self.get_colors()
-        if colors:
-            self.change_colors(colors)
-
-        self.draw_black()
-        pyglet.gl.glPointSize(LED_DOT)
-
-        ROT=4
-        frac_angle = -angle/ROT
-        for n in range(ROT):
-            self.vertex_list.draw(GL_POINTS)
-            glRotatef(frac_angle, 0, 0, 1)
-
-        self.total_angle += angle
-
-        if self.total_angle > 360:
-            self.vsync()
-            self.total_angle -= 360
-
-        glFlush()
-
+        pyglet.clock.schedule_interval(x, 1/30.0)
+        pyglet.app.run()
