@@ -7,11 +7,13 @@ fps_display = pyglet.clock.ClockDisplay()
 
 import imagenes
 image_stripes = {"0": imagenes.galaga_png}
-spritedata = bytearray(b"\0\0\0\0\x10\0\0\2\x20\0\0\4\x30\0\0\6\x40\0\0\x08\x50\0\0\x0A" * 16)
+spritedata = bytearray(b"\0\0\0\0\x10\0\0\2\x20\0\0\4\x30\0\0\6\x40\0\0\x08\x50\0\0\x0A"
++ b"\0\0\0\xff" * 58)
 
-window = pyglet.window.Window(config=Config(double_buffer=True))
+window = pyglet.window.Window(config=Config(double_buffer=True), fullscreen=True)
+keys = key.KeyStateHandler()
 
-LED_DOT = 4
+LED_DOT = 6
 LED_SIZE = min(window.width, window.height) / 1.9
 R_ALPHA = max(window.height, window.width)
 ROWS = 128
@@ -29,23 +31,6 @@ glLoadIdentity()
 glEnable(GL_BLEND)
 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 glTranslatef(window.width / 2, window.height / 2, 0)
-
-
-key_press = {
-    key.LEFT: b'L',
-    key.RIGHT: b'R',
-    key.UP: b'U',
-    key.DOWN: b'D',
-    key.SPACE: b'S',
-}
-
-key_release = {
-    key.LEFT: b'l',
-    key.RIGHT: b'r',
-    key.UP: b'u',
-    key.DOWN: b'd',
-    key.SPACE: b's',
-}
 
 def change_colors(colors):
     # byteswap all longs
@@ -67,13 +52,11 @@ upalette = unpack_palette(palette)
 
 
 class PygletEngine():
-    def __init__(self, led_count, line_iterator, vsync, keyhandler, revs_per_second):
+    def __init__(self, led_count, keyhandler):
         self.led_count = led_count
-        self.line_iterator = line_iterator
         self.total_angle = 0
-        self.vsync = vsync
+        self.last_sent = 0
         self.keyhandler = keyhandler
-        self.revs_per_second = revs_per_second
         led_step = int(LED_SIZE / led_count)
 
         vertex_pos = []
@@ -87,16 +70,23 @@ class PygletEngine():
 
         glRotatef(180, 0, 0, 1)
 
+        
+        def send_keys():
+            left = keys[key.LEFT]
+            right = keys[key.RIGHT]
+            up = keys[key.UP]
+            down = keys[key.DOWN]
 
-        @window.event
-        def on_key_press(symbol, modifiers):
-            if symbol in key_press:
-                self.keyhandler(key_press[symbol])
+            boton = keys[key.SPACE]
+            accel = keys[key.A]
+            decel = keys[key.D]
 
-        @window.event
-        def on_key_release(symbol, modifiers):
-            if symbol in key_release:
-                self.keyhandler(key_release[symbol])
+            val = (left << 0 | right << 1 | up << 2 | down << 3 | boton << 4 |
+                    accel << 5 | decel << 6)
+
+            if val != self.last_sent:
+                self.keyhandler(bytes([val]))
+                self.last_sent = val
 
         self.i = 0
         def render_anim(column):
@@ -119,9 +109,11 @@ class PygletEngine():
                 if frame == -1:
                     continue
 
-                strip = image_stripes[str(image)]
-                w, h, tf, p = unpack("BBBB", strip[0:4])
+                strip = image_stripes["%d" % image]
+                w, h, total_frames, _pal = unpack("BBBB", strip[0:4])
                 pixeldata = memoryview(strip)[4:]
+
+                frame %= total_frames
 
                 visible_column = get_visible_column(x, w, column)
                 if visible_column != -1:
@@ -143,7 +135,7 @@ class PygletEngine():
         def on_draw():
             window.clear()
 
-            angle = 360.0 / 256.0
+            angle = -(360.0 / 256.0)
 
             pyglet.gl.glPointSize(LED_DOT)
             for column in range(256):
@@ -151,17 +143,21 @@ class PygletEngine():
                 self.vertex_list.draw(GL_POINTS)
                 glRotatef(angle, 0, 0, 1)
 
-            #fps_display.draw()
+            fps_display.draw()
 
-        def x(dt):
-            spritedata[1] = (spritedata[1] + 1) % 256
-            spritedata[5] = (spritedata[5] + 1) % 256
-            spritedata[9] = (spritedata[9] + 1) % 256
-            spritedata[13] = (spritedata[13] + 1) % 256
-            spritedata[17] = (spritedata[17] + 1) % 256
-            spritedata[21] = (spritedata[21] + 1) % 256
-            spritedata[25] = (spritedata[25] + 1) % 256
-            spritedata[29] = (spritedata[29] + 1) % 256
+        def animate(dt):
+            send_keys()
+            return
+            "FIXME"
+            for n in range(6):
+                val = spritedata[n*4 + 1] - n
+                if (val > 127 and val < 200):
+                    #val = 256 - 16
+                    val = 127
+                spritedata[n*4 + 1] = val % 256
+                spritedata[n*4] = (spritedata[n*4] + n - 3) % 256
 
-        pyglet.clock.schedule_interval(x, 1/30.0)
+        pyglet.clock.schedule_interval(animate, 1/30.0)
         pyglet.app.run()
+
+window.push_handlers(keys)

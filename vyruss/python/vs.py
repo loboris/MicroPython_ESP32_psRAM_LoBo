@@ -2,6 +2,7 @@ import imagenes
 import spritelib
 import usocket
 import utime
+from povsprites import update
 
 try:
     import network
@@ -15,8 +16,8 @@ except:
     print("no need to set up wifi")
 
 UDP_THIS = "0.0.0.0", 5005
-#UDP_OTHER = "127.0.0.1", 5225
-UDP_OTHER = "192.168.4.2", 5225
+UDP_OTHER = "127.0.0.1", 5225
+#UDP_OTHER = "192.168.4.2", 5225
 DISABLED_FRAME = -1
 
 print ("connecting....")
@@ -166,6 +167,7 @@ def process(b):
 
 def loop():
     last_b = None
+    step = 0
     while True:
         try:
             val = sock.recv(1)
@@ -177,11 +179,19 @@ def loop():
             if last_b:
                 process(last_b)
 
-        for otra in malos:
-            otra.y = otra.y - 1
-            if otra.y < -32:
-                otra.y = 127
+        for n in range(len(malos)):
+            m = malos[n]
+            m.y = m.y - (n+1)
+            if m.y < -32:
+                m.y = 127
+            m.x = (m.x + n - 3) % 256
 
-        utime.sleep_ms(15)
+        for n in range(len(malos)):
+            malos[n].frame = (n + 1) * 2 + step
+
+        step = (step + 1) % 2
+
+        utime.sleep_ms(20)
+        update()
 
 loop()

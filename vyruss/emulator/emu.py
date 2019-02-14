@@ -14,76 +14,56 @@ LISTEN_TCP = 6226
 UDP_IP_COMMANDS = "127.0.0.1"
 UDP_PORT_COMMANDS = 5005
 
-def file_iterator(f):
-    while True:
-        data = f.read(4*LED_COUNT)
-        while data != b"":
-            yield data
-            data = f.read(4*LED_COUNT)
-        f.seek(0)
-
-sprites_sock = socket.socket(socket.AF_INET,
+commands_sock = socket.socket(socket.AF_INET,
                      socket.SOCK_DGRAM)
-sprites_sock.setblocking(False)
-sprites_sock.bind((LISTEN_IP, LISTEN_UDP))
-
-def sock_iterator():
-    while True:
-        try:
-            data, _ = sprites_sock.recvfrom(1024)
-            yield data
-        except BlockingIOError:
-            yield None
+commands_sock.setblocking(False)
+#commands_sock.bind((LISTEN_IP, UDP_PORT_COMMANDS))
 
 def sock_send(what):
-    sprites_sock.sendto(what, (UDP_IP_COMMANDS, UDP_PORT_COMMANDS))
+    commands_sock.sendto(what, (UDP_IP_COMMANDS, UDP_PORT_COMMANDS))
 
-def sock_vsync():
-    #sock_send(b"V")
-    pass
-
-class ThreadedTCPRequestHandler(socketserver.StreamRequestHandler):
+class ImagesRequestHandler(socketserver.StreamRequestHandler):
     def handle(self):
         slot = self.rfile.readline().strip()
         data = bytes(self.rfile.read())
-        if slot == "pal":
+        if slot == b"pal":
             palette = data
         else:
-            image_stripes[slot] = data
+            image_stripes[slot.decode()] = data
         self.wfile.write(b"OK")
         self.finish()
-        print(image_stripes)
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
-filename = '-'
-if len(sys.argv) >= 2:
-    filename = sys.argv[1]
 
-if filename == '-':
-    iterator = sock_iterator()
-    vsync = sock_vsync
-else:
-    f = open(filename, 'rb')
-    iterator = file_iterator(f)
-    vsync = lambda: f.seek(0)
+class SpritesRequestHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        global spritedata
+        spritedata[:] = self.request[0]
+
+class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
+    pass
+
 
 led_count = 52
-if len(sys.argv) >= 3:
-    led_count = int(sys.argv[2])
+if len(sys.argv) >= 2:
+    led_count = int(sys.argv[1])
 
-revs_per_second = 5
-if len(sys.argv) >= 4:
-    revs_per_second = float(sys.argv[3])
-
-server = ThreadedTCPServer((LISTEN_IP, LISTEN_TCP), ThreadedTCPRequestHandler)
-with server:
-    ip, port = server.server_address
-    server_thread = threading.Thread(target=server.serve_forever)
-    server_thread.daemon = True
-    server_thread.start()
+images_server = ThreadedTCPServer((LISTEN_IP, LISTEN_TCP), ImagesRequestHandler)
+sprites_server = ThreadedUDPServer((LISTEN_IP, LISTEN_UDP), SpritesRequestHandler)
+with images_server:
+    ip, port = images_server.server_address
+    images_server_thread = threading.Thread(target=images_server.serve_forever)
+    images_server_thread.daemon = True
+    images_server_thread.start()
+    sprites_server_thread = threading.Thread(target=sprites_server.serve_forever)
+    sprites_server_thread.daemon = True
+    sprites_server_thread.start()
     try:
-        PygletEngine(led_count, iterator, vsync, sock_send, revs_per_second)
+        PygletEngine(led_count, sock_send)
     finally:
-        server.shutdown()
+        images_server.shutdown()
+        sprites_server.shutdown()
+        images_server.server_close()
+        sprites_server.server_close()
