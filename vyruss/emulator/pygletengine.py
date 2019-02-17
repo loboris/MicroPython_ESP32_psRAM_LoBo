@@ -29,7 +29,8 @@ deepspace = [51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36,
 
 glLoadIdentity()
 glEnable(GL_BLEND)
-glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+#glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE)
 glTranslatef(window.width / 2, window.height / 2, 0)
 
 def change_colors(colors):
@@ -57,18 +58,32 @@ class PygletEngine():
         self.total_angle = 0
         self.last_sent = 0
         self.keyhandler = keyhandler
-        led_step = int(LED_SIZE / led_count)
+        led_step = (LED_SIZE / led_count)
 
         vertex_pos = []
         for i in range(led_count):
-            vertex_pos.extend([0, led_step * i])
+            x1 = -led_step
+            x2 = led_step
+            y1 = led_step * i
+            y2 = y1 + (led_step * 1)
+            vertex_pos.extend([x1, y1, x2, y1, x2, y2, x1, y2])
+
+        vertex_colors = (0, 0, 0, 255) * led_count * 4
+        texture_pos = (0,0, 1,0, 1,1, 0,1) * led_count
+
+        print(led_count*4)
+        print(len(vertex_pos))
+        print(len(vertex_colors))
 
         self.vertex_list = pyglet.graphics.vertex_list(
-            led_count,
-            ('v2i', vertex_pos),
-            ('c4B', (0, 0, 0, 255) * led_count))
+            led_count * 4,
+            ('v2f/static', vertex_pos),
+            ('c4B/stream', vertex_colors),
+            ('t2f/static', texture_pos))
 
         glRotatef(180, 0, 0, 1)
+
+        texture = pyglet.image.load("glow.png").get_texture(rectangle=True)
 
         
         def send_keys():
@@ -101,7 +116,7 @@ class PygletEngine():
                 return -1
 
         def render(column):
-            pixels = [0x00000000] * led_count
+            pixels = [0x00000000] * led_count * 4
 
             # el sprite 0 se dibuja arriba de todos los otros
             for n in range(63, -1, -1):
@@ -124,10 +139,12 @@ class PygletEngine():
                     src = base + comienzo
 
                     for y in range(desde, hasta):
-                        color = pixeldata[src]
+                        index = pixeldata[src]
                         src += 1
-                        if color != TRANSPARENT:
-                            pixels[deepspace[y]] = upalette[color]
+                        if index != TRANSPARENT:
+                            color = upalette[index]
+                            px = deepspace[y] * 4
+                            pixels[px:px+4] = [color] * 4
 
             return pack_colors(pixels)
 
@@ -137,11 +154,14 @@ class PygletEngine():
 
             angle = -(360.0 / 256.0)
 
-            pyglet.gl.glPointSize(LED_DOT)
+            glEnable(texture.target)
+            glBindTexture(texture.target, texture.id)
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             for column in range(256):
                 self.vertex_list.colors[:] = render(column)
-                self.vertex_list.draw(GL_POINTS)
+                self.vertex_list.draw(GL_QUADS)
                 glRotatef(angle, 0, 0, 1)
+            glDisable(texture.target)
 
             fps_display.draw()
 
