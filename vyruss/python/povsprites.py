@@ -5,7 +5,7 @@ SEND_UDP = 5225
 SEND_TCP = 6226
 SEND_IP = "127.0.0.1"
 
-sprite_data = bytearray(256)
+sprite_data = bytearray(b"\0\0\0\xff" * 64)
 
 udp_addr = usocket.getaddrinfo(SEND_IP, SEND_UDP)[0][-1]
 udp_sock = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
