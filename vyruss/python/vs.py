@@ -51,15 +51,13 @@ disparo.y = 12
 
 spritelib.debug(nave)
 
-imagen_nave = 0
-
 malos = []
 
 for n in range(5):
     malo = spritelib.create_sprite(n + 10)
     malo.image_strip = 0
     malo.frame = (n + 1) * 2
-    malo.y = (n + 11) * 3
+    malo.y = 127
     malo.x = (n + 1) * 17
     malos.append(malo)
 
@@ -146,12 +144,9 @@ def process(b):
         step(where)
 
     if (boton and disparo.frame == DISABLED_FRAME):
-        global imagen_nave
-        imagen_nave = (imagen_nave + 1) % 6
-        #nave.image = imagen_base + imagen_nave * (16*16*2)
-        nave.frame = imagen_nave
-
-    disparo.frame = 0 if boton else DISABLED_FRAME
+        disparo.y = 0
+        disparo.x = nave.x + 6
+        disparo.frame = 0
 
     if accel:
         nave.y -=1
@@ -181,15 +176,22 @@ def loop():
 
         for n in range(len(malos)):
             m = malos[n]
-            m.y = m.y - (n+1)
-            if m.y < -32:
-                m.y = 127
+            if m.y > 18:
+                m.y = m.y - 1
+
+            #if m.y < -32:
+            #    m.y = 127
             m.x = (m.x + n - 3) % 256
 
         for n in range(len(malos)):
             malos[n].frame = (n + 1) * 2 + step
 
         step = (step + 1) % 2
+
+        if disparo.frame != DISABLED_FRAME:
+            disparo.y += 3
+            if disparo.y < 0:
+                disparo.frame = DISABLED_FRAME
 
         utime.sleep_ms(20)
         update()
