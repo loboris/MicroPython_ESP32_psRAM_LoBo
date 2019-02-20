@@ -1,4 +1,5 @@
 import pyglet
+import math
 from pyglet.gl import *
 from pyglet.window import key
 from struct import pack, unpack
@@ -6,8 +7,8 @@ from struct import pack, unpack
 fps_display = pyglet.clock.ClockDisplay()
 
 import imagenes
-image_stripes = {"0": imagenes.galaga_png}
-spritedata = bytearray(b"\0\0\0\0\x10\0\0\2\x20\0\0\4\x30\0\0\6\x40\0\0\x08\x50\0\0\x0A"
+image_stripes = {"0": imagenes.galaga_png, "3": imagenes.disparo_png}
+spritedata = bytearray( b"\0\0\0\0\x10\0\0\2\x20\0\0\4\x30\0\0\6\x40\0\0\x08\x50\0\0\x0A"
 + b"\0\0\0\xff" * 58)
 
 window = pyglet.window.Window(config=Config(double_buffer=True), fullscreen=True)
@@ -61,12 +62,18 @@ class PygletEngine():
         led_step = (LED_SIZE / led_count)
 
         vertex_pos = []
+        theta = (math.pi * 2 / COLUMNS)
+        def arc_chord(r):
+            return 2 * r * math.sin(theta / 2)
+
+        x1, x2 = 0, 0
         for i in range(led_count):
-            x1 = -led_step
-            x2 = led_step
             y1 = led_step * i
             y2 = y1 + (led_step * 1)
+            x3 = arc_chord(y2) * 0.7
+            x4 = -x3
             vertex_pos.extend([x1, y1, x2, y1, x2, y2, x1, y2])
+            x1, x2 = x3, x4
 
         vertex_colors = (0, 0, 0, 255) * led_count * 4
         texture_pos = (0,0, 1,0, 1,1, 0,1) * led_count
