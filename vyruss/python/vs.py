@@ -35,10 +35,11 @@ spritelib.set_imagestrip(0, imagenes.galaga_png)
 spritelib.set_imagestrip(1, imagenes.galaga_alt8_png)
 spritelib.set_imagestrip(2, imagenes.galaga_alt10_png)
 spritelib.set_imagestrip(3, imagenes.disparo_png)
+spritelib.set_imagestrip(4, imagenes.ll9_png)
 
 # init nave
 nave = spritelib.create_sprite(0)
-nave.image_strip = 0
+nave.image_strip = 4
 nave.frame = 0
 nave.x = 256 - 8
 nave.y = 0
