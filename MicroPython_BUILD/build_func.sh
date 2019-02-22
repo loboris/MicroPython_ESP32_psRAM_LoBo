@@ -652,7 +652,12 @@ executeCommand() {
         echo "Flashing MicroPython firmware to ESP32..."
         echo "========================================="
         make ${J_OPTION} ${arg}${BUILD_COMPORT}${BUILD_BDRATE} 2>/dev/null
-
+        if [ "${MP_SHOW_PROGRESS}" == "yes" ]; then
+            make ${J_OPTION} ${arg}
+        else
+            make ${J_OPTION} ${arg} 2>/dev/null
+        fi		
+	
     # ---------------------------------
     elif [ "${arg}" == "erase" ]; then
         echo "======================"
