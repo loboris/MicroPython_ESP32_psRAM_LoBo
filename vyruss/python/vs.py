@@ -123,7 +123,7 @@ def process(b):
     boton = bool(b & 16)
     accel = bool(b & 32)
     decel = bool(b & 64)
-    
+
     if up and left:
         direction = "↖"
     elif up and right:
@@ -163,6 +163,13 @@ def process(b):
     #text = "\r{0} {2} {1} {3} {4}   ".format(direction, boton, int(nave.x), decel, accel)
     #sock_send(bytes(text, "utf-8"))
     #print(text, end="")
+def collision(missile, targets):
+    for target in targets:
+        if (missile.x < target.x + spritelib.sprite_width(target) and
+                missile.x + spritelib.sprite_width(missile) > target.x and
+                missile.y < target.y + spritelib.sprite_height(target) and
+                missile.y + spritelib.sprite_height(missile) > target.y):
+            return target
 
 def loop():
     last_b = None
@@ -196,6 +203,11 @@ def loop():
             disparo.y += 3
             if disparo.y < 0:
                 disparo.frame = DISABLED_FRAME
+            malo = collision(disparo, malos)
+            if malo:
+                disparo.frame = DISABLED_FRAME
+                malo.frame = DISABLED_FRAME
+                malos.remove(malo)
 
         utime.sleep_ms(20)
         update()
