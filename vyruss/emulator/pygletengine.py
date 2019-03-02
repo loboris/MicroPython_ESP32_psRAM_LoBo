@@ -32,7 +32,6 @@ glLoadIdentity()
 glEnable(GL_BLEND)
 #glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE)
-glTranslatef(window.width / 2, window.height / 2, 0)
 
 def change_colors(colors):
     # byteswap all longs
@@ -49,7 +48,14 @@ def unpack_palette(pal):
     fmt_unpack = "<" + "L" * (len(pal)//4)
     return unpack(fmt_unpack, pal)
 
-palette = change_colors(imagenes.palette_pal)
+def ungamma(values, gamma=2.5, offset=0.5):
+    d = []
+    for v in values:
+        i = int(pow(((float(v) + offset) / 255.0), 1.0/gamma) * 255.0)
+        d.append(i)
+    return bytes(d)
+
+palette = ungamma(change_colors(imagenes.palette_pal))
 upalette = unpack_palette(palette)
 
 
@@ -78,17 +84,12 @@ class PygletEngine():
         vertex_colors = (0, 0, 0, 255) * led_count * 4
         texture_pos = (0,0, 1,0, 1,1, 0,1) * led_count
 
-        print(led_count*4)
-        print(len(vertex_pos))
-        print(len(vertex_colors))
-
         self.vertex_list = pyglet.graphics.vertex_list(
             led_count * 4,
             ('v2f/static', vertex_pos),
             ('c4B/stream', vertex_colors),
             ('t2f/static', texture_pos))
 
-        glRotatef(180, 0, 0, 1)
 
         texture = pyglet.image.load("glow.png").get_texture(rectangle=True)
 
@@ -158,9 +159,12 @@ class PygletEngine():
         @window.event
         def on_draw():
             window.clear()
+            fps_display.draw()
 
             angle = -(360.0 / 256.0)
 
+            glTranslatef(window.width / 2, window.height / 2, 0)
+            glRotatef(180, 0, 0, 1)
             glEnable(texture.target)
             glBindTexture(texture.target, texture.id)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -169,8 +173,9 @@ class PygletEngine():
                 self.vertex_list.draw(GL_QUADS)
                 glRotatef(angle, 0, 0, 1)
             glDisable(texture.target)
+            glRotatef(180, 0, 0, 1)
+            glTranslatef(-window.width / 2, -window.height / 2, 0)
 
-            fps_display.draw()
 
         def animate(dt):
             send_keys()

@@ -51,7 +51,7 @@ palette = list(grouper(workspace.getpalette(), 3))
 mi = palette.index(MAGENTA)
 workspace.save("w2.png")
 
-def gamma(value,gamma=2.5,offset=0.5):
+def gamma(value, gamma=2.5, offset=0.5):
     assert 0 <= value <= 255
     return int( pow( float(value) / 255.0, gamma ) * 255.0 + offset )
     
