@@ -2,7 +2,10 @@ import imagenes
 import spritelib
 import usocket
 import utime
-from povsprites import update
+try:
+    from remotepov import update
+except:
+    from povsprites import update
 
 try:
     import network

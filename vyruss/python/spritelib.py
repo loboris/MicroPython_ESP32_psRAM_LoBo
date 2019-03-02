@@ -1,4 +1,8 @@
-import povsprites
+try:
+    import remotepov as povsprites
+except:
+    import povsprites
+
 import uctypes
 import imagenes
 
@@ -24,3 +28,9 @@ def set_imagestrip(n, stripmap):
 
 def debug(s):
     print("nave@%d (%d,%d,%d,%d) %d" % (s.image_strip, s.x, s.y, 0, 0, s.frame))
+
+def sprite_width(sprite):
+    return povsprites.stripmap[sprite.image_strip][0]
+    
+def sprite_height(sprite):
+    return povsprites.stripmap[sprite.image_strip][1]
