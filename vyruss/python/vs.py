@@ -41,6 +41,7 @@ spritelib.set_imagestrip(2, imagenes.galaga_alt10_png)
 spritelib.set_imagestrip(3, imagenes.disparo_png)
 spritelib.set_imagestrip(4, imagenes.ll9_png)
 spritelib.set_imagestrip(5, imagenes.explosion_png)
+spritelib.set_imagestrip(6, imagenes.gameover_png)
 
 # init nave
 nave = spritelib.create_sprite(0)
@@ -166,6 +167,8 @@ def process(b):
     #text = "\r{0} {2} {1} {3} {4}   ".format(direction, boton, int(nave.x), decel, accel)
     #sock_send(bytes(text, "utf-8"))
     #print(text, end="")
+
+
 def collision(missile, targets):
     for target in targets:
         if (missile.x < target.x + spritelib.sprite_width(target) and
@@ -173,6 +176,7 @@ def collision(missile, targets):
                 missile.y < target.y + spritelib.sprite_height(target) and
                 missile.y + spritelib.sprite_height(missile) > target.y):
             return target
+
 
 def loop():
     last_b = None
@@ -191,7 +195,8 @@ def loop():
         except OSError:
             if last_b:
                 process(last_b)
-
+        
+        # Move malos
         for n in range(len(malos)):
             m = malos[n]
             if m.y > 18:
@@ -203,16 +208,17 @@ def loop():
 
         for n in range(len(malos)):
             malos[n].frame = (n + 1) * 2 + step
-           
+        
+        # explotion animation           
         for e in explosiones:
-            e.frame+=1
-            if e.frame==9:
+            e.frame += 1
+            if e.frame == 9:
                 e.frame = DISABLED_FRAME
                 explosiones.remove(e)
 
         step = (step + 1) % 2
         
-
+        #detect disparo colitions
         if disparo.frame != DISABLED_FRAME:
             disparo.y += 3
             if disparo.y < 0:
@@ -223,10 +229,19 @@ def loop():
                 #malo.frame = DISABLED_FRAME
                 malo.frame = 0
                 malo.image_strip = 5
-                #utime.sleep_ms(1000)
-                #malo.frame = DISABLED_FRAME
                 malos.remove(malo)
                 explosiones.append(malo)
+
+        global nave 
+        if nave.frame != DISABLED_FRAME:
+            malo = collision(nave, malos)
+            if malo:
+                malo.frame = DISABLED_FRAME
+                nave.frame = 0
+                nave.image_strip = 5
+                malos.remove(malo)
+                explosiones.append(nave)
+
 
         update()
 
