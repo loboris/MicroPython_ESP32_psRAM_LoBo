@@ -41,6 +41,7 @@ spritelib.set_imagestrip(2, imagenes.galaga_alt10_png)
 spritelib.set_imagestrip(3, imagenes.disparo_png)
 spritelib.set_imagestrip(4, imagenes.ll9_png)
 spritelib.set_imagestrip(5, imagenes.explosion_png)
+spritelib.set_imagestrip(6, imagenes.gameover_png)
 
 # init nave
 nave = spritelib.create_sprite(0)
