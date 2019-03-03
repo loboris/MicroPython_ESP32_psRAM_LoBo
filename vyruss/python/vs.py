@@ -39,6 +39,7 @@ spritelib.set_imagestrip(1, imagenes.galaga_alt8_png)
 spritelib.set_imagestrip(2, imagenes.galaga_alt10_png)
 spritelib.set_imagestrip(3, imagenes.disparo_png)
 spritelib.set_imagestrip(4, imagenes.ll9_png)
+spritelib.set_imagestrip(5, imagenes.explosion_png)
 
 # init nave
 nave = spritelib.create_sprite(0)
@@ -56,6 +57,7 @@ disparo.y = 12
 spritelib.debug(nave)
 
 malos = []
+explosiones = []
 
 for n in range(5):
     malo = spritelib.create_sprite(n + 10)
@@ -196,8 +198,15 @@ def loop():
 
         for n in range(len(malos)):
             malos[n].frame = (n + 1) * 2 + step
+           
+        for e in explosiones:
+            e.frame+=1
+            if e.frame==9:
+                e.frame = DISABLED_FRAME
+                explosiones.remove(e)
 
         step = (step + 1) % 2
+        
 
         if disparo.frame != DISABLED_FRAME:
             disparo.y += 3
@@ -206,8 +215,13 @@ def loop():
             malo = collision(disparo, malos)
             if malo:
                 disparo.frame = DISABLED_FRAME
-                malo.frame = DISABLED_FRAME
+                #malo.frame = DISABLED_FRAME
+                malo.frame = 0
+                malo.image_strip = 5
+                #utime.sleep_ms(1000)
+                #malo.frame = DISABLED_FRAME
                 malos.remove(malo)
+                explosiones.append(malo)
 
         utime.sleep_ms(20)
         update()
