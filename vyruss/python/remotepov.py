@@ -1,26 +1,28 @@
 import uctypes
 import usocket
 
-SEND_UDP = 5225
-SEND_TCP = 6226
-SEND_IP = "127.0.0.1"
-#SEND_IP = "192.168.4.2"
+from config import OTHER_IP
+
+SEND_SPRITES = 5225
+SEND_IMAGESTRIPES = 6226
 
 sprite_data = bytearray(b"\0\0\0\xff" * 64)
 
-udp_addr = usocket.getaddrinfo(SEND_IP, SEND_UDP)[0][-1]
-udp_sock = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
+sprites_addr = usocket.getaddrinfo(OTHER_IP, SEND_SPRITES)[0][-1]
+#udp_sock = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
 
-tcp_addr = usocket.getaddrinfo(SEND_IP, SEND_TCP)[0][-1]
+imagestripes_addr = usocket.getaddrinfo(OTHER_IP, SEND_IMAGESTRIPES)[0][-1]
 
 stripes = {}
 
 def send_tcp(identifier, data):
-    tcp_sock = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
-    tcp_sock.connect(tcp_addr)
-    tcp_sock.write(identifier + "\n")
-    tcp_sock.write(data)
-    tcp_sock.close()
+    print("sending %r - %d bytes" % (identifier, len(data)))
+    imagestripes_sock = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
+    imagestripes_sock.connect(imagestripes_addr)
+    imagestripes_sock.write(identifier + "\n")
+    imagestripes_sock.write(data)
+    imagestripes_sock.close()
+    print("sent")
 
 def init(num_pixels, palette):
     send_tcp("pal", palette)
@@ -32,5 +34,14 @@ def set_imagestrip(n, stripmap):
     stripes[n] = stripmap
     send_tcp(str(n), stripmap)
 
+count = 0
 def update():
-    udp_sock.sendto(sprite_data, udp_addr)
+    global count
+    try:
+        count += 1
+        sprites_sock = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
+        sprites_sock.connect(sprites_addr)
+        sprites_sock.write(sprite_data)
+        sprites_sock.close()
+    except OSError:
+        print(count)
