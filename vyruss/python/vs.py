@@ -1,7 +1,7 @@
 import imagenes
-import spritelib
 import usocket
 import utime
+from config import OTHER_IP
 try:
     from remotepov import update
 except:
@@ -18,9 +18,10 @@ try:
 except:
     print("no need to set up wifi")
 
+import spritelib
+
 UDP_THIS = "0.0.0.0", 5005
-UDP_OTHER = "127.0.0.1", 5225
-#UDP_OTHER = "192.168.4.2", 5225
+UDP_OTHER = OTHER_IP, 5225
 DISABLED_FRAME = -1
 
 print ("connecting....")
@@ -174,7 +175,11 @@ def collision(missile, targets):
 def loop():
     last_b = None
     step = 0
+    
+    loop_start = utime.ticks_ms()
     while True:
+        next_loop = utime.ticks_add(loop_start, 20)
+
         try:
             val = sock.recv(1)
             if val:
@@ -209,7 +214,11 @@ def loop():
                 malo.frame = DISABLED_FRAME
                 malos.remove(malo)
 
-        utime.sleep_ms(20)
         update()
+
+        delay = utime.ticks_diff(next_loop, utime.ticks_ms())
+        if delay > 0:
+            utime.sleep_ms(delay)
+        loop_start = next_loop
 
 loop()

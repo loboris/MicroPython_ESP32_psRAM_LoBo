@@ -11,7 +11,8 @@ image_stripes = {"0": imagenes.galaga_png, "3": imagenes.disparo_png}
 spritedata = bytearray( b"\0\0\0\0\x10\0\0\2\x20\0\0\4\x30\0\0\6\x40\0\0\x08\x50\0\0\x0A"
 + b"\0\0\0\xff" * 58)
 
-window = pyglet.window.Window(config=Config(double_buffer=True), fullscreen=True)
+window = pyglet.window.Window(config=Config(double_buffer=True),
+fullscreen=False)
 keys = key.KeyStateHandler()
 
 LED_DOT = 6

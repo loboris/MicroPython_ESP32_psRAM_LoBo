@@ -8,10 +8,10 @@ from pygletengine import PygletEngine, image_stripes, palette, spritedata
 
 LED_COUNT = 52
 LISTEN_IP = "0.0.0.0"
-LISTEN_UDP = 5225
-LISTEN_TCP = 6226
-#UDP_IP_COMMANDS = "192.168.4.1"
-UDP_IP_COMMANDS = "127.0.0.1"
+LISTEN_SPRITES = 5225
+LISTEN_IMAGES = 6226
+UDP_IP_COMMANDS = "192.168.4.1"
+#UDP_IP_COMMANDS = "127.0.0.1"
 UDP_PORT_COMMANDS = 5005
 
 commands_sock = socket.socket(socket.AF_INET,
@@ -37,10 +37,10 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
 
-class SpritesRequestHandler(socketserver.BaseRequestHandler):
+class SpritesRequestHandler(socketserver.StreamRequestHandler):
     def handle(self):
         global spritedata
-        spritedata[:] = self.request[0]
+        spritedata[:] = self.rfile.read(256)
 
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     pass
@@ -50,8 +50,8 @@ led_count = 52
 if len(sys.argv) >= 2:
     led_count = int(sys.argv[1])
 
-images_server = ThreadedTCPServer((LISTEN_IP, LISTEN_TCP), ImagesRequestHandler)
-sprites_server = ThreadedUDPServer((LISTEN_IP, LISTEN_UDP), SpritesRequestHandler)
+images_server = ThreadedTCPServer((LISTEN_IP, LISTEN_IMAGES), ImagesRequestHandler)
+sprites_server = ThreadedTCPServer((LISTEN_IP, LISTEN_SPRITES), SpritesRequestHandler)
 with images_server:
     ip, port = images_server.server_address
     images_server_thread = threading.Thread(target=images_server.serve_forever)
