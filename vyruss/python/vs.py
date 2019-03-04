@@ -1,7 +1,9 @@
 import imagenes
+import spritelib
 import usocket
 import utime
 from config import OTHER_IP
+
 try:
     from remotepov import update
 except:
@@ -18,7 +20,6 @@ try:
 except:
     print("no need to set up wifi")
 
-import spritelib
 
 UDP_THIS = "0.0.0.0", 5005
 UDP_OTHER = OTHER_IP, 5225
@@ -65,17 +66,25 @@ gameover.y = 2
 
 spritelib.debug(nave)
 
-malos = []
 explosiones = []
+malos = []
 
-for n in range(5):
-    malo = spritelib.create_sprite(n + 10)
-    malo.image_strip = 0
-    malo.frame = (n + 1) * 2
-    malo.y = 127
-    malo.x = (n + 1) * 17
-    malos.append(malo)
+def generar_malos():
+    malos_aux = []
+    for n in range(5):
+        malo = spritelib.create_sprite(n + 10)
+        malo.image_strip = 0
+        malo.frame = (n + 1) * 2
+        malo.y = 127
+        malo.x = (n + 1) * 17
+        malos_aux.append(malo)
+    return malos_aux
 
+def reset_game():
+    gameover.frame = DISABLED_FRAME
+    malos.clear()
+    generar_malos()
+    nave.frame = 0
 
 def sock_send(what):
     sock.sendto(what, other_addr)
@@ -162,11 +171,16 @@ def process(b):
     if where is not None:
         step(where)
 
-    if (boton and disparo.frame == DISABLED_FRAME):
-        disparo.y = 0
-        disparo.x = nave.x + 6
-        disparo.frame = 0
+    #Not Shot if it in gameover
+    if gameover.frame != 0:
+        if (boton and disparo.frame == DISABLED_FRAME):
+            disparo.y = 0
+            disparo.x = nave.x + 6
+            disparo.frame = 0
 
+    if (accel and decel and gameover.frame == 0):
+        reset_game()
+         
     if accel:
         nave.y -=1
     if decel:
@@ -206,7 +220,13 @@ def loop():
         except OSError:
             if last_b:
                 process(last_b)
-        
+
+        #List empty in the begining and when you finish one level
+        global malos
+        if not malos:
+            malos = generar_malos()
+            print(malos)
+            
         # Move malos
         for n in range(len(malos)):
             m = malos[n]
@@ -229,7 +249,7 @@ def loop():
 
         step = (step + 1) % 2
         
-        #detect disparo colitions
+        # detect shot colitions
         if disparo.frame != DISABLED_FRAME:
             disparo.y += 3
             if disparo.y < 0:
@@ -242,7 +262,8 @@ def loop():
                 malos.remove(malo)
                 explosiones.append(malo)
 
-        #detect spaceship colitions
+
+        # detect spaceship colitions
         global nave 
         if nave.frame != DISABLED_FRAME:
             malo = collision(nave, malos)
