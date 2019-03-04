@@ -24,7 +24,7 @@ UDP_THIS = "0.0.0.0", 5005
 UDP_OTHER = OTHER_IP, 5225
 DISABLED_FRAME = -1
 
-print ("connecting....")
+print("connecting....")
 this_addr = usocket.getaddrinfo(*UDP_THIS)[0][-1]
 other_addr = usocket.getaddrinfo(*UDP_OTHER)[0][-1]
 
@@ -32,7 +32,7 @@ sock = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
 sock.setblocking(False)
 sock.bind(this_addr)
 
-print ("connected!!!")
+print("connected!!!")
 
 # init images
 spritelib.set_imagestrip(0, imagenes.galaga_png)
@@ -44,17 +44,24 @@ spritelib.set_imagestrip(5, imagenes.explosion_png)
 spritelib.set_imagestrip(6, imagenes.gameover_png)
 
 # init nave
-nave = spritelib.create_sprite(0)
+nave = spritelib.create_sprite(1)
 nave.image_strip = 4
 nave.frame = 0
 nave.x = 256 - 8
 nave.y = 0
 
 # init disparo
-disparo = spritelib.create_sprite(1)
+disparo = spritelib.create_sprite(2)
 disparo.image_strip = 3
 disparo.x = 48
 disparo.y = 12
+
+gameover = spritelib.create_sprite(0)
+gameover.image_strip = 6
+# Disable Frame
+gameover.frame = DISABLED_FRAME
+gameover.x = -32
+gameover.y = 2
 
 spritelib.debug(nave)
 
@@ -72,6 +79,7 @@ for n in range(5):
 
 def sock_send(what):
     sock.sendto(what, other_addr)
+
 
 def new_heading(up, down, left, right):
     """
@@ -105,6 +113,7 @@ def new_heading(up, down, left, right):
 
     return None
 
+
 def rotar(desde, hasta):
     delta_centro = 128 - desde
     nuevo_hasta = (hasta + delta_centro) % 256
@@ -116,8 +125,10 @@ def rotar(desde, hasta):
 
     return 0
 
+
 def step(where):
     nave.x = (nave.x + rotar(nave.x, where)) % 256
+
 
 def process(b):
     left =  bool(b & 1)
@@ -226,25 +237,24 @@ def loop():
             malo = collision(disparo, malos)
             if malo:
                 disparo.frame = DISABLED_FRAME
-                #malo.frame = DISABLED_FRAME
                 malo.frame = 0
                 malo.image_strip = 5
                 malos.remove(malo)
                 explosiones.append(malo)
 
+        #detect spaceship colitions
         global nave 
         if nave.frame != DISABLED_FRAME:
             malo = collision(nave, malos)
             if malo:
-                malo.frame = DISABLED_FRAME
-                nave.frame = 0
-                nave.image_strip = 5
+                nave.frame = DISABLED_FRAME
+                malo.frame = 0
+                malo.image_strip = 5
+                explosiones.append(malo)
                 malos.remove(malo)
-                explosiones.append(nave)
-
+                gameover.frame = 0
 
         update()
-
         delay = utime.ticks_diff(next_loop, utime.ticks_ms())
         if delay > 0:
             utime.sleep_ms(delay)
