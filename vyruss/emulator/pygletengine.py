@@ -8,10 +8,11 @@ fps_display = pyglet.clock.ClockDisplay()
 
 sounds = {}
 for sn in ["shoot1", "explosion2", "explosion3"]:
-    sounds[sn] = pyglet.media.load("sounds/%s.wav" % sn, streaming=False)
+    sounds[bytes(sn, "latin1")] = pyglet.media.load("sounds/%s.wav" % sn, streaming=False)
 
 def playsound(name):
     print("sonido", name)
+    print(sounds)
     if name in sounds:
         sounds[name].play()
 
