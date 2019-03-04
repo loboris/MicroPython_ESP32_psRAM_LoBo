@@ -163,7 +163,7 @@ def process(b):
         step(where)
 
     if (boton and disparo.frame == DISABLED_FRAME):
-        disparo.y = 0
+        disparo.y = nave.y + 11
         disparo.x = nave.x + 6
         disparo.frame = 0
 
