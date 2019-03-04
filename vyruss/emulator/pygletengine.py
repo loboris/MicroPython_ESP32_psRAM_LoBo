@@ -6,14 +6,31 @@ from struct import pack, unpack
 
 fps_display = pyglet.clock.ClockDisplay()
 
+sounds = {}
+for sn in ["shoot1", "explosion2", "explosion3"]:
+    sounds[bytes(sn, "latin1")] = pyglet.media.load("sounds/%s.wav" % sn, streaming=False)
+
+def playsound(name):
+    print("sonido", name)
+    print(sounds)
+    if name in sounds:
+        sounds[name].play()
+
 import imagenes
 image_stripes = {"0": imagenes.galaga_png, "3": imagenes.disparo_png, "4":
 imagenes.ll9_png, "5": imagenes.explosion_png, "6": imagenes.gameover_png}
 spritedata = bytearray( b"\0\0\0\0\x10\0\0\2\x20\0\0\4\x30\0\0\6\x40\0\0\x08\x50\0\0\x0A"
 + b"\0\0\0\xff" * 58)
 
-window = pyglet.window.Window(config=Config(double_buffer=True), fullscreen=False)
+window = pyglet.window.Window(config=Config(double_buffer=True), fullscreen=True)
 keys = key.KeyStateHandler()
+
+joysticks = pyglet.input.get_joysticks()
+if joysticks:
+    joystick = joysticks[0]
+    joystick.open()
+else:
+    joystick = None
 
 LED_DOT = 6
 LED_SIZE = min(window.width, window.height) / 1.9
@@ -96,14 +113,24 @@ class PygletEngine():
 
 
         def send_keys():
-            left = keys[key.LEFT]
-            right = keys[key.RIGHT]
-            up = keys[key.UP]
-            down = keys[key.DOWN]
+            try:
+                left = joystick.x < -0.5
+                right = joystick.x > 0.5
+                up = joystick.y < -0.5
+                down = joystick.y > 0.5
 
-            boton = keys[key.SPACE]
-            accel = keys[key.A]
-            decel = keys[key.D]
+                boton = joystick.buttons[1]
+                accel = joystick.rz > 0
+                decel = joystick.z > 0
+            except Exception:
+                left = keys[key.LEFT]
+                right = keys[key.RIGHT]
+                up = keys[key.UP]
+                down = keys[key.DOWN]
+
+                boton = keys[key.SPACE]
+                accel = keys[key.A]
+                decel = keys[key.D]
 
             val = (left << 0 | right << 1 | up << 2 | down << 3 | boton << 4 |
                     accel << 5 | decel << 6)

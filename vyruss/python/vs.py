@@ -22,12 +22,12 @@ except:
 
 
 UDP_THIS = "0.0.0.0", 5005
-UDP_OTHER = OTHER_IP, 5225
+SOUNDS_ADDR = OTHER_IP, 7227
 DISABLED_FRAME = -1
 
 print("connecting....")
 this_addr = usocket.getaddrinfo(*UDP_THIS)[0][-1]
-other_addr = usocket.getaddrinfo(*UDP_OTHER)[0][-1]
+sounds_addr = usocket.getaddrinfo(*SOUNDS_ADDR)[0][-1]
 
 sock = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
 sock.setblocking(False)
@@ -89,6 +89,12 @@ def reset_game():
 def sock_send(what):
     sock.sendto(what, other_addr)
 
+
+def sonido(nombre):
+    sounds_sock = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
+    sounds_sock.connect(sounds_addr)
+    sounds_sock.write(nombre)
+    sounds_sock.close()
 
 def new_heading(up, down, left, right):
     """
@@ -174,9 +180,10 @@ def process(b):
     #Not Shot if it in gameover
     if gameover.frame != 0:
         if (boton and disparo.frame == DISABLED_FRAME):
-            disparo.y = 0
+            disparo.y = nave.y + 11
             disparo.x = nave.x + 6
             disparo.frame = 0
+            sonido("shoot1")
 
     if (accel and decel and gameover.frame == 0):
         reset_game()
@@ -261,6 +268,7 @@ def loop():
                 malo.image_strip = 5
                 malos.remove(malo)
                 explosiones.append(malo)
+                sonido("explosion2")
 
 
         # detect spaceship colitions
@@ -274,6 +282,7 @@ def loop():
                 explosiones.append(malo)
                 malos.remove(malo)
                 gameover.frame = 0
+                sonido("explosion3")
 
         update()
         delay = utime.ticks_diff(next_loop, utime.ticks_ms())

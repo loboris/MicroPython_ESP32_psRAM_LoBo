@@ -3,13 +3,14 @@ import socketserver
 import sys
 import threading
 from itertools import cycle
-from pygletengine import PygletEngine, image_stripes, palette, spritedata
+from pygletengine import PygletEngine, image_stripes, palette, spritedata, playsound
 
 
 LED_COUNT = 52
 LISTEN_IP = "0.0.0.0"
 LISTEN_SPRITES = 5225
 LISTEN_IMAGES = 6226
+LISTEN_SOUNDS = 7227
 #UDP_IP_COMMANDS = "192.168.4.1"
 UDP_IP_COMMANDS = "127.0.0.1"
 UDP_PORT_COMMANDS = 5005
@@ -42,6 +43,10 @@ class SpritesRequestHandler(socketserver.StreamRequestHandler):
         global spritedata
         spritedata[:] = self.rfile.read(256)
 
+class SoundsRequestHandler(socketserver.StreamRequestHandler):
+    def handle(self):
+        playsound(self.rfile.read())
+
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
     pass
 
@@ -52,6 +57,8 @@ if len(sys.argv) >= 2:
 
 images_server = ThreadedTCPServer((LISTEN_IP, LISTEN_IMAGES), ImagesRequestHandler)
 sprites_server = ThreadedTCPServer((LISTEN_IP, LISTEN_SPRITES), SpritesRequestHandler)
+sounds_server = ThreadedTCPServer((LISTEN_IP, LISTEN_SOUNDS), SoundsRequestHandler)
+
 with images_server:
     ip, port = images_server.server_address
     images_server_thread = threading.Thread(target=images_server.serve_forever)
@@ -60,10 +67,15 @@ with images_server:
     sprites_server_thread = threading.Thread(target=sprites_server.serve_forever)
     sprites_server_thread.daemon = True
     sprites_server_thread.start()
+    sounds_server_thread = threading.Thread(target=sounds_server.serve_forever)
+    sounds_server_thread.daemon = True
+    sounds_server_thread.start()
     try:
         PygletEngine(led_count, sock_send)
     finally:
         images_server.shutdown()
         sprites_server.shutdown()
+        sounds_server.shutdown()
         images_server.server_close()
         sprites_server.server_close()
+        sounds_server.server_close()
