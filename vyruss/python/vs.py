@@ -21,12 +21,12 @@ except:
 import spritelib
 
 UDP_THIS = "0.0.0.0", 5005
-UDP_OTHER = OTHER_IP, 5225
+SOUNDS_ADDR = OTHER_IP, 7227
 DISABLED_FRAME = -1
 
 print("connecting....")
 this_addr = usocket.getaddrinfo(*UDP_THIS)[0][-1]
-other_addr = usocket.getaddrinfo(*UDP_OTHER)[0][-1]
+sounds_addr = usocket.getaddrinfo(*SOUNDS_ADDR)[0][-1]
 
 sock = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
 sock.setblocking(False)
@@ -76,12 +76,11 @@ for n in range(5):
     malo.x = (n + 1) * 17
     malos.append(malo)
 
-
-def sock_send(what):
-    sock.sendto(what, other_addr)
-
 def sonido(nombre):
-    sock_send(nombre)
+    sounds_sock = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
+    sounds_sock.connect(sounds_addr)
+    sounds_sock.write(nombre)
+    sounds_sock.close()
 
 def new_heading(up, down, left, right):
     """

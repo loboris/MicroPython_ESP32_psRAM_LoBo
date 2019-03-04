@@ -6,6 +6,15 @@ from struct import pack, unpack
 
 fps_display = pyglet.clock.ClockDisplay()
 
+sounds = {}
+for sn in ["shoot1", "explosion2", "explosion3"]:
+    sounds[sn] = pyglet.media.load("sounds/%s.wav" % sn, streaming=False)
+
+def playsound(name):
+    print("sonido", name)
+    if name in sounds:
+        sounds[name].play()
+
 import imagenes
 image_stripes = {"0": imagenes.galaga_png, "3": imagenes.disparo_png, "4":
 imagenes.ll9_png, "5": imagenes.explosion_png, "6": imagenes.gameover_png}
