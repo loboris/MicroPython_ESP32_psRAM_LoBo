@@ -80,6 +80,8 @@ for n in range(5):
 def sock_send(what):
     sock.sendto(what, other_addr)
 
+def sonido(nombre):
+    sock_send(nombre)
 
 def new_heading(up, down, left, right):
     """
@@ -166,6 +168,7 @@ def process(b):
         disparo.y = nave.y + 11
         disparo.x = nave.x + 6
         disparo.frame = 0
+        sonido("shoot1")
 
     if accel:
         nave.y -=1
@@ -241,6 +244,7 @@ def loop():
                 malo.image_strip = 5
                 malos.remove(malo)
                 explosiones.append(malo)
+                sonido("explosion2")
 
         #detect spaceship colitions
         global nave 
@@ -253,6 +257,7 @@ def loop():
                 explosiones.append(malo)
                 malos.remove(malo)
                 gameover.frame = 0
+                sonido("explosion3")
 
         update()
         delay = utime.ticks_diff(next_loop, utime.ticks_ms())
