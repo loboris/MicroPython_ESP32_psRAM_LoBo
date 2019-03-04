@@ -75,7 +75,7 @@ def generar_malos():
         malo = spritelib.create_sprite(n + 10)
         malo.image_strip = 0
         malo.frame = (n + 1) * 2
-        malo.y = 127
+        malo.y = n * 3 + 128
         malo.x = (n + 1) * 17
         malos_aux.append(malo)
     return malos_aux
@@ -213,8 +213,9 @@ def collision(missile, targets):
 def loop():
     last_b = None
     step = 0
-    
+    counter = 0    
     loop_start = utime.ticks_ms()
+ 
     while True:
         next_loop = utime.ticks_add(loop_start, 20)
 
@@ -237,12 +238,15 @@ def loop():
         # Move malos
         for n in range(len(malos)):
             m = malos[n]
-            if m.y > 18:
+            if m.y > 18 or True:
                 m.y = m.y - 1
-
-            #if m.y < -32:
-            #    m.y = 127
-            m.x = (m.x + n - 3) % 256
+            
+            if m.y < -16:
+                m.y = 127
+            #lateral velocity 
+            if not counter % 4:
+                m.x = (m.x + n - 3) % 256
+            counter+=1
 
         for n in range(len(malos)):
             malos[n].frame = (n + 1) * 2 + step
