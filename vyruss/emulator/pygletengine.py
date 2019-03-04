@@ -10,11 +10,12 @@ sounds = {}
 for sn in ["shoot1", "explosion2", "explosion3"]:
     sounds[bytes(sn, "latin1")] = pyglet.media.load("sounds/%s.wav" % sn, streaming=False)
 
+sound_queue = []
 def playsound(name):
     print("sonido", name)
     print(sounds)
     if name in sounds:
-        sounds[name].play()
+        sound_queue.append(sounds[name])
 
 import imagenes
 image_stripes = {"0": imagenes.galaga_png, "3": imagenes.disparo_png, "4":
@@ -207,6 +208,8 @@ class PygletEngine():
 
         def animate(dt):
             send_keys()
+            while sound_queue:
+                sound_queue.pop().play()
             return
             "FIXME"
             for n in range(6):
