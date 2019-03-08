@@ -7,7 +7,8 @@ from config import OTHER_IP
 try:
     from remotepov import update
 except:
-    from povsprites import update
+    def update():
+        pass
 
 try:
     import network
@@ -233,7 +234,6 @@ def loop():
         global malos
         if not malos:
             malos = generar_malos()
-            print(malos)
             
         # Move malos
         for n in range(len(malos)):
