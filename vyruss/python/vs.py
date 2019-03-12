@@ -1,8 +1,7 @@
+import comms
 import imagenes
 import spritelib
-import usocket
 import utime
-from config import OTHER_IP
 
 try:
     from remotepov import update
@@ -10,31 +9,7 @@ except:
     def update():
         pass
 
-try:
-    import network
-
-    ap_if = network.WLAN(network.AP_IF)
-    print('starting access point...')
-    ap_if.active(True)
-    ap_if.config(essid="ventilastation", authmode=3, password="plagazombie2")
-    print('network config:', ap_if.ifconfig())
-except:
-    print("no need to set up wifi")
-
-
-UDP_THIS = "0.0.0.0", 5005
-SOUNDS_ADDR = OTHER_IP, 7227
 DISABLED_FRAME = -1
-
-print("connecting....")
-this_addr = usocket.getaddrinfo(*UDP_THIS)[0][-1]
-sounds_addr = usocket.getaddrinfo(*SOUNDS_ADDR)[0][-1]
-
-sock = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
-sock.setblocking(False)
-sock.bind(this_addr)
-
-print("connected!!!")
 
 # init images
 spritelib.set_imagestrip(0, imagenes.galaga_png)
@@ -87,15 +62,8 @@ def reset_game():
     generar_malos()
     nave.frame = 0
 
-def sock_send(what):
-    sock.sendto(what, other_addr)
-
-
 def sonido(nombre):
-    sounds_sock = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
-    sounds_sock.connect(sounds_addr)
-    sounds_sock.write(nombre)
-    sounds_sock.close()
+    comms.send("play " + nombre)
 
 def new_heading(up, down, left, right):
     """
@@ -212,7 +180,7 @@ def collision(missile, targets):
 
 
 def loop():
-    last_b = None
+    last_val = None
     step = 0
     counter = 0    
     loop_start = utime.ticks_ms()
@@ -220,15 +188,12 @@ def loop():
     while True:
         next_loop = utime.ticks_add(loop_start, 20)
 
-        try:
-            val = sock.recv(1)
-            if val:
-                for b in val:
-                    process(b)
-                    last_b = b
-        except OSError:
-            if last_b:
-                process(last_b)
+        val = comms.receive(1)
+        if val is not None:
+            process(val[0])
+            last_val = val[0]
+        elif last_val is not None:
+            process(last_val)
 
         #List empty in the begining and when you finish one level
         global malos

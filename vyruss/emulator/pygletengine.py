@@ -12,8 +12,6 @@ for sn in ["shoot1", "explosion2", "explosion3"]:
 
 sound_queue = []
 def playsound(name):
-    print("sonido", name)
-    print(sounds)
     if name in sounds:
         sound_queue.append(sounds[name])
 
@@ -23,7 +21,7 @@ imagenes.ll9_png, "5": imagenes.explosion_png, "6": imagenes.gameover_png}
 spritedata = bytearray( b"\0\0\0\0\x10\0\0\2\x20\0\0\4\x30\0\0\6\x40\0\0\x08\x50\0\0\x0A"
 + b"\0\0\0\xff" * 58)
 
-window = pyglet.window.Window(config=Config(double_buffer=True), fullscreen=True)
+window = pyglet.window.Window(config=Config(double_buffer=True), fullscreen=False)
 keys = key.KeyStateHandler()
 
 joysticks = pyglet.input.get_joysticks()
