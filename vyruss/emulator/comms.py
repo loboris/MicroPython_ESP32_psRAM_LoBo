@@ -55,7 +55,8 @@ def receive_loop():
                 for now, duration in struct.iter_unpack("qq", data):
                     if now > last_time_seen:
                         last_time_seen = now
-                        print(now, duration)
+                        print(now, duration, "(%.2f rpm, %.2f fps)" % (1000000 / duration
+                        * 60, (1000000/duration)))
                 #print(struct.unpack("q"*32*2, data))
 
 
