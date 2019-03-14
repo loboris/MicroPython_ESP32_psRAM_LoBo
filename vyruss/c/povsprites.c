@@ -13,7 +13,7 @@
 #define GPIO_HALL     GPIO_NUM_22
 #define ESP_INTR_FLAG_DEFAULT 0
 #define COLUMNS 256
-#define FASTEST_CREDIBLE_TURN 200
+#define FASTEST_CREDIBLE_TURN 10000 // if the fan is going over 100 FPS, then I don't believe it, and discard the reading
 
 #define DEBUG_ROTATION 1
 
