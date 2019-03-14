@@ -45,13 +45,19 @@ def receive(bufsize):
             if b:
                 retval = b
             else:
-                conn = None
                 obj.close()
                 poller.unregister(obj)
+                conn = None
     return retval
 
 def send(line, data=None):
+    global conn
     if conn:
-        conn.write(line + "\n")
-        if data:
-            conn.write(data)
+        try:
+            conn.write(line + "\n")
+            if data:
+                conn.write(data)
+        except OSError:
+            conn.close()
+            poller.unregister(conn)
+            conn = None
