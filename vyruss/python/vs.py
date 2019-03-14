@@ -3,11 +3,24 @@ import imagenes
 import spritelib
 import utime
 
+DEBUG = True
 try:
     from remotepov import update
 except:
-    def update():
-        pass
+    update = lambda: None
+
+    if DEBUG:
+        import povsprites
+        import uctypes
+        debug_buffer = uctypes.bytearray_at(povsprites.getaddress(999), 32*16)
+        next_loop = 1000
+        def update():
+            global next_loop
+            now = utime.ticks_ms()
+            if utime.ticks_diff(next_loop, now) < 0:
+                next_loop = utime.ticks_add(now, 1000)
+                comms.send("debug", debug_buffer)
+
 
 DISABLED_FRAME = -1
 

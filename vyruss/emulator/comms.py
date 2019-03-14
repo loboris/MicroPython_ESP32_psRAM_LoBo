@@ -1,4 +1,5 @@
 import config
+import struct
 import socket
 import threading
 from pygletengine import image_stripes, palette, spritedata, playsound
@@ -27,6 +28,8 @@ def send(b):
         print(err)
 
 def receive_loop():
+    last_time_seen = 0
+
     waitconnect()
     while looping:
         try:
@@ -45,6 +48,16 @@ def receive_loop():
             if command == b"imagestrip":
                 length, slot = args
                 image_stripes[slot.decode()] = sockfile.read(int(length))
+
+            if command == b"debug":
+                length = 32 * 16
+                data = sockfile.read(length)
+                for now, duration in struct.iter_unpack("qq", data):
+                    if now > last_time_seen:
+                        last_time_seen = now
+                        print(now, duration)
+                #print(struct.unpack("q"*32*2, data))
+
 
         except socket.error as err:
             print(err)

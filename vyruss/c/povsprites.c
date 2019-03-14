@@ -15,6 +15,19 @@
 #define COLUMNS 256
 #define FASTEST_CREDIBLE_TURN 200
 
+#define DEBUG_ROTATION 1
+
+#ifdef DEBUG_ROTATION
+#define DEBUG_BUFFER_SIZE 32
+typedef struct {
+    int64_t now;
+    int64_t turn_duration;
+} DEBUG_rotation_log_entry;
+
+DEBUG_rotation_log_entry DEBUG_rotlog[DEBUG_BUFFER_SIZE];
+volatile int DEBUG_rot_item = 0;
+#endif
+
 char* sendbuf;
 int num_bytes;
 uint32_t* pixels; 
@@ -84,11 +97,23 @@ static void IRAM_ATTR hall_sensed(void* arg)
         last_turn_duration = this_turn_duration;
         last_turn = this_turn;
     }
+
+#ifdef DEBUG_ROTATION
+    DEBUG_rotlog[DEBUG_rot_item].now = this_turn;
+    DEBUG_rotlog[DEBUG_rot_item].turn_duration = this_turn_duration;
+    DEBUG_rot_item = (DEBUG_rot_item + 1) % DEBUG_BUFFER_SIZE;
+#endif
 }
 
 
 
 void hall_init() {
+#ifdef DEBUG_ROTATION
+    for (int n = 0; n<DEBUG_BUFFER_SIZE; n++) {
+        DEBUG_rotlog[n].now = 0xAA55AA55;
+        DEBUG_rotlog[n].turn_duration = 0xFF00FF00;
+    }
+#endif
     gpio_set_direction(GPIO_HALL, GPIO_MODE_INPUT);
     gpio_set_pull_mode(GPIO_HALL, GPIO_PULLUP_ONLY);
     gpio_pullup_en(GPIO_HALL);
@@ -195,6 +220,11 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(povsprites_init_obj, povsprites_init);
 
 STATIC mp_obj_t povsprites_getaddress(mp_obj_t sprite_num) {
     int num = mp_obj_get_int(sprite_num);
+#ifdef DEBUG_ROTATION
+    if (num == 999) {
+        return mp_obj_new_int((mp_int_t)(uintptr_t)DEBUG_rotlog);
+    }
+#endif
     return mp_obj_new_int((mp_int_t)(uintptr_t)&sprites[num]);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(povsprites_getaddress_obj, povsprites_getaddress);
