@@ -1,11 +1,7 @@
+import config
 import socket
 import threading
 from pygletengine import image_stripes, palette, spritedata, playsound
-
-#SERVER_IP = "192.168.4.1"
-#SERVER_IP = "127.0.0.1"
-SERVER_IP = "192.168.1.159"
-SERVER_PORT = 5005
 
 sock = None
 sockfile = None
@@ -18,7 +14,7 @@ def waitconnect():
         try:
             global sock, sockfile
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((SERVER_IP, SERVER_PORT))
+            sock.connect((config.SERVER_IP, config.SERVER_PORT))
             sockfile = sock.makefile(mode="rb")
             return
         except socket.error as err:
