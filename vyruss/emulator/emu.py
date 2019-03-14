@@ -1,7 +1,7 @@
 import comms
 import sys
 from itertools import cycle
-from pygletengine import PygletEngine, image_stripes, palette, spritedata, playsound
+from pygletengine import PygletEngine
 
 
 led_count = 52
