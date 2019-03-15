@@ -39,7 +39,7 @@ for i in images:
     workspace.paste(i, (x, 0, x+i.width, i.height))
     x+=i.width
 
-workspace.save("w1.png")
+#workspace.save("w1.png")
 
 workspace = workspace.convert("P", palette=Image.ADAPTIVE)
 palette = list(grouper(workspace.getpalette(), 3))
@@ -50,7 +50,7 @@ palorder[mi] = 255
 workspace = workspace.remap_palette(palorder)
 palette = list(grouper(workspace.getpalette(), 3))
 mi = palette.index(MAGENTA)
-workspace.save("w2.png")
+#workspace.save("w2.png")
 
 def gamma(value, gamma=2.5, offset=0.5):
     assert 0 <= value <= 255
