@@ -10,7 +10,10 @@
 #include "minispi.h"
 #include "spritelib.h"
 
-#define GPIO_HALL     GPIO_NUM_22
+#define GPIO_HALL     GPIO_NUM_26
+#define GPIO_HALL_B     GPIO_NUM_25
+
+
 #define ESP_INTR_FLAG_DEFAULT 0
 #define COLUMNS 256
 #define FASTEST_CREDIBLE_TURN 10000 // if the fan is going over 100 FPS, then I don't believe it, and discard the reading
@@ -51,7 +54,7 @@ inline uint32_t max(uint32_t a, uint32_t b) {
 void spi_init(int num_pixels) {
     num_bytes = 4 + num_pixels * 4 + 8;
     const long freq = 20000000;
-    spiStartBus(freq);
+    spiStartBuses(freq);
     sendbuf=heap_caps_malloc(num_bytes, MALLOC_CAP_DMA);
     memset(sendbuf, 0, num_bytes);
     pixels = (uint32_t*)(sendbuf+4);
@@ -62,7 +65,8 @@ void spi_init(int num_pixels) {
 
 
 void spi_write() {
-    spiWriteNL(sendbuf, num_bytes);
+    spiWriteNL(2, sendbuf, num_bytes);
+    spiWriteNL(3, sendbuf, num_bytes);
 }
 
 void spi_shutdown() {

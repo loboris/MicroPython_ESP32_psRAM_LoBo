@@ -28,6 +28,10 @@
 #define HSPI_PIN_CLK  GPIO_NUM_14
 #define HSPI_PIN_MOSI GPIO_NUM_13
 
+#define VSPI_PIN_CLK  GPIO_NUM_18
+#define VSPI_PIN_MOSI GPIO_NUM_23
+
+
 typedef union {
     uint32_t regValue;
     struct {
@@ -39,7 +43,8 @@ typedef union {
     };
 } spiClk_t;
 
-spi_dev_t* dev;
+spi_dev_t* dev2;
+spi_dev_t* dev3;
 
 #define ClkRegToFreq(reg) (CPU_CLK_FREQ / (((reg)->regPre + 1) * ((reg)->regN + 1)))
 #define ESP_REG(addr) *((volatile uint32_t *)(addr))
@@ -97,7 +102,7 @@ uint32_t spiFrequencyToClockDiv(uint32_t freq) {
     return bestReg.regValue;
 }
 
-void spiStopBus() {
+void spiStopBus(spi_dev_t* dev) {
     dev->slave.trans_done = 0;
     dev->slave.slave_mode = 0;
     dev->pin.val = 0;
@@ -109,12 +114,24 @@ void spiStopBus() {
     dev->clock.val = 0;
 }
 
-void spiStartBus(uint32_t freq) {
-    dev = (volatile spi_dev_t *)(DR_REG_SPI2_BASE);
-    DPORT_SET_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, DPORT_SPI_CLK_EN);
-    DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, DPORT_SPI_RST);
+void spiStopBuses() {
+    spiStopBus(dev2);
+    spiStopBus(dev3);
+}
 
-    spiStopBus();
+void set_pin(int gpio, int reg, int matrix_idx) {
+    uint32_t pinFunction = 0;
+    pinFunction |= ((uint32_t)2 << FUN_DRV_S);//what are the drivers?
+    pinFunction |= FUN_IE;//input enable but required for output as well?
+    pinFunction |= ((uint32_t)2 << MCU_SEL_S);
+
+    gpio_set_direction(gpio, GPIO_MODE_OUTPUT);
+    GPIO.enable_w1ts = ((uint32_t)1 << gpio);
+    ESP_REG(DR_REG_IO_MUX_BASE + reg) = pinFunction;
+    gpio_matrix_out(gpio, matrix_idx, false, false);
+}
+
+void spiStartBus(spi_dev_t* dev, uint32_t freq) {
     // mode SPI_MODE0
     dev->pin.ck_idle_edge = 0;
     dev->user.ck_out_edge = 0;
@@ -132,26 +149,38 @@ void spiStartBus(uint32_t freq) {
     for(i=0; i<16; i++) {
         dev->data_buf[i] = 0x00000000;
     }
+}
 
-    uint32_t pinFunction = 0;
-    pinFunction |= ((uint32_t)2 << FUN_DRV_S);//what are the drivers?
-    pinFunction |= FUN_IE;//input enable but required for output as well? 
-    pinFunction |= ((uint32_t)2 << MCU_SEL_S);
-    
-    gpio_set_direction(GPIO_NUM_14, GPIO_MODE_OUTPUT);
-    GPIO.enable_w1ts = ((uint32_t)1 << 14);
-    ESP_REG(DR_REG_IO_MUX_BASE + 0x30) = pinFunction;
-    gpio_matrix_out(GPIO_NUM_14, HSPICLK_OUT_IDX, false, false);
+void spiStartBuses(uint32_t freq) {
+    dev2 = (volatile spi_dev_t *)(DR_REG_SPI2_BASE);
+    dev3 = (volatile spi_dev_t *)(DR_REG_SPI3_BASE);
+    DPORT_SET_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, DPORT_SPI2_CLK_EN);
+    DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, DPORT_SPI2_RST);
+    DPORT_SET_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, DPORT_SPI3_CLK_EN);
+    DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, DPORT_SPI3_RST);
 
-    gpio_set_direction(GPIO_NUM_13, GPIO_MODE_OUTPUT);
-    GPIO.enable_w1ts = ((uint32_t)1 << 13);
-    ESP_REG(DR_REG_IO_MUX_BASE + 0x38) = pinFunction;
-    gpio_matrix_out(GPIO_NUM_13, HSPID_IN_IDX, false, false);
+    spiStopBuses();
+
+    spiStartBus(dev2, freq);
+    spiStartBus(dev3, freq);
+
+    set_pin(GPIO_NUM_14, 0x30, HSPICLK_OUT_IDX);
+    set_pin(GPIO_NUM_13, 0x38, HSPID_IN_IDX);
+    set_pin(GPIO_NUM_18, 0x70, VSPICLK_OUT_IDX);
+    set_pin(GPIO_NUM_23, 0x8C, VSPID_IN_IDX);
 
 //    gpio_set_direction(GPIO_NUM_12, GPIO_MODE_INPUT);
 }
 
-void spiWriteNL(const void * data_in, size_t len){
+void spiWriteNL(int device, const void * data_in, size_t len){
+    spi_dev_t* dev;
+    if (device == 3) {
+        dev = dev3;
+    } else {
+        dev = dev2;
+    }
+
+
     size_t longs = len >> 2;
     if(len & 3){
         longs++;
