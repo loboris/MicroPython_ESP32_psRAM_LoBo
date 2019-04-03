@@ -1,11 +1,13 @@
 import config
 import pyglet
 import math
+import random
 from pyglet.gl import *
 from pyglet.window import key
 from struct import pack, unpack
 
 fps_display = pyglet.clock.ClockDisplay()
+
 
 sounds = {}
 for sn in ["shoot1", "explosion2", "explosion3"]:
@@ -45,6 +47,9 @@ deepspace = [51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36,
 11, 10, 10, 9, 9, 9, 8, 8, 8, 7, 7, 7, 6, 6, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 3,
 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+STARS = COLUMNS // 2
+starfield = [(random.randrange(COLUMNS), random.randrange(ROWS)) for n in range(STARS)]
 
 glLoadIdentity()
 glEnable(GL_BLEND)
@@ -151,8 +156,24 @@ class PygletEngine():
             else:
                 return -1
 
+        def step_starfield():
+            for (n, (x, y)) in enumerate(starfield):
+                y -= 1
+                if y < 0:
+                    y = ROWS - 1
+                    x = random.randrange(COLUMNS)
+                starfield[n] = (x, y)
+
         def render(column):
             pixels = [0x00000000] * led_count * 4
+
+            for (x,y) in starfield:
+                if x == column:
+                    try:
+                        px = deepspace[y] * 4
+                        pixels[px:px+4] = [0xff404040] * 4
+                    except:
+                        print(y, deepspace)
 
             # el sprite 0 se dibuja arriba de todos los otros
             for n in range(63, -1, -1):
@@ -203,6 +224,7 @@ class PygletEngine():
             glDisable(texture.target)
             glRotatef(180, 0, 0, 1)
             glTranslatef(-window.width / 2, -window.height / 2, 0)
+            step_starfield()
 
 
         def animate(dt):
