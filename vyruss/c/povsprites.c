@@ -31,14 +31,16 @@ DEBUG_rotation_log_entry DEBUG_rotlog[DEBUG_BUFFER_SIZE];
 volatile int DEBUG_rot_item = 0;
 #endif
 
-char* sendbuf;
-int num_bytes;
-uint32_t* pixels; 
+char* spi_buf;
+uint32_t* pixels0;
+uint32_t* pixels1;
+
+int buf_size;
 
 volatile int64_t last_turn = 0;
 volatile int64_t last_turn_duration = 355 * COLUMNS;
 
-extern void render(int n);
+extern void render(int n, uint32_t* pixels);
 extern void init_sprites();
 extern void step();
 extern void step_starfield();
@@ -49,28 +51,37 @@ inline uint32_t max(uint32_t a, uint32_t b) {
     return a;
 }
 
+char* init_buffers() {
+    spi_buf=heap_caps_malloc(buf_size * 2, MALLOC_CAP_DMA);
+    memset(spi_buf, 0, buf_size * 2);
+    pixels0 = (uint32_t*)(spi_buf+4);
+    pixels1 = (uint32_t*)(spi_buf+ buf_size +4);
+    for(int n=0; n<8; n++) {
+        pixels0[n] = 0x100000Ff;
+        pixels1[n] = 0x000010Ff;
+    }
+    return spi_buf;
+}
 
 
 void spi_init(int num_pixels) {
-    num_bytes = 4 + num_pixels * 4 + 8;
+    buf_size = 4 + num_pixels * 4 + 8;
     const long freq = 20000000;
     spiStartBuses(freq);
-    sendbuf=heap_caps_malloc(num_bytes, MALLOC_CAP_DMA);
-    memset(sendbuf, 0, num_bytes);
-    pixels = (uint32_t*)(sendbuf+4);
-    for(int n=0; n<8; n++) {
-        pixels[n] = 0xff000010;
-    }
+    init_buffers();
 }
 
 
-void spi_write() {
-    spiWriteNL(2, sendbuf, num_bytes);
-    spiWriteNL(3, sendbuf, num_bytes);
+void spi_write_0() {
+    spiWriteNL(2, spi_buf, buf_size);
+}
+
+void spi_write_1() {
+    spiWriteNL(3, spi_buf + buf_size, buf_size);
 }
 
 void spi_shutdown() {
-    free(sendbuf);
+    free(spi_buf);
 }
 
 
@@ -169,8 +180,11 @@ void coreTask( void * pvParameters ){
             uint32_t column = ((now - last_turn) * COLUMNS / last_turn_duration) % COLUMNS;
             if (column != last_column) {
                 //printf("now %u, column %u\n", now, column);
-                render(column);
-                spi_write();
+                render((column + COLUMNS/2) % COLUMNS, pixels0);
+                //memcpy(pixels0, pixels0+4, 51*4);
+                spi_write_0();
+                render(column, pixels1);
+                spi_write_1();
                 last_column = column;
             }
 
