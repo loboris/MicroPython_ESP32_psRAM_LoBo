@@ -18,6 +18,7 @@ attributes = {
   "galaga.png": (16, 16, 12, 0),
   "ll9.png": (16, 16, 1, 0),
   "gameover.png": (64, 20, 1, 0),
+  "crawling.png": (96, 219, 1, 0),
 }
 
 def grouper(iterable, n, fillvalue=None):

@@ -30,6 +30,7 @@ spritelib.set_imagestrip(1, imagenes.galaga_alt8_png)
 spritelib.set_imagestrip(2, imagenes.galaga_alt10_png)
 spritelib.set_imagestrip(3, imagenes.disparo_png)
 spritelib.set_imagestrip(4, imagenes.ll9_png)
+#spritelib.set_imagestrip(4, imagenes.crawling_png)
 spritelib.set_imagestrip(5, imagenes.explosion_png)
 spritelib.set_imagestrip(6, imagenes.gameover_png)
 
@@ -184,6 +185,7 @@ def process(b):
 
 
 def collision(missile, targets):
+    #return
     for target in targets:
         if (missile.x < target.x + spritelib.sprite_width(target) and
                 missile.x + spritelib.sprite_width(missile) > target.x and

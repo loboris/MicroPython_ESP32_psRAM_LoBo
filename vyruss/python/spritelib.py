@@ -20,6 +20,14 @@ povsprites.init(PIXELS, imagenes.palette_pal)
 
 stripes = {}
 
+class Sprite:
+    def __init__(self, num_sprite):
+        data = povsprites.getaddress(num_sprite)
+        self.details = uctypes.struct(data, sprite_struct)
+        
+    
+
+
 def create_sprite(num_sprite):
     data = povsprites.getaddress(num_sprite)
     sp = uctypes.struct(data, sprite_struct) #, uctypes.LITLE_ENDIAN)
