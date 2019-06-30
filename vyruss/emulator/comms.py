@@ -1,4 +1,6 @@
 import config
+import http.client
+import urllib.parse
 import struct
 import socket
 import threading
@@ -9,6 +11,20 @@ sockfile = None
 #sock.setblocking(False)
 
 looping = True
+
+influx_host = "localhost:8086"
+influx_url = "/write?" + urllib.parse.urlencode({'db': "ventilastation", 'precision': 'ns'})
+
+def send_telemetry(rpm, fps):
+    conn = http.client.HTTPConnection(influx_host)
+    body = "velocidad rpm=%f,fps=%f\n" % (rpm, fps)
+    conn.request("POST", influx_url, body=body, headers={})
+    response = conn.getresponse()
+    if int(response.status) / 100 != 2:
+        print("Sending failed: %s, %s: %s" % ( response.status,
+        response.reason, body))
+
+
 
 def waitconnect():
     while looping:
@@ -43,7 +59,8 @@ def receive_loop():
                 palette[:] = sockfile.read(1024)
 
             if command == b"play":
-                playsound(args[0])
+                #playsound(args[0])
+                pass
 
             if command == b"imagestrip":
                 length, slot = args
@@ -55,8 +72,9 @@ def receive_loop():
                 for now, duration in struct.iter_unpack("qq", data):
                     if now > last_time_seen:
                         last_time_seen = now
-                        print(now, duration, "(%.2f rpm, %.2f fps)" % (1000000 / duration
-                        * 60, (1000000/duration)))
+                        rpm, fps = 1000000 / duration * 60, (1000000/duration)*2
+                        print(now, duration, "(%.2f rpm, %.2f fps)" % (rpm, fps))
+                        send_telemetry(rpm, fps)
                 #print(struct.unpack("q"*32*2, data))
 
 
