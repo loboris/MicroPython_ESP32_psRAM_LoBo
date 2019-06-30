@@ -13,7 +13,7 @@ sprite_struct = {
     "frame": uctypes.INT8 | 3,
 }
 
-PIXELS=52
+PIXELS=54
 DISABLED_FRAME = -1
 
 povsprites.init(PIXELS, imagenes.palette_pal)

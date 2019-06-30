@@ -32,6 +32,7 @@ volatile int DEBUG_rot_item = 0;
 #endif
 
 char* spi_buf;
+uint32_t* extra_buf;
 uint32_t* pixels0;
 uint32_t* pixels1;
 
@@ -51,12 +52,14 @@ inline uint32_t max(uint32_t a, uint32_t b) {
     return a;
 }
 
-char* init_buffers() {
-    spi_buf=heap_caps_malloc(buf_size * 2, MALLOC_CAP_DMA);
-    memset(spi_buf, 0, buf_size * 2);
+char* init_buffers(int num_pixels) {
+    spi_buf=heap_caps_malloc(buf_size, MALLOC_CAP_DMA);
+    memset(spi_buf, 0, buf_size);
+    extra_buf=heap_caps_malloc(buf_size/2, MALLOC_CAP_DMA);
+    memset(extra_buf, 0, buf_size/2);
     pixels0 = (uint32_t*)(spi_buf+4);
-    pixels1 = (uint32_t*)(spi_buf+ buf_size +4);
-    for(int n=0; n<8; n++) {
+    pixels1 = (uint32_t*)(spi_buf+num_pixels*4);
+    for(int n=0; n<num_pixels; n++) {
         pixels0[n] = 0x100000Ff;
         pixels1[n] = 0x000010Ff;
     }
@@ -65,18 +68,18 @@ char* init_buffers() {
 
 
 void spi_init(int num_pixels) {
-    buf_size = 4 + num_pixels * 4 + 8;
+    buf_size = 4 + num_pixels * 4 * 2 + 8;
     const long freq = 20000000;
     spiStartBuses(freq);
-    init_buffers();
+    init_buffers(num_pixels);
 }
 
 
-void spi_write_0() {
+void spi_write_HSPI() {
     spiWriteNL(2, spi_buf, buf_size);
 }
 
-void spi_write_1() {
+void spi_write_VSPI() {
     spiWriteNL(3, spi_buf + buf_size, buf_size);
 }
 
@@ -153,17 +156,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(povsprites_set_imagestrip_obj, povsprites_set_i
 
 void coreTask( void * pvParameters ){
     printf("task running on core %d\n", xPortGetCoreID());
-/*
-    uint32_t last = esp_timer_get_time();
-        for(int n=0; n<8; n++) {
-            pixels[n] = colors[color];
-        }
-        render(color);
-        spi_write();
-        count++;
-    }
-*/
-
     int last_column = 0;
     uint32_t last_step = 0;
     uint32_t last_starfield_step = 0;
@@ -172,19 +164,15 @@ void coreTask( void * pvParameters ){
     init_sprites();
 
     while(true){
-
- //       for (uint32_t n = 0; n < BIFLEN; n++) {
- //           biff[n] = esp_timer_get_time();
-
             int64_t now = esp_timer_get_time();
             uint32_t column = ((now - last_turn) * COLUMNS / last_turn_duration) % COLUMNS;
             if (column != last_column) {
-                //printf("now %u, column %u\n", now, column);
-                render((column + COLUMNS/2) % COLUMNS, pixels0);
-                //memcpy(pixels0, pixels0+4, 51*4);
-                spi_write_0();
+                render((column + COLUMNS/2) % COLUMNS, extra_buf);
+                for(int n=0;n<54;n++) {
+                    pixels0[n] = extra_buf[53-n];
+                }
                 render(column, pixels1);
-                spi_write_1();
+                spi_write_HSPI();
                 last_column = column;
             }
 
@@ -197,23 +185,6 @@ void coreTask( void * pvParameters ){
                 step();
                 last_step = now;
             }
- //       }
- //       
- //       int count_under = 0;
- //       int count_over = 0;
- //       for (uint32_t n = 1; n < BIFLEN; n++) {
- //           int delta = biff[n] - biff[n - 1];
- //           if (delta < 2) {
- //               count_under++;
- //           }
-
- //           if (delta > 3) {
- //               count_over++;
- //               printf("%d, ", delta);
- //           }
- //       }
-
- //       printf("\n%d, %d\n----------\n", count_under, count_over);
     }
  
 }
