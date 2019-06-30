@@ -109,4 +109,4 @@ MicroPython_BUILD/components/micropython/component.mk.orig
 MicroPython_BUILD/components/micropython/esp32/mpconfigport.h.orig
 
 vyruss/sounds/src/
-tests/
+vyruss/.vscode/*
