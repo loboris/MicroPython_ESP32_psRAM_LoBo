@@ -110,3 +110,4 @@ MicroPython_BUILD/components/micropython/esp32/mpconfigport.h.orig
 
 vyruss/sounds/src/
 vyruss/.vscode/*
+vyruss/python/.vscode/settings.json
