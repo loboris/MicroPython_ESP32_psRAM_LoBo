@@ -60,8 +60,8 @@ char* init_buffers(int num_pixels) {
     pixels0 = (uint32_t*)(spi_buf+4);
     pixels1 = (uint32_t*)(spi_buf+num_pixels*4);
     for(int n=0; n<num_pixels; n++) {
-        pixels0[n] = 0x100000Ff;
-        pixels1[n] = 0x000010Ff;
+        pixels0[n] = 0x000000Ff;
+        pixels1[n] = 0x000000Ff;
     }
     return spi_buf;
 }
