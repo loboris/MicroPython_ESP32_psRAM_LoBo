@@ -35,7 +35,8 @@ def waitconnect():
             sockfile = sock.makefile(mode="rb")
             return
         except socket.error as err:
-            print(err)
+            pass
+            #print(err)
 
 def send(b):
     try:
