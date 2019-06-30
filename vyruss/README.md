@@ -1,0 +1,1 @@
+The FontStruction “Tom Thumb (modified)” (https://fontstruct.com/fontstructions/show/1604078) by “12Me21” is licensed under a Creative Commons Attribution license (http://creativecommons.org/licenses/by/3.0/).
