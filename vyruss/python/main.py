@@ -2,6 +2,7 @@ import comms
 import imagenes
 import spritelib
 import utime
+import model
 
 DEBUG = True
 try:
@@ -61,7 +62,7 @@ malos = []
 
 def generar_malos():
     malos_aux = []
-    for n in range(5):
+    for n in range(0):
         malo = spritelib.create_sprite(n + 10)
         malo.image_strip = 0
         malo.frame = (n + 1) * 2
@@ -199,6 +200,8 @@ def loop():
     step = 0
     counter = 0    
     loop_start = utime.ticks_ms()
+
+    scene = model.Fleet()
  
     while True:
         next_loop = utime.ticks_add(loop_start, 20)
@@ -210,6 +213,8 @@ def loop():
         elif last_val is not None:
             process(last_val)
 
+
+        scene.step()
         #List empty in the begining and when you finish one level
         global malos
         if not malos:
