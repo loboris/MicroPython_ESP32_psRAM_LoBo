@@ -45,28 +45,37 @@ class StateEntering(FleetState):
         self.steps = 0
         self.groups = []
         self.create_group()
+        self.final_x_pos = [256-8, 32-8, 64-8, 96-8, 128-8, 160-8, 192-8, 224-8]
+        self.final_y_pos = [112, 94, 76, 58]
+        self.num_baddies = 0
 
     def create_group(self):
         self.groups.append([])
 
     def add_baddie(self):
+        final_x = self.final_x_pos[self.num_baddies%8]
+        final_y = self.final_y_pos[3-self.num_baddies//8]
+        self.num_baddies += 1
+
+        picture = (self.num_baddies % 5) * 2 + 2
+
         if len(self.groups[-1]) % 2:
-            baddie = Baddie(10)
+            baddie = Baddie(picture)
             baddie.sprite.x = 144-8
             baddie.sprite.y = 128
             baddie.movements = [
                 TravelCloser(80), TravelX(112),
                 TravelCloser(32), TravelX(-96),
-                TravelAway(72), Hover()
+                TravelAway(42), TravelTo(final_x, final_y), Hover()
             ] 
         else:
-            baddie = Baddie(2)
+            baddie = Baddie(picture)
             baddie.sprite.x = 112-8
             baddie.sprite.y = 128
             baddie.movements = [
                 TravelCloser(80), TravelX(-112),
                 TravelCloser(32), TravelX(96),
-                TravelAway(72), Hover()
+                TravelAway(42), TravelTo(final_x, final_y), Hover()
             ] 
 
         self.groups[-1].append(baddie)
