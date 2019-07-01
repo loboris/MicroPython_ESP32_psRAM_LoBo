@@ -45,7 +45,8 @@ class StateEntering(FleetState):
         self.steps = 0
         self.groups = []
         self.create_group()
-        self.final_x_pos = [256-8, 32-8, 64-8, 96-8, 128-8, 160-8, 192-8, 224-8]
+        # [int(x * 18.285714285714285 + 0.5) for x in range(14) ]
+        self.final_x_pos = [0, 18, 37, 55, 73, 91, 110, 128, 146, 165, 183, 201, 219, 238]
         self.final_y_pos = [112, 94, 76, 58]
         self.num_baddies = 0
 
@@ -53,15 +54,17 @@ class StateEntering(FleetState):
         self.groups.append([])
 
     def add_baddie(self):
-        final_x = self.final_x_pos[self.num_baddies%8]
-        final_y = self.final_y_pos[3-self.num_baddies//8]
+        final_x = self.final_x_pos[self.num_baddies%14]
+        final_y = self.final_y_pos[self.num_baddies//14]
         self.num_baddies += 1
 
         picture = (self.num_baddies % 5) * 2 + 2
 
+        base_x = 128 - 8
+
         if len(self.groups[-1]) % 2:
             baddie = Baddie(picture)
-            baddie.sprite.x = 144-8
+            baddie.sprite.x = base_x + 16
             baddie.sprite.y = 128
             baddie.movements = [
                 TravelCloser(80), TravelX(112),
@@ -70,7 +73,7 @@ class StateEntering(FleetState):
             ] 
         else:
             baddie = Baddie(picture)
-            baddie.sprite.x = 112-8
+            baddie.sprite.x = base_x - 16
             baddie.sprite.y = 128
             baddie.movements = [
                 TravelCloser(80), TravelX(-112),
@@ -85,10 +88,13 @@ class StateEntering(FleetState):
             for baddie in group:
                 baddie.step()
 
+        self.steps += 1
+
         if self.steps % 16 == 0 and len(self.groups[-1]) < 10:
             self.add_baddie()
 
-        self.steps += 1
+        if self.steps % 512 == 0 and len(self.groups) < 5:
+            self.groups.append([])
 
 class StateAttacking(FleetState):
     def setup(self):
