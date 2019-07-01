@@ -8,6 +8,14 @@ def new_sprite():
     sprite_num += 1
     return sprite
 
+def calculate_direction(current, destination):
+    center_delta = 128 - current
+    new_destination = (destination + center_delta) % 256
+    if new_destination < 128:
+        return -1
+    if new_destination > 128:
+        return +1
+    return 0
 
 class Scene:
     def __init__(self):
@@ -42,8 +50,25 @@ class StateEntering(FleetState):
         self.groups.append([])
 
     def add_baddie(self):
-        baddie = Baddie()
-        baddie.setup()
+        if len(self.groups[-1]) % 2:
+            baddie = Baddie(10)
+            baddie.sprite.x = 144-8
+            baddie.sprite.y = 128
+            baddie.movements = [
+                TravelCloser(80), TravelX(112),
+                TravelCloser(32), TravelX(-96),
+                TravelAway(72), Hover()
+            ] 
+        else:
+            baddie = Baddie(2)
+            baddie.sprite.x = 112-8
+            baddie.sprite.y = 128
+            baddie.movements = [
+                TravelCloser(80), TravelX(-112),
+                TravelCloser(32), TravelX(96),
+                TravelAway(72), Hover()
+            ] 
+
         self.groups[-1].append(baddie)
 
     def step(self):
@@ -51,7 +76,7 @@ class StateEntering(FleetState):
             for baddie in group:
                 baddie.step()
 
-        if self.steps % 24 == 0 and len(self.groups[-1]) < 5:
+        if self.steps % 16 == 0 and len(self.groups[-1]) < 10:
             self.add_baddie()
 
         self.steps += 1
@@ -71,22 +96,21 @@ class StateDefeated(FleetState):
         pass
 
 class Baddie:
-    def setup(self, rotation=1):
+    def __init__(self, base_frame):
         self.sprite = new_sprite()
         self.sprite.image_strip = 0
         self.sprite.frame = 2
-        self.sprite.x = 32
-        self.sprite.y = -20
-        self.rotation = rotation
-        self.movements = [TravelTo(100,0), TravelTo(0, 64), TravelTo(0, 128), TravelTo(0, 128), Hover()]
+        self.base_frame = base_frame
+        self.frame_step = 0
 
     def step(self):
-        self.sprite.x += self.rotation
-        self.sprite.y += 1
-        if self.sprite.y < -100:
-            self.sprite.y = -20
-        self.sprite.frame = (not (self.sprite.y) & 8) + 8
-
+        self.frame_step += 1
+        self.sprite.frame = (not (self.frame_step & 8)) + self.base_frame
+        if self.movements:
+            movement = self.movements[0]
+            movement.step(self.sprite)
+            if (movement.finished(self.sprite)):
+                self.movements.pop(0)
 
 class Movement:
     pass
@@ -95,17 +119,56 @@ class FollowPath(Movement):
     pass
 
 class TravelTo(Movement):
-    pass
+    def __init__(self, x, y):
+        self.dest_x = x
+        self.dest_y = y
+
+    def step(self, sprite):
+        sprite.x += calculate_direction(sprite.x, self.dest_x) * 2
+        sprite.y += calculate_direction(sprite.y, self.dest_y) * 1
+
+    def finished(self, sprite):
+        return sprite.x == self.dest_x and sprite.y == self.dest_y
+
+class TravelBy(Movement):
+    def __init__(self, count, speed=None):
+        self.count = abs(count)
+        self.speed = -1 if count < 0 else 1
+
+    def finished(self, sprite):
+        return self.count <= 0
+
+class TravelX(TravelBy):
+    def step(self, sprite):
+        if self.count > 0:
+            sprite.x += 2 * self.speed
+
+        self.count -= 2
+
+class TravelCloser(TravelBy):
+    def step(self, sprite):
+        sprite.y -= 1
+        self.count -= 1
+
+class TravelAway(TravelBy):
+    def step(self, sprite):
+        sprite.y += 1
+        self.count -= 1
 
 class Hover(Movement):
     """Hover around the current position."""
+
     def __init__(self):
         self.dx = 0
         self.dy = 0
-        self
+        self.vx = 1
+        self.vy = 1
 
-    def step(self):
+    def step(self, sprite):
         pass
+
+    def finished(self, sprite):
+        return False
 
 class Chase(Movement):
     pass
