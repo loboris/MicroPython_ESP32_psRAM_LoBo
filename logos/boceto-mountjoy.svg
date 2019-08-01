@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg8"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)"
+   sodipodi:docname="boceto-mountjoy.svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.54911261"
+     inkscape:cx="144.62348"
+     inkscape:cy="759.09845"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1366"
+     inkscape:window-height="713"
+     inkscape:window-x="0"
+     inkscape:window-y="27"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       style="opacity:1;vector-effect:none;fill:#c87137;fill-opacity:1;stroke:#000000;stroke-width:1.6277442;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:stroke fill markers"
+       d="M 42.182948,96.184103 C 35.432177,91.004092 34.167651,81.398937 39.347661,74.648205 L 80.528009,20.980931 c 0.0054,-0.0075 0.01221,-0.01388 0.01641,-0.02179 0.100377,-0.129636 0.205516,-0.256698 0.310126,-0.384103 0.07271,-0.08802 0.144611,-0.177296 0.217887,-0.263914 0.02781,-0.03177 0.05656,-0.06261 0.08437,-0.09427 4.158005,-4.765347 10.66654,-6.389896 16.412002,-4.464382 0.01763,0.0071 0.03595,0.01378 0.05466,0.01811 0.203142,0.06889 0.405213,0.141851 0.606334,0.219595 0.05005,0.0194 0.09997,0.03993 0.15058,0.05941 0.170425,0.06763 0.339928,0.137912 0.508603,0.212126 0.08573,0.03694 0.170601,0.0766 0.255447,0.116113 0.1271,0.05854 0.25344,0.118174 0.379237,0.180541 0.131712,0.06483 0.261579,0.133665 0.39112,0.203001 0.08424,0.04516 0.168675,0.08859 0.252135,0.135401 0.18014,0.09994 0.35811,0.205171 0.53459,0.313087 0.0278,0.0161 0.0551,0.03379 0.0834,0.05037 0.20331,0.125716 0.40323,0.257274 0.60128,0.393183 0.0151,0.01058 0.0312,0.02069 0.0479,0.03165 0.18711,0.12988 0.37141,0.264781 0.55358,0.403572 0.025,0.01914 0.0511,0.03584 0.0761,0.055 0.008,0.0058 0.014,0.01275 0.0228,0.01845 0.12832,0.09924 0.25465,0.202176 0.37963,0.306698 0.0902,0.07425 0.18186,0.148009 0.27068,0.223055 0.0464,0.04046 0.0914,0.08205 0.13715,0.123125 0.92022,0.809561 1.72557,1.705145 2.4065,2.668293 l 40.80019,53.171278 c 5.18,6.750705 3.91522,16.35605 -2.83551,21.536061 -6.75075,5.180019 -16.3555,3.915659 -21.53548,-2.835082 l -14.4994,-18.89615 c 0,0 -6.56007,-10.726236 -14.499403,-10.72625 -7.937517,-1.4e-5 -14.496154,10.721869 -14.496154,10.721869 l -14.49616,18.89175 c -5.180011,6.750742 -14.785166,8.015282 -21.53591,2.835286 z"
+       id="rect824"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="csccccccccccccccccccccccccccsscccccc" />
+    <path
+       style="opacity:1;vector-effect:none;fill:#a05a2c;fill-opacity:1;stroke:#000000;stroke-width:1.0751338;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:stroke fill markers"
+       d="m 62.776441,14.724794 c -10.495889,0 -18.945614,8.449726 -18.945614,18.945614 V 80.40037 c 0,10.495888 8.449725,18.945613 18.945614,18.945613 h 59.875409 c 10.49589,0 18.94562,-8.449725 18.94562,-18.945613 V 33.670408 c 0,-10.495888 -8.44973,-18.945614 -18.94562,-18.945614 z m 1.366324,9.9596 h 57.519485 c 6.28924,0 11.35228,5.063042 11.35228,11.352278 v 25.346255 c 0,6.289236 -5.06304,11.352278 -11.35228,11.352278 H 64.142765 c -6.289236,0 -11.352279,-5.063042 -11.352279,-11.352278 V 36.036672 c 0,-6.289236 5.063043,-11.352278 11.352279,-11.352278 z"
+       id="rect815"
+       inkscape:connector-curvature="0" />
+  </g>
+</svg>
