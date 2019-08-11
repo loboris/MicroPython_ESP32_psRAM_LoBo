@@ -14,6 +14,9 @@ tft = display.TFT()
 # ESP32-WROVER-KIT v3:
 #tft.init(tft.ST7789, rst_pin=18, backl_pin=5, miso=25, mosi=23, clk=19, cs=22, dc=21)
 
+# ESP32-WROVER-KIT v4.1:
+#tft.init(tft.ILI9341, rst_pin=18, backl_pin=5, miso=25, mosi=23, clk=19, cs=22, dc=21)
+
 # Adafruit TFT FeatherWing:
 #tft.init(tft.ILI9341, width=240, height=320, miso=19, mosi=18, clk=5, cs=15, dc=33, bgr=True, hastouch=tft.TOUCH_STMPE, tcs=32)
 
