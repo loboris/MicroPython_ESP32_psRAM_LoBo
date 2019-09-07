@@ -4,6 +4,8 @@ import uctypes
 sprite_data = bytearray(b"\0\0\0\xff" * 64)
 stripes = {}
 
+raise "This is broken, need to be fixed to use asyncio"
+
 def init(num_pixels, palette):
     comms.send("palette", palette)
 

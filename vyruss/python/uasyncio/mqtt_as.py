@@ -9,14 +9,14 @@ import gc
 import usocket as socket
 import ustruct as struct
 gc.collect()
-from ubinascii import hexlify
+#from ubinascii import hexlify
 import uasyncio as asyncio
 gc.collect()
 from utime import ticks_ms, ticks_diff, sleep_ms
 from uerrno import EINPROGRESS, ETIMEDOUT
 gc.collect()
 from micropython import const
-from machine import unique_id
+#from machine import unique_id
 import network
 gc.collect()
 from sys import platform
@@ -42,7 +42,7 @@ async def eliza(*_):  # e.g. via set_wifi_handler(coro): see test program
     await asyncio.sleep_ms(_DEFAULT_MS)
 
 config = {
-    'client_id' : hexlify(unique_id()),
+    'client_id' : "rotor",
     'server' : None,
     'port' : 0,
     'user' : '',
@@ -129,8 +129,8 @@ class MQTT_base:
         if self.server is None:
             raise ValueError('no server specified.')
         self._sock = None
-        self._sta_if = network.WLAN(network.STA_IF)
-        self._sta_if.active(True)
+        self._ap_if = network.WLAN(network.AP_IF)
+        self._ap_if.active(True)
 
         self.pid = 0
         self.rcv_pid = 0
@@ -449,42 +449,10 @@ class MQTTClient(MQTT_base):
         self._has_connected = False  # Define 'Clean Session' value to use.
 
     async def wifi_connect(self):
-        s = self._sta_if
-        if ESP8266:
-            if s.isconnected():  # 1st attempt, already connected.
-                return
-            s.active(True)
-            s.connect()  # ESP8266 remembers connection.
-            while s.status() == network.STAT_CONNECTING:  # Break out on fail or success. Check once per sec.
-                await asyncio.sleep(1)
-        else:
-#            if not [x for x in s.scan() if x[0].decode() == self._ssid]:
-#                raise OSError
-            s.active(True)
-            s.connect(self._ssid, self._wifi_pw)
-            if PYBOARD:  # Doesn't yet have STAT_CONNECTING constant
-                while s.status() in (1, 2):
-                    await asyncio.sleep(1)
-            elif LOBO:
-                i = 0
-                while not s.isconnected():
-                    await asyncio.sleep(1)
-                    i+= 1
-                    if i >= 10:
-                        break
-            else:
-                while s.status() == network.STAT_CONNECTING:  # Break out on fail or success. Check once per sec.
-                    await asyncio.sleep(1)
-
-        if not s.isconnected():
-            raise OSError
-        # Ensure connection stays up for a few secs.
-        self.dprint('Checking WiFi integrity.')
-        for _ in range(5):
-            if not s.isconnected():
-                raise OSError  # in 1st 5 secs
-            await asyncio.sleep(1)
-        self.dprint('Got reliable connection')
+        s = self._ap_if
+        s.active(True)
+        s.config(essid=self._ssid, authmode=3, password=self._wifi_pw)
+        self.dprint('Started access point')
 
     async def connect(self):
         if not self._has_connected:
@@ -553,8 +521,6 @@ class MQTTClient(MQTT_base):
     def isconnected(self):
         if self._in_connect:  # Disable low-level check during .connect()
             return True
-        if self._isconnected and not self._sta_if.isconnected():  # It's going down.
-            self._reconnect()
         return self._isconnected
 
     def _reconnect(self):  # Schedule a reconnection if not underway.
@@ -577,7 +543,7 @@ class MQTTClient(MQTT_base):
                 await asyncio.sleep(1)
                 gc.collect()
             else:
-                self._sta_if.disconnect()
+#                self._sta_if.disconnect()
 #                if PYBOARD:
 #                    self._sta_if.deinit()
                 await asyncio.sleep(1)

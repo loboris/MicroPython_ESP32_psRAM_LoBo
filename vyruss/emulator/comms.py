@@ -1,3 +1,10 @@
+import asyncio
+import os
+import signal
+import time
+
+from gmqtt import Client as MQTTClient
+
 import config
 import http.client
 import urllib.parse
@@ -10,7 +17,7 @@ sock = None
 sockfile = None
 #sock.setblocking(False)
 
-looping = True
+STOP = None
 
 influx_host = "localhost:8086"
 influx_url = "/write?" + urllib.parse.urlencode({'db': "ventilastation", 'precision': 'ns'})
@@ -24,75 +31,84 @@ def send_telemetry(rpm, fps):
         print("Sending failed: %s, %s: %s" % ( response.status,
         response.reason, body))
 
-
-
-def waitconnect():
-    while looping:
-        try:
-            global sock, sockfile
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((config.SERVER_IP, config.SERVER_PORT))
-            sockfile = sock.makefile(mode="rb")
-            return
-        except socket.error as err:
-            pass
-            #print(err)
-
 def send(b):
     try:
         sock.send(b)
     except socket.error as err:
         print(err)
 
-def receive_loop():
-    last_time_seen = 0
+def on_connect(client, flags, rc, properties):
+    print('Connected')
+    client.subscribe('fan_debug', qos=0)
+    client.subscribe('audio_play', qos=0)
+    client.subscribe('audio_play', qos=0)
+    client.subscribe('temperatura', qos=0)
+    client.subscribe('joystick_leds', qos=0)
+    client.subscribe('start_fan', qos=0)
+    client.subscribe('stop_fan', qos=0)
 
-    waitconnect()
-    while looping:
-        try:
-            l = sockfile.readline()
-            command, *args = l.split()
+last_time_seen = 0
 
-            if command == b"sprites":
-                spritedata[:] = sockfile.read(256)
+def on_message(client, topic, payload, qos, properties):
+    global last_time_seen
 
-            if command == b"pal":
-                palette[:] = sockfile.read(1024)
+    if topic == "sprites":
+        assert len(payload) == 256
+        spritedata[:] = payload
 
-            if command == b"play":
-                #playsound(args[0])
-                pass
+    if topic == "pal":
+        assert len(payload) == 1024
+        palette[:] = payload
 
-            if command == b"imagestrip":
-                length, slot = args
-                image_stripes[slot.decode()] = sockfile.read(int(length))
+    if topic == "imagestrip":
+        image_stripes[slot.decode()] = payload
 
-            if command == b"debug":
-                length = 32 * 16
-                data = sockfile.read(length)
-                for now, duration in struct.iter_unpack("qq", data):
-                    if now > last_time_seen:
-                        last_time_seen = now
-                        rpm, fps = 1000000 / duration * 60, (1000000/duration)*2
-                        print(now, duration, "(%.2f rpm, %.2f fps)" % (rpm, fps))
-                        send_telemetry(rpm, fps)
-                #print(struct.unpack("q"*32*2, data))
+    if topic == "audio_play":
+        #playsound(payload)
+        pass
 
+    if topic == "fan_debug":
+        print(topic, payload)
+        rpm = -1
+        for now, duration in struct.iter_unpack("qq", payload):
+            if now > last_time_seen:
+                last_time_seen = now
+                rpm, fps = 1000000 / duration * 60, (1000000/duration)*2
+                print(now, duration, "(%.2f rpm, %.2f fps)" % (rpm, fps))
+                send_telemetry(rpm, fps)
+        if rpm == -1:
+            last_time_seen = 0
+            rpm = 0
+        print('fan_speed', "rpm=%d" % rpm)
+        client.publish('fan_speed', "rpm=%d" % rpm)
 
-        except socket.error as err:
-            print(err)
-            waitconnect()
+def on_subscribe(client, mid, qos):
+    print('SUBSCRIBED to', mid)
 
-        except Exception as err:
-            sock.close()
-            waitconnect()
+def on_disconnect(client, packet, exc=None):
+    print('Disconnected')
 
+async def main():
+    global STOP
+    STOP = asyncio.Event()
+
+    client = MQTTClient("raspi-eventos")
+    client.on_connect = on_connect
+    client.on_message = on_message
+    client.on_disconnect = on_disconnect
+    client.on_subscribe = on_subscribe
+
+    await client.connect("ventilastation.local")
+    await STOP.wait()
+
+def mqtt_loop():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(main())
 
 def shutdown():
-    global looping
-    looping = False
-    sock.close()
+    STOP.set()
 
-receive_thread = threading.Thread(target=receive_loop)
+receive_thread = threading.Thread(target=mqtt_loop)
 receive_thread.daemon = True
 receive_thread.start()
