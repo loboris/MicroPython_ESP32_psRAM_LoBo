@@ -56,7 +56,7 @@ void step() {
 
 void step_starfield() {
   for (int f=0; f<STARS; f++) {
-    if(starfield[f].y-- < 0) {
+    if(--starfield[f].y == 0) {
       starfield[f].y = ROWS;
       starfield[f].x = random(COLUMNS);
     }
@@ -79,7 +79,7 @@ void render(int column, uint32_t* pixels) {
   }
   for (int f=0; f<STARS; f++) {
     if (starfield[f].x == column) {
-      pixels[deepspace[starfield[f].y]] = 0x040404ff;
+      //pixels[deepspace[starfield[f].y]] = 0x040404ff;
     }
   }
 
