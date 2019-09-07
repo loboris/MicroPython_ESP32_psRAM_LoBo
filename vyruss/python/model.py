@@ -1,10 +1,10 @@
 import spritelib
 
-sprite_num = 0
+sprite_num = 3
 
 def new_sprite():
     global sprite_num
-    sprite = spritelib.create_sprite(4+sprite_num)
+    sprite = spritelib.create_sprite(sprite_num)
     sprite_num += 1
     return sprite
 
@@ -23,6 +23,14 @@ class Scene:
 
     def step(self):
         pass
+
+    def next_state(self):
+        try:
+            import machine
+            machine.reset()
+        except ImportError:
+            import sys
+            sys.exit()
     
 class Fleet(Scene):
     def setup(self):
@@ -45,22 +53,23 @@ class StateEntering(FleetState):
         self.steps = 0
         self.groups = []
         self.create_group()
-        # [int(x * 18.285714285714285 + 0.5) for x in range(14) ]
-        self.final_x_pos = [0, 18, 37, 55, 73, 91, 110, 128, 146, 165, 183, 201, 219, 238]
+        # [int(x * 18.285714285714285 + 0.5) for x in range(14) ], shuffled by hand
+        self.final_x_pos = [0, 128, 55, 183, 18, 73, 146, 201, 37, 91, 238, 110, 165, 219]
         self.final_y_pos = [112, 94, 76, 58]
+        self.bases = [128-8, 224-8, 32-8, 256-8, 128-8]
         self.num_baddies = 0
 
     def create_group(self):
         self.groups.append([])
 
     def add_baddie(self):
-        final_x = self.final_x_pos[self.num_baddies%14]
-        final_y = self.final_y_pos[self.num_baddies//14]
+        final_x = self.final_x_pos[self.num_baddies % 14]
+        final_y = self.final_y_pos[self.num_baddies // 14]
         self.num_baddies += 1
 
         picture = (self.num_baddies % 5) * 2 + 2
 
-        base_x = 128 - 8
+        base_x = self.bases[len(self.groups)-1]
 
         if len(self.groups[-1]) % 2:
             baddie = Baddie(picture)
@@ -93,8 +102,11 @@ class StateEntering(FleetState):
         if self.steps % 16 == 0 and len(self.groups[-1]) < 10:
             self.add_baddie()
 
-        if self.steps % 512 == 0 and len(self.groups) < 5:
-            self.groups.append([])
+        if self.steps % 512 == 0:
+            if len(self.groups) < 5:
+                self.groups.append([])
+            else:
+                self.fleet.next_state()
 
 class StateAttacking(FleetState):
     def setup(self):
