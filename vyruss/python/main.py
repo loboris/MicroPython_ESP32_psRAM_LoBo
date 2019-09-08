@@ -1,15 +1,29 @@
-import uasyncio
-from uasyncio import mqtt_as
 import utime
 
+import comms
 import spritelib
 import model
 
 import imagenes
 
-loop = uasyncio.get_event_loop()
-
 DEBUG = True
+
+try:
+    from remotepov import update
+except:
+    update = lambda: None
+    print("setting up fan debug")
+    if DEBUG:
+        import povsprites
+        import uctypes
+        debug_buffer = uctypes.bytearray_at(povsprites.getaddress(999), 32*16)
+        next_loop = 1000
+        def update():
+            global next_loop
+            now = utime.ticks_ms()
+            if utime.ticks_diff(next_loop, now) < 0:
+                next_loop = utime.ticks_add(now, 1000)
+                comms.send("debug", debug_buffer)
 
 
 DISABLED_FRAME = -1
@@ -67,7 +81,7 @@ def reset_game():
     nave.frame = 0
 
 def audio_play(track):
-    mqtt_client.publish("audio_play", track)
+    comms.send("audio_play " + track)
 
 def new_heading(up, down, left, right):
     """
@@ -185,11 +199,8 @@ def collision(missile, targets):
             return target
 
 
-last_input = 0
-
-async def game_loop():
-    await mqtt_client.connect()
-    global last_input
+def game_loop():
+    last_val = None
     step = 0
     counter = 0    
     loop_start = utime.ticks_ms()
@@ -197,9 +208,14 @@ async def game_loop():
     scene = model.Fleet()
  
     while True:
-        next_loop = utime.ticks_add(loop_start, 15)
+        next_loop = utime.ticks_add(loop_start, 20)
 
-        process_input(last_input)
+        val = comms.receive(1)
+        if val is not None:
+            process_input(val[0])
+            last_val = val[0]
+        elif last_val is not None:
+            process_input(last_val)
 
         scene.step()
         #List empty in the begining and when you finish one level
@@ -260,49 +276,11 @@ async def game_loop():
                 gameover.frame = 0
                 audio_play("explosion3")
 
+        update()
         delay = utime.ticks_diff(next_loop, utime.ticks_ms())
-        await uasyncio.sleep_ms(max(delay, 0))
+        if delay > 0:
+            utime.sleep_ms(delay)
         loop_start = next_loop
 
-async def connect_coro(client):
-    print("subscribing again...")
-    await client.subscribe('joystick', 1)
 
-async def message_arrived(topic, message):
-    if topic == "joystick":
-        global last_input
-        last_input = message[0]
-    else:
-        print(topic, message)
-
-mqtt_as.config['subs_cb'] = message_arrived
-mqtt_as.config['connect_coro'] = connect_coro
-mqtt_as.config['keepalive'] = 120
-mqtt_as.config['server'] = '192.168.4.83'
-mqtt_as.config['ssid'] = 'ventilastation'
-mqtt_as.config['wifi_pw'] = 'plagazombie2'
-mqtt_client = mqtt_as.MQTTClient(mqtt_as.config)
-mqtt_client.DEBUG=True
-
-#try:
-    #from remotepov import update
-#except:
-if 1:
-    print("setting up fan debug")
-    if DEBUG:
-        import povsprites
-        import uctypes
-        debug_buffer = uctypes.bytearray_at(povsprites.getaddress(999), 32*16)
-
-        async def debug_update():
-            while True:
-                await mqtt_client.publish("fan_debug", debug_buffer)
-                await uasyncio.sleep(1)
-
-        loop.create_task(debug_update())
-
-try:
-    print("starting main loop")
-    loop.run_until_complete(game_loop())
-finally:  # Prevent LmacRxBlk:1 errors.
-    mqtt_client.close()
+game_loop()
