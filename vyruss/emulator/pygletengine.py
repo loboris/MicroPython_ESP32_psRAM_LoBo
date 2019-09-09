@@ -1,5 +1,7 @@
 import config
 import pyglet
+# Force using OpenAL since pulse crashes
+pyglet.options['audio'] = ('openal', 'silent')
 import math
 import random
 from pyglet.gl import *
