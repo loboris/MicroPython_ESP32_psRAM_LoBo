@@ -6,5 +6,5 @@ cd ..
 
 cd emulator
 . venv/bin/activate
-python emu.py
+python emu.py 127.0.0.1
 kill $BGPID
