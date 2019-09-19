@@ -98,6 +98,11 @@ class Fleet(Scene):
         self.laser = Laser()
         self.explosions = []
 
+    def explode_baddie(self, baddie):
+        self.everyone.remove(baddie)
+        explosion = baddie.explode()
+        self.explosions.append(explosion)
+
     def step(self):
         self.state.step()
         if self.laser.enabled:
@@ -106,16 +111,12 @@ class Fleet(Scene):
             if hit:
                 self.laser.finish()
                 audio_play("explosion2")
-                self.everyone.remove(hit)
-                explosion = hit.explode()
-                self.explosions.append(explosion)
+                self.explode_baddie(hit)
 
         baddie = self.starfighter.collision(self.everyone)
         if baddie:
             audio_play("explosion3")
-            self.everyone.remove(baddie)
-            explosion = baddie.explode()
-            self.explosions.append(explosion)
+            self.explode_baddie(baddie)
             # TODO: explode the starship
             pass
 
@@ -191,8 +192,12 @@ class StateEntering(FleetState):
                 TravelAway(42), TravelTo(final_x, final_y), Hover()
             ] 
 
-        self.groups[-1].append(1)
+        self.groups[-1].append(baddie)
         self.fleet.everyone.append(baddie)
+
+    def all_baddies_in_last_group_exploded(self):
+        g = self.groups[-1]
+        return g and all(b.exploded for b in g)
 
     def step(self):
         for baddie in self.fleet.everyone:
@@ -203,9 +208,10 @@ class StateEntering(FleetState):
         if self.steps % 16 == 0 and len(self.groups[-1]) < 10:
             self.add_baddie()
 
-        if self.steps % 512 == 0:
+        if self.steps % 512 == 0 or self.all_baddies_in_last_group_exploded():
+            self.steps = 0
             if len(self.groups) < 5:
-                self.groups.append([])
+                self.create_group()
             else:
                 self.fleet.next_state()
 
@@ -300,6 +306,7 @@ class Baddie(Sprite):
         super().__init__(strip=0)
         self.base_frame = base_frame
         self.frame_step = 0
+        self.exploded = False
 
     def step(self):
         self.frame_step += 1
@@ -311,6 +318,7 @@ class Baddie(Sprite):
                 self.movements.pop(0)
     
     def explode(self):
+        self.exploded = True
         return BaddieExploding(self)
 
 class Movement:
