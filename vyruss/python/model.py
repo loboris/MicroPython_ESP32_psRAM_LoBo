@@ -29,7 +29,7 @@ class Scene:
     def step(self):
         pass
 
-    def next_state(self):
+    def change_state(self):
         try:
             import machine
             machine.reset()
@@ -97,9 +97,13 @@ class Fleet(Scene):
         self.starfighter = StarFighter()
         self.laser = Laser()
         self.explosions = []
+     
+    def change_state(self):
+        self.state = self.state.next_state(self)
 
     def explode_baddie(self, baddie):
         self.everyone.remove(baddie)
+        self.state.remove_baddie(baddie)
         explosion = baddie.explode()
         self.explosions.append(explosion)
 
@@ -145,10 +149,44 @@ class FleetState:
         self.fleet = fleet
         self.setup()
 
+    def remove_baddie(self, baddie):
+        pass
+
     def step(self):
         pass
 
+class StateDefeated(FleetState):
+    def setup(self):
+        print("everyone defeated")
+        pass
+
+    def step(self):
+        pass
+
+class StateAttacking(FleetState):
+    next_state = StateDefeated
+
+    def setup(self):
+        self.attacking = []
+
+    def remove_baddie(self, baddie):
+        if baddie in self.attacking:
+            self.attacking.remove(baddie)
+
+    def step(self):
+        for baddie in self.fleet.everyone:
+            baddie.step()
+
+        if len(self.fleet.everyone) == 0:
+            self.fleet.change_state()
+        elif len(self.attacking) < 2:
+            baddie = self.fleet.everyone[0]
+            baddie.movements = [TravelCloser(112), TravelAway(112), Hover()]
+            self.attacking.append(baddie)
+
 class StateEntering(FleetState):
+    next_state = StateAttacking
+
     def setup(self):
         self.phase = 0
         self.steps = 0
@@ -213,21 +251,7 @@ class StateEntering(FleetState):
             if len(self.groups) < 5:
                 self.create_group()
             else:
-                self.fleet.next_state()
-
-class StateAttacking(FleetState):
-    def setup(self):
-        pass
-
-    def step(self):
-        pass
-
-class StateDefeated(FleetState):
-    def setup(self):
-        pass
-
-    def step(self):
-        pass
+                self.fleet.change_state()
 
 class Sprite:
     def __init__(self, strip, x=0, y=0, frame=DISABLED_FRAME):
