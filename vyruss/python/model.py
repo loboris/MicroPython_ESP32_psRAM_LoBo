@@ -181,7 +181,8 @@ class StateAttacking(FleetState):
             self.fleet.change_state()
         elif len(self.attacking) < 2:
             baddie = self.fleet.everyone[0]
-            baddie.movements = [TravelCloser(112), TravelAway(112), Hover()]
+            delta = baddie.sprite.y - 16
+            baddie.movements = [TravelCloser(delta), TravelAway(delta), Hover()]
             self.attacking.append(baddie)
 
 class StateEntering(FleetState):
