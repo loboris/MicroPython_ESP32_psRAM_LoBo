@@ -196,7 +196,7 @@ class StateEntering(FleetState):
         self.create_group()
         # [int(x * 18.285714285714285 + 0.5) for x in range(14) ], shuffled by hand
         self.final_x_pos = [0, 128, 55, 183, 18, 73, 146, 201, 37, 91, 238, 110, 165, 219]
-        self.final_y_pos = [112, 94, 76, 58]
+        self.final_y_pos = [128, 110, 92, 74]
         self.bases = [128-8, 224-8, 32-8, 256-8, 128-8]
         self.num_baddies = 0
 
@@ -212,19 +212,17 @@ class StateEntering(FleetState):
 
         base_x = self.bases[len(self.groups)-1]
 
+        baddie = Baddie(picture)
+        baddie.sprite.y = 128 + 32
         if len(self.groups[-1]) % 2:
-            baddie = Baddie(picture)
             baddie.sprite.x = base_x + 16
-            baddie.sprite.y = 128
             baddie.movements = [
                 TravelCloser(80), TravelX(112),
                 TravelCloser(32), TravelX(-96),
                 TravelAway(42), TravelTo(final_x, final_y), Hover()
             ] 
         else:
-            baddie = Baddie(picture)
             baddie.sprite.x = base_x - 16
-            baddie.sprite.y = 128
             baddie.movements = [
                 TravelCloser(80), TravelX(-112),
                 TravelCloser(32), TravelX(96),
@@ -274,7 +272,7 @@ class Sprite:
 
 class StarFighter(Sprite):
     def __init__(self):
-        super().__init__(strip=4, x=256-8, y=0, frame=0)
+        super().__init__(strip=4, x=256-8, y=16, frame=0)
 
 
     def step(self, where):
@@ -289,7 +287,7 @@ class StarFighter(Sprite):
             self.sprite.y += 1
 
         if not accel and not decel:
-            self.sprite.y = 0
+            self.sprite.y = 16
 
 
 class Laser(Sprite):
@@ -308,8 +306,9 @@ class Laser(Sprite):
         self.sprite.frame = DISABLED_FRAME
 
     def step(self):
-        self.sprite.y +=3
-        if self.sprite.y < 0:
+        LASER_SPEED = 3
+        self.sprite.y += LASER_SPEED
+        if self.sprite.y > 170:
             self.finish()
 
 

@@ -8,7 +8,7 @@ import imagenes
 
 sprite_struct = {
     "x": uctypes.UINT8 | 0,
-    "y": uctypes.INT8 | 1,
+    "y": uctypes.UINT8 | 1,
     "image_strip": uctypes.UINT8 | 2,
     "frame": uctypes.INT8 | 3,
 }
