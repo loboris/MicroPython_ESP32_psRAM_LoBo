@@ -9,7 +9,7 @@ sprite_num = 1
 
 def new_sprite():
     global sprite_num
-    sprite = spritelib.create_sprite(sprite_num)
+    sprite = spritelib.get_sprite(sprite_num)
     sprite_num += 1
     return sprite
 
@@ -24,18 +24,18 @@ def calculate_direction(current, destination):
 
 class Scene:
     def __init__(self):
+        for n in range(1, 64):
+            sp = spritelib.get_sprite(n)
+            sp.frame = DISABLED_FRAME
+        global sprite_num
+        sprite_num = 1
         self.setup()
 
     def step(self):
         pass
 
     def change_state(self):
-        try:
-            import machine
-            machine.reset()
-        except ImportError:
-            import sys
-            sys.exit()
+        pass
 
     def fire(self):
         pass

@@ -39,7 +39,7 @@ spritelib.set_imagestrip(5, imagenes.explosion_png)
 spritelib.set_imagestrip(6, imagenes.gameover_png)
 
 
-gameover = spritelib.create_sprite(0)
+gameover = spritelib.get_sprite(0)
 gameover.image_strip = 6
 # Disable Frame
 gameover.frame = DISABLED_FRAME
@@ -47,10 +47,11 @@ gameover.x = -32
 gameover.y = 2
 
 def reset_game():
-    gameover.frame = DISABLED_FRAME
-    nave.frame = 0
+    global scene
+    scene = model.Fleet()
 
 button_was_down = False
+reset_was_down = False
 
 def process_input(b):
     left =  bool(b & 1)
@@ -60,6 +61,12 @@ def process_input(b):
     boton = bool(b & 16)
     accel = bool(b & 32)
     decel = bool(b & 64)
+    reset = bool(b & 128)
+
+    global reset_was_down
+    if not reset_was_down and reset:
+        reset_game()
+    reset_was_down = reset
 
     if up and left:
         direction = "↖"
@@ -83,10 +90,8 @@ def process_input(b):
     scene.heading(up, down, left, right)
 
     global button_was_down
-
     if not button_was_down and boton:
         scene.fire()
-
     button_was_down = boton
             
     if (accel and decel and gameover.frame == 0):
@@ -99,7 +104,7 @@ def process_input(b):
     #print(text, end="")
 
 
-scene = model.Fleet()
+reset_game()
 
 def game_loop():
     last_val = None

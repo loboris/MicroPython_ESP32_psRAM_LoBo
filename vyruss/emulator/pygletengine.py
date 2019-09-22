@@ -115,6 +115,7 @@ class PygletEngine():
 
 
         def send_keys():
+            reset = keys[key.P]
             try:
                 left = joystick.x < -0.5
                 right = joystick.x > 0.5
@@ -135,7 +136,7 @@ class PygletEngine():
                 decel = keys[key.D]
 
             val = (left << 0 | right << 1 | up << 2 | down << 3 | boton << 4 |
-                    accel << 5 | decel << 6)
+                    accel << 5 | decel << 6 | reset << 7)
 
             if val != self.last_sent:
                 self.keyhandler(bytes([val]))
