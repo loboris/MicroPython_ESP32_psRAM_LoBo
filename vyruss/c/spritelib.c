@@ -1,3 +1,4 @@
+#include <math.h>
 #include <esp_system.h>
 #include "spritelib.h"
 
@@ -6,11 +7,10 @@
 
 #define COLUMNS 256
 #define PIXELS 54
-#define ROWS 128
+#define ROWS 256
 
 const uint8_t TRANSPARENT = 0xFF;
-uint8_t deepspace[] = {53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 35, 34, 33, 32, 31, 30, 30, 29, 28, 27, 27, 26, 25, 25, 24, 23, 23, 22, 21, 21, 20, 20, 19, 18, 18, 17, 17, 16, 16, 15, 15, 14, 14, 13, 13, 12, 12, 11, 11, 11, 10, 10, 9, 9, 9, 8, 8, 8, 7, 7, 7, 6, 6, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
+uint8_t deepspace[ROWS];
 Sprite sprites[NUM_SPRITES];
 
 uint32_t* palette_pal;
@@ -28,7 +28,24 @@ int random(int max) {
     return esp_random() % max;
 }
 
+void calculate_deepspace() {
+  const int EMPTY_PIXELS = 16;
+  const int VISIBLE_ROWS = ROWS - EMPTY_PIXELS;
+  const double GAMMA = 0.28;
+
+  int n;
+  for (n=0; n<EMPTY_PIXELS; n++) {
+    deepspace[n] = PIXELS;
+  }
+
+  for (int j=VISIBLE_ROWS-1; j>-1; j--) { 
+    deepspace[n++] = PIXELS * pow((double)j / VISIBLE_ROWS, 1/GAMMA) + 0.5;
+  }
+}
+
 void init_sprites() {
+
+  calculate_deepspace();
 
   for (int f = 0; f<STARS; f++) {
     starfield[f].x = random(COLUMNS);
@@ -57,7 +74,7 @@ void step() {
 void step_starfield() {
   for (int f=0; f<STARS; f++) {
     if(--starfield[f].y == 0) {
-      starfield[f].y = ROWS;
+      starfield[f].y = ROWS-1;
       starfield[f].x = random(COLUMNS);
     }
   }
@@ -79,7 +96,7 @@ void render(int column, uint32_t* pixels) {
   }
   for (int f=0; f<STARS; f++) {
     if (starfield[f].x == column) {
-      //pixels[deepspace[starfield[f].y]] = 0x040404ff;
+      pixels[deepspace[starfield[f].y]] = 0x040404ff;
     }
   }
 

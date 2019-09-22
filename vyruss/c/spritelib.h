@@ -4,7 +4,7 @@
 
 typedef struct {
   uint8_t x;
-  int8_t y;
+  uint8_t y;
   uint8_t image_strip;
   int8_t frame;
 } Sprite;
