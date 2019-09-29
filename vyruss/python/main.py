@@ -109,11 +109,9 @@ reset_game()
 def game_loop():
     last_val = None
     counter = 0    
-    loop_start = utime.ticks_ms()
-
  
     while True:
-        next_loop = utime.ticks_add(loop_start, 20)
+        next_loop = utime.ticks_add(utime.ticks_ms(), 12)
 
         val = comms.receive(1)
         if val is not None:
@@ -128,6 +126,7 @@ def game_loop():
         delay = utime.ticks_diff(next_loop, utime.ticks_ms())
         if delay > 0:
             utime.sleep_ms(delay)
-        loop_start = next_loop
+        else:
+            print("odelay:", delay)
 
 game_loop()
