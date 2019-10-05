@@ -349,9 +349,14 @@ class Laser(Sprite):
 
 class BaddieExploding(Sprite):
     def __init__(self, baddie):
+        # es necesario calcular el centro antes de cambiar el strip
+        center_x = baddie.x + baddie.width // 2
+        center_y = baddie.y + baddie.height // 2
         self._sprite = baddie._sprite
         self.frame = 0
         self.strip = 5
+        self.x = center_x - self.width // 2
+        self.y = center_y - self.height // 2
         self.finished = False
 
     def step(self):
