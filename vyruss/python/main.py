@@ -111,7 +111,7 @@ def game_loop():
     counter = 0    
  
     while True:
-        next_loop = utime.ticks_add(utime.ticks_ms(), 12)
+        next_loop = utime.ticks_add(utime.ticks_ms(), 30)
 
         val = comms.receive(1)
         if val is not None:

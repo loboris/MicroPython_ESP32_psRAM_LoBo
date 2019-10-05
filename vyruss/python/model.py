@@ -242,10 +242,10 @@ class StateEntering(FleetState):
 
         self.steps += 1
 
-        if self.steps % 16 == 0 and len(self.groups[-1]) < 10:
+        if self.steps % 8 == 0 and len(self.groups[-1]) < 10:
             self.add_baddie()
 
-        if self.steps % 512 == 0 or self.all_baddies_in_last_group_exploded():
+        if self.steps % 256 == 0 or self.all_baddies_in_last_group_exploded():
             self.steps = 0
             if len(self.groups) < 5:
                 self.create_group()
@@ -277,7 +277,7 @@ class StarFighter(Sprite):
 
     def step(self, where):
         current_x = self.sprite.x
-        self.sprite.x = (current_x + rotar(current_x, where)) % 256
+        self.sprite.x = (current_x + rotar(current_x, where) * 2) % 256
 
     def accel(self, accel, decel):
         if accel:
@@ -306,7 +306,7 @@ class Laser(Sprite):
         self.sprite.frame = DISABLED_FRAME
 
     def step(self):
-        LASER_SPEED = 3
+        LASER_SPEED = 6
         self.sprite.y += LASER_SPEED
         if self.sprite.y > 170:
             self.finish()
@@ -357,8 +357,8 @@ class TravelTo(Movement):
         self.dest_y = y
 
     def step(self, sprite):
-        sprite.x += calculate_direction(sprite.x, self.dest_x) * 2
-        sprite.y += calculate_direction(sprite.y, self.dest_y) * 1
+        sprite.x += calculate_direction(sprite.x, self.dest_x) * 4
+        sprite.y += calculate_direction(sprite.y, self.dest_y) * 2
 
     def finished(self, sprite):
         return sprite.x == self.dest_x and sprite.y == self.dest_y
@@ -371,22 +371,25 @@ class TravelBy(Movement):
     def finished(self, sprite):
         return self.count <= 0
 
+X_SPEED = 3
+Y_SPEED = 2
+
 class TravelX(TravelBy):
     def step(self, sprite):
         if self.count > 0:
-            sprite.x += 2 * self.speed
+            sprite.x += X_SPEED * self.speed
 
-        self.count -= 2
+        self.count -= X_SPEED
 
 class TravelCloser(TravelBy):
     def step(self, sprite):
-        sprite.y -= 1
-        self.count -= 1
+        sprite.y -= Y_SPEED
+        self.count -= Y_SPEED
 
 class TravelAway(TravelBy):
     def step(self, sprite):
-        sprite.y += 1
-        self.count -= 1
+        sprite.y += Y_SPEED
+        self.count -= Y_SPEED
 
 class Hover(Movement):
     """Hover around the current position."""
