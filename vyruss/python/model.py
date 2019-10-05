@@ -256,9 +256,25 @@ class Sprite:
     def __init__(self, strip, x=0, y=0, frame=DISABLED_FRAME):
         self.sprite = new_sprite()
         self.sprite.image_strip = strip
-        self.sprite.x = x
-        self.sprite.y = y
+        self.x = x
+        self.y = y
         self.sprite.frame = frame
+
+    @property
+    def x(self):
+        return self.sprite.x
+    
+    @x.setter
+    def x(self, value):
+        self.sprite.x = value
+
+    @property
+    def y(self):
+        return self.sprite.y
+    
+    @y.setter
+    def y(self, value):
+        self.sprite.y = value
 
     def collision(self, targets):
         this = self.sprite
@@ -276,18 +292,18 @@ class StarFighter(Sprite):
 
 
     def step(self, where):
-        current_x = self.sprite.x
-        self.sprite.x = (current_x + rotar(current_x, where) * 2) % 256
+        current_x = self.x
+        self.x = (current_x + rotar(current_x, where) * 2) % 256
 
     def accel(self, accel, decel):
         if accel:
-            self.sprite.y -= 1
+            self.y -= 1
 
         if decel:
-            self.sprite.y += 1
+            self.y += 1
 
         if not accel and not decel:
-            self.sprite.y = 16
+            self.y = 16
 
 
 class Laser(Sprite):
@@ -298,8 +314,8 @@ class Laser(Sprite):
     def fire(self, starfighter):
         self.enabled = True
         self.sprite.frame = 0
-        self.sprite.y = starfighter.sprite.y + 11
-        self.sprite.x = starfighter.sprite.x + 6
+        self.y = starfighter.y + 11
+        self.x = starfighter.x + 6
 
     def finish(self):
         self.enabled = False
@@ -307,8 +323,8 @@ class Laser(Sprite):
 
     def step(self):
         LASER_SPEED = 6
-        self.sprite.y += LASER_SPEED
-        if self.sprite.y > 170:
+        self.y += LASER_SPEED
+        if self.y > 170:
             self.finish()
 
 
@@ -337,8 +353,8 @@ class Baddie(Sprite):
         self.sprite.frame = (not (self.frame_step & 8)) + self.base_frame
         if self.movements:
             movement = self.movements[0]
-            movement.step(self.sprite)
-            if (movement.finished(self.sprite)):
+            movement.step(self)
+            if (movement.finished(self)):
                 self.movements.pop(0)
     
     def explode(self):
