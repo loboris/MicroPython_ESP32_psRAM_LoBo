@@ -181,7 +181,7 @@ class StateAttacking(FleetState):
             self.fleet.change_state()
         elif len(self.attacking) < 2:
             baddie = self.fleet.everyone[0]
-            delta = baddie.sprite.y - 16
+            delta = baddie.y - 16
             baddie.movements = [TravelCloser(delta), TravelAway(delta), Hover()]
             self.attacking.append(baddie)
 
@@ -213,16 +213,16 @@ class StateEntering(FleetState):
         base_x = self.bases[len(self.groups)-1]
 
         baddie = Baddie(picture)
-        baddie.sprite.y = 128 + 32
+        baddie.y = 128 + 32
         if len(self.groups[-1]) % 2:
-            baddie.sprite.x = base_x + 16
+            baddie.x = base_x + 16
             baddie.movements = [
                 TravelCloser(80), TravelX(112),
                 TravelCloser(32), TravelX(-96),
                 TravelAway(42), TravelTo(final_x, final_y), Hover()
             ] 
         else:
-            baddie.sprite.x = base_x - 16
+            baddie.x = base_x - 16
             baddie.movements = [
                 TravelCloser(80), TravelX(-112),
                 TravelCloser(32), TravelX(96),
@@ -254,36 +254,55 @@ class StateEntering(FleetState):
 
 class Sprite:
     def __init__(self, strip, x=0, y=0, frame=DISABLED_FRAME):
-        self.sprite = new_sprite()
-        self.sprite.image_strip = strip
+        self._sprite = new_sprite()
+        self.strip = strip
         self.x = x
         self.y = y
-        self.sprite.frame = frame
+        self.frame = frame
 
     @property
     def x(self):
-        return self.sprite.x
+        return self._sprite.x
     
     @x.setter
     def x(self, value):
-        self.sprite.x = value
+        self._sprite.x = value
 
     @property
     def y(self):
-        return self.sprite.y
+        return self._sprite.y
     
     @y.setter
     def y(self, value):
-        self.sprite.y = value
+        self._sprite.y = value
+
+    @property
+    def width(self):
+        return spritelib.sprite_width(self._sprite)
+
+    @property
+    def height(self):
+        return spritelib.sprite_height(self._sprite)
+
+    def strip(self, strip_number):
+        self._sprite.image_strip = strip_number
+    strip = property(None, strip)
+
+    @property
+    def frame(self):
+        return self._sprite.frame
+    
+    @frame.setter
+    def frame(self, value):
+        self._sprite.frame = value
 
     def collision(self, targets):
-        this = self.sprite
         for target in targets:
-            other = target.sprite
-            if (this.x < other.x + spritelib.sprite_width(other) and
-                this.x + spritelib.sprite_width(this) > other.x and
-                this.y < other.y + spritelib.sprite_height(other) and
-                this.y + spritelib.sprite_height(this) > other.y):
+            other = target
+            if (self.x < other.x + other.width and
+                self.x + self.width > other.x and
+                self.y < other.y + other.height and
+                self.y + self.height > other.y):
                 return target
 
 class StarFighter(Sprite):
@@ -313,13 +332,13 @@ class Laser(Sprite):
 
     def fire(self, starfighter):
         self.enabled = True
-        self.sprite.frame = 0
+        self.frame = 0
         self.y = starfighter.y + 11
         self.x = starfighter.x + 6
 
     def finish(self):
         self.enabled = False
-        self.sprite.frame = DISABLED_FRAME
+        self.frame = DISABLED_FRAME
 
     def step(self):
         LASER_SPEED = 6
@@ -330,15 +349,15 @@ class Laser(Sprite):
 
 class BaddieExploding(Sprite):
     def __init__(self, baddie):
-        self.sprite = baddie.sprite
-        self.sprite.frame = 0
-        self.sprite.image_strip = 5
+        self._sprite = baddie._sprite
+        self.frame = 0
+        self.strip = 5
         self.finished = False
 
     def step(self):
-        self.sprite.frame += 1
-        if self.sprite.frame == 9:
-            self.sprite.frame = DISABLED_FRAME
+        self.frame += 1
+        if self.frame == 9:
+            self.frame = DISABLED_FRAME
             self.finished = True
 
 class Baddie(Sprite):
@@ -350,7 +369,7 @@ class Baddie(Sprite):
 
     def step(self):
         self.frame_step += 1
-        self.sprite.frame = (not (self.frame_step & 8)) + self.base_frame
+        self.frame = (not (self.frame_step & 8)) + self.base_frame
         if self.movements:
             movement = self.movements[0]
             movement.step(self)
