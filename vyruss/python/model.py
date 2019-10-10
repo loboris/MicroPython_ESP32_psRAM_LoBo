@@ -24,12 +24,15 @@ def calculate_direction(current, destination):
 
 class Scene:
     def __init__(self):
+        self.reset_sprites()
+        self.setup()
+
+    def reset_sprites(self):
         for n in range(1, 64):
             sp = spritelib.get_sprite(n)
             sp.frame = DISABLED_FRAME
         global sprite_num
         sprite_num = 1
-        self.setup()
 
     def step(self):
         pass
@@ -163,6 +166,15 @@ class StateDefeated(FleetState):
     def step(self):
         pass
 
+class StateResetting(FleetState):
+    def setup(self):
+        print("restarting state")
+
+    def step(self):
+        StateResetting.next_state = StateEntering
+        self.fleet.reset_sprites()
+        self.fleet.setup()
+
 class StateAttacking(FleetState):
     next_state = StateDefeated
 
@@ -186,7 +198,7 @@ class StateAttacking(FleetState):
             self.attacking.append(baddie)
 
 class StateEntering(FleetState):
-    next_state = StateAttacking
+    next_state = StateResetting
 
     def setup(self):
         self.phase = 0
