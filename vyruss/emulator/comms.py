@@ -19,20 +19,27 @@ sockfile = None
 
 STOP = None
 looping = True
+mqtt_client = None
 
-influx_host = "localhost:8086"
+influx_host = "ventilastation.local:8086"
 influx_url = "/write?" + urllib.parse.urlencode({'db': "ventilastation", 'precision': 'ns'})
 
-def send_telemetry(rpm, fps):
+def send_telemetry(body):
     conn = http.client.HTTPConnection(influx_host)
-    body = "velocidad rpm=%f,fps=%f\n" % (rpm, fps)
     conn.request("POST", influx_url, body=body, headers={})
     response = conn.getresponse()
-    if int(response.status) / 100 != 2:
+    if int(response.status) // 100 != 2:
         print("Sending failed: %s, %s: %s" % ( response.status,
         response.reason, body))
 
-
+def send_velocidad(rpm, fps):
+    body = "velocidad rpm=%f,fps=%f\n" % (rpm, fps)
+    send_telemetry(body)
+    if mqtt_client:
+        try:
+            mqtt_client.publish('fan_speed', "rpm=%d" % rpm)
+        except Exception as err:
+            print("cannot publish in mqtt:", err)
 
 def waitconnect():
     while looping:
@@ -77,7 +84,7 @@ def receive_loop():
                         last_time_seen = now
                         rpm, fps = 1000000 / duration * 60, (1000000/duration)*2
                         print(now, duration, "(%.2f rpm, %.2f fps)" % (rpm, fps))
-                        send_telemetry(rpm, fps)
+                        send_velocidad(rpm, fps)
                 #print(struct.unpack("q"*32*2, data))
 
 
@@ -106,6 +113,8 @@ def send(b):
         print(err)
 
 def on_connect(client, flags, rc, properties):
+    global mqtt_client
+    mqtt_client = client
     print('Connected')
     client.subscribe('fan_debug', qos=0)
     client.subscribe('audio_play', qos=0)
@@ -143,17 +152,23 @@ def on_message(client, topic, payload, qos, properties):
                 last_time_seen = now
                 rpm, fps = 1000000 / duration * 60, (1000000/duration)*2
                 print(now, duration, "(%.2f rpm, %.2f fps)" % (rpm, fps))
-                send_telemetry(rpm, fps)
+                send_velocidad(rpm, fps)
         if rpm == -1:
             last_time_seen = 0
             rpm = 0
         print('fan_speed', "rpm=%d" % rpm)
         client.publish('fan_speed', "rpm=%d" % rpm)
 
+    if topic == "temperatura":
+        send_telemetry("%s %s" % (topic, payload.decode().strip()))
+        print(payload)
+
 def on_subscribe(client, mid, qos):
     print('SUBSCRIBED to', mid)
 
 def on_disconnect(client, packet, exc=None):
+    global mqtt_client
+    mqtt_client = None
     print('Disconnected')
 
 async def main():
@@ -166,7 +181,7 @@ async def main():
     client.on_disconnect = on_disconnect
     client.on_subscribe = on_subscribe
 
-    await client.connect("localhost") #("ventilastation.local")
+    await client.connect("ventilastation.local")
     await STOP.wait()
 
 def mqtt_loop():
