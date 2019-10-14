@@ -62,15 +62,6 @@ void init_sprites() {
 
 }
 
-void step() {
-  /*
-  for (int n = 0; n<40; n++) {
-      Sprite* s = &sprites[n];
-      s->frame = (s->frame+1) % 2;
-  }
-  */
-}
-
 void step_starfield() {
   for (int f=0; f<STARS; f++) {
     if(--starfield[f].y == 0) {

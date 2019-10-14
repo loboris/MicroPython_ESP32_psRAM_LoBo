@@ -157,8 +157,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(povsprites_set_imagestrip_obj, povsprites_set_i
 void coreTask( void * pvParameters ){
     printf("task running on core %d\n", xPortGetCoreID());
     int last_column = 0;
-    uint32_t last_step = 0;
-    uint32_t last_starfield_step = 0;
+    int64_t last_starfield_step = 0;
 
     hall_init();
     init_sprites();
@@ -180,13 +179,7 @@ void coreTask( void * pvParameters ){
                 step_starfield();
                 last_starfield_step = now;
             }
-
-            if (now > last_step + 500000) {
-                step();
-                last_step = now;
-            }
     }
- 
 }
 
 STATIC mp_obj_t povsprites_init(mp_obj_t num_pixels, mp_obj_t palette) {
