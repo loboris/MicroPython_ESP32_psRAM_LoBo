@@ -1,6 +1,6 @@
 #include <math.h>
 #include <esp_system.h>
-#include "spritelib.h"
+#include "gpu.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))

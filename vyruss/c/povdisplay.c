@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "minispi.h"
-#include "spritelib.h"
+#include "gpu.h"
 
 #define GPIO_HALL     GPIO_NUM_26
 #define GPIO_HALL_B     GPIO_NUM_25
