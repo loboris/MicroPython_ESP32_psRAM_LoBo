@@ -1,4 +1,4 @@
-import spritelib
+from spritelib import *
 
 DISABLED_FRAME = -1
 sprite_num = 1
@@ -6,13 +6,13 @@ sprite_num = 1
 
 def new_sprite():
     global sprite_num
-    sprite = spritelib.get_sprite(sprite_num)
+    sprite = get_sprite(sprite_num)
     sprite_num += 1
     return sprite
 
 def reset_sprites():
     for n in range(1, 64):
-        sp = spritelib.get_sprite(n)
+        sp = get_sprite(n)
         sp.frame = DISABLED_FRAME
     global sprite_num
     sprite_num = 1
@@ -47,11 +47,11 @@ class Sprite:
 
     @property
     def width(self):
-        return spritelib.sprite_width(self._sprite)
+        return stripes[self._sprite.image_strip][0]
 
     @property
     def height(self):
-        return spritelib.sprite_height(self._sprite)
+        return stripes[self._sprite.image_strip][1]
 
     def strip(self, strip_number):
         self._sprite.image_strip = strip_number

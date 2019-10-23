@@ -1,7 +1,7 @@
 import utime
 
 import comms
-import spritelib
+import sprites
 import model
 
 import imagenes
@@ -29,17 +29,17 @@ except:
 DISABLED_FRAME = -1
 
 # init images
-spritelib.set_imagestrip(0, imagenes.galaga_png)
-spritelib.set_imagestrip(1, imagenes.galaga_alt8_png)
-spritelib.set_imagestrip(2, imagenes.galaga_alt10_png)
-spritelib.set_imagestrip(3, imagenes.disparo_png)
-spritelib.set_imagestrip(4, imagenes.ll9_png)
-#spritelib.set_imagestrip(4, imagenes.crawling_png)
-spritelib.set_imagestrip(5, imagenes.explosion_png)
-spritelib.set_imagestrip(6, imagenes.gameover_png)
+sprites.set_imagestrip(0, imagenes.galaga_png)
+sprites.set_imagestrip(1, imagenes.galaga_alt8_png)
+sprites.set_imagestrip(2, imagenes.galaga_alt10_png)
+sprites.set_imagestrip(3, imagenes.disparo_png)
+sprites.set_imagestrip(4, imagenes.ll9_png)
+#sprites.set_imagestrip(4, imagenes.crawling_png)
+sprites.set_imagestrip(5, imagenes.explosion_png)
+sprites.set_imagestrip(6, imagenes.gameover_png)
 
 
-gameover = spritelib.get_sprite(0)
+gameover = sprites.get_sprite(0)
 gameover.image_strip = 6
 # Disable Frame
 gameover.frame = DISABLED_FRAME
