@@ -179,7 +179,7 @@ SRC_C =  $(addprefix esp32/,\
 	mpsleep.c \
 	machine_rtc.c \
 	modymodem.c \
-	pov/povsprites.c \
+	pov/povdisplay.c \
 	pov/minispi.c \
 	pov/spritelib.c \
 	machine_hw_i2c.c \

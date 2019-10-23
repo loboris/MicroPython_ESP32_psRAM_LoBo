@@ -141,7 +141,7 @@ void hall_init() {
 }
 
 
-STATIC mp_obj_t povsprites_set_imagestrip(mp_obj_t strip_number, mp_obj_t strip_data) {
+STATIC mp_obj_t povdisplay_set_imagestrip(mp_obj_t strip_number, mp_obj_t strip_data) {
     int strip_nr = mp_obj_get_int(strip_number);
     char* strip_data_ptr = mp_obj_str_get_str(strip_data);
 
@@ -149,7 +149,7 @@ STATIC mp_obj_t povsprites_set_imagestrip(mp_obj_t strip_number, mp_obj_t strip_
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(povsprites_set_imagestrip_obj, povsprites_set_imagestrip);
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(povdisplay_set_imagestrip_obj, povdisplay_set_imagestrip);
  
 //#define BIFLEN 10000
 //uint32_t biff[BIFLEN];
@@ -182,7 +182,7 @@ void coreTask( void * pvParameters ){
     }
 }
 
-STATIC mp_obj_t povsprites_init(mp_obj_t num_pixels, mp_obj_t palette) {
+STATIC mp_obj_t povdisplay_init(mp_obj_t num_pixels, mp_obj_t palette) {
     spi_init(mp_obj_get_int(num_pixels));
     palette_pal = (uint32_t *) mp_obj_str_get_str(palette);
     printf("creating task, running on core %d\n", xPortGetCoreID());
@@ -198,9 +198,9 @@ STATIC mp_obj_t povsprites_init(mp_obj_t num_pixels, mp_obj_t palette) {
     printf("task created...\n");
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(povsprites_init_obj, povsprites_init);
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(povdisplay_init_obj, povdisplay_init);
 
-STATIC mp_obj_t povsprites_getaddress(mp_obj_t sprite_num) {
+STATIC mp_obj_t povdisplay_getaddress(mp_obj_t sprite_num) {
     int num = mp_obj_get_int(sprite_num);
 #ifdef DEBUG_ROTATION
     if (num == 999) {
@@ -209,22 +209,22 @@ STATIC mp_obj_t povsprites_getaddress(mp_obj_t sprite_num) {
 #endif
     return mp_obj_new_int((mp_int_t)(uintptr_t)&sprites[num]);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(povsprites_getaddress_obj, povsprites_getaddress);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(povdisplay_getaddress_obj, povdisplay_getaddress);
 // ------------------------------
 
-STATIC const mp_map_elem_t povsprites_globals_table[] = {
-    { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_povsprites) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_init), (mp_obj_t)&povsprites_init_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_set_imagestrip), (mp_obj_t)&povsprites_set_imagestrip_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_getaddress), (mp_obj_t)&povsprites_getaddress_obj },
+STATIC const mp_map_elem_t povdisplay_globals_table[] = {
+    { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_povdisplay) },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_init), (mp_obj_t)&povdisplay_init_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_set_imagestrip), (mp_obj_t)&povdisplay_set_imagestrip_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_getaddress), (mp_obj_t)&povdisplay_getaddress_obj },
 };
 
 STATIC MP_DEFINE_CONST_DICT (
-    mp_module_povsprites_globals,
-    povsprites_globals_table
+    mp_module_povdisplay_globals,
+    povdisplay_globals_table
 );
 
-const mp_obj_module_t mp_module_povsprites = {
+const mp_obj_module_t mp_module_povdisplay = {
     .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t*)&mp_module_povsprites_globals,
+    .globals = (mp_obj_dict_t*)&mp_module_povdisplay_globals,
 };

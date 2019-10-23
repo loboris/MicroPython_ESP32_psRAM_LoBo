@@ -14,9 +14,9 @@ except:
     update = lambda: None
     print("setting up fan debug")
     if DEBUG:
-        import povsprites
+        import povdisplay
         import uctypes
-        debug_buffer = uctypes.bytearray_at(povsprites.getaddress(999), 32*16)
+        debug_buffer = uctypes.bytearray_at(povdisplay.getaddress(999), 32*16)
         next_loop = 1000
         def update():
             global next_loop
