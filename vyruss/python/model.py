@@ -179,7 +179,7 @@ class StateAttacking(FleetState):
             self.fleet.change_state()
         elif len(self.attacking) < 2:
             baddie = self.fleet.everyone[0]
-            delta = baddie.y - 16
+            delta = baddie.y() - 16
             baddie.movements = [TravelCloser(delta), TravelAway(delta), Hover()]
             self.attacking.append(baddie)
 
@@ -211,16 +211,16 @@ class StateEntering(FleetState):
         base_x = self.bases[len(self.groups)-1]
 
         baddie = Baddie(picture)
-        baddie.y = 128 + 32
+        baddie.set_y(128 + 32)
         if len(self.groups[-1]) % 2:
-            baddie.x = base_x + 16
+            baddie.set_x(base_x + 16)
             baddie.movements = [
                 TravelCloser(80), TravelX(112),
                 TravelCloser(32), TravelX(-96),
                 TravelAway(42), TravelTo(final_x, final_y), Hover()
             ] 
         else:
-            baddie.x = base_x - 16
+            baddie.set_x(base_x - 16)
             baddie.movements = [
                 TravelCloser(80), TravelX(-112),
                 TravelCloser(32), TravelX(96),
@@ -257,18 +257,18 @@ class StarFighter(Sprite):
 
 
     def step(self, where):
-        current_x = self.x
-        self.x = (current_x + rotar(current_x, where) * 2) % 256
+        current_x = self.x()
+        self.set_x((current_x + rotar(current_x, where) * 2) % 256)
 
     def accel(self, accel, decel):
         if accel:
-            self.y -= 1
+            self.set_y(self.y() - 1)
 
         if decel:
-            self.y += 1
+            self.set_y(self.y() + 1)
 
         if not accel and not decel:
-            self.y = 16
+            self.set_y(16)
 
 
 class Laser(Sprite):
@@ -278,9 +278,9 @@ class Laser(Sprite):
 
     def fire(self, starfighter):
         self.enabled = True
-        self.frame = 0
-        self.y = starfighter.y + 11
-        self.x = starfighter.x + 6
+        self.set_frame(0)
+        self.set_y(starfighter.y() + 11)
+        self.set_x(starfighter.x() + 6)
 
     def finish(self):
         self.enabled = False
@@ -288,26 +288,26 @@ class Laser(Sprite):
 
     def step(self):
         LASER_SPEED = 6
-        self.y += LASER_SPEED
-        if self.y > 170:
+        self.set_y(self.y() + LASER_SPEED)
+        if self.y() > 170:
             self.finish()
 
 
 class BaddieExploding(Sprite):
     def __init__(self, baddie):
         # es necesario calcular el centro antes de cambiar el strip
-        center_x = baddie.x + baddie.width // 2
-        center_y = baddie.y + baddie.height // 2
+        center_x = baddie.x() + baddie.width() // 2
+        center_y = baddie.y() + baddie.height() // 2
         self._sprite = baddie._sprite
-        self.frame = 0
-        self.strip = 5
-        self.x = center_x - self.width // 2
-        self.y = center_y - self.height // 2
+        self.set_frame(0)
+        self.set_strip(5)
+        self.set_x(center_x - self.width() // 2)
+        self.set_y(center_y - self.height() // 2)
         self.finished = False
 
     def step(self):
-        self.frame += 1
-        if self.frame == 9:
+        self.set_frame(self.frame() + 1)
+        if self.frame() == 9:
             self.disable()
             self.finished = True
 
@@ -320,7 +320,7 @@ class Baddie(Sprite):
 
     def step(self):
         self.frame_step += 1
-        self.frame = (not (self.frame_step & 8)) + self.base_frame
+        self.set_frame((not (self.frame_step & 8)) + self.base_frame)
         if self.movements:
             movement = self.movements[0]
             movement.step(self)
@@ -343,11 +343,11 @@ class TravelTo(Movement):
         self.dest_y = y
 
     def step(self, sprite):
-        sprite.x += calculate_direction(sprite.x, self.dest_x) * 4
-        sprite.y += calculate_direction(sprite.y, self.dest_y) * 2
-
+        sprite.set_x(sprite.x() + calculate_direction(sprite.x(), self.dest_x) * 4)
+        sprite.set_y(sprite.y() + calculate_direction(sprite.y(), self.dest_y) * 2)
+        
     def finished(self, sprite):
-        return sprite.x == self.dest_x and sprite.y == self.dest_y
+        return sprite.x() == self.dest_x and sprite.y() == self.dest_y
 
 class TravelBy(Movement):
     def __init__(self, count, speed=None):
@@ -363,18 +363,18 @@ Y_SPEED = 2
 class TravelX(TravelBy):
     def step(self, sprite):
         if self.count > 0:
-            sprite.x += X_SPEED * self.speed
+            sprite.set_x(sprite.x() + X_SPEED * self.speed)
 
         self.count -= X_SPEED
 
 class TravelCloser(TravelBy):
     def step(self, sprite):
-        sprite.y -= Y_SPEED
+        sprite.set_y(sprite.y() - Y_SPEED)
         self.count -= Y_SPEED
 
 class TravelAway(TravelBy):
     def step(self, sprite):
-        sprite.y += Y_SPEED
+        sprite.set_y(sprite.y() + Y_SPEED)
         self.count -= Y_SPEED
 
 class Hover(Movement):
