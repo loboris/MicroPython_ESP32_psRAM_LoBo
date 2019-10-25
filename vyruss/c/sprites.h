@@ -17,9 +17,9 @@ typedef struct _sprite_obj_t {
 } sprite_obj_t;
 
 #define NUM_SPRITES 64
-extern sprite_obj_t sprites[NUM_SPRITES];
+extern sprite_obj_t* sprites[NUM_SPRITES];
 
 #define NUM_IMAGES 16
-extern ImageStrip *image_stripes[NUM_IMAGES];
+extern ImageStrip* image_stripes[NUM_IMAGES];
 
 static const int8_t DISABLED_FRAME = -1;

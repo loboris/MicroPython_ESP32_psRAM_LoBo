@@ -2,6 +2,26 @@
 
 #define DISABLED_FRAME -1
 
+
+int sprite_num = 1;
+
+void add_sprite(sprite_obj_t* sprite) {
+    if (sprite_num < NUM_SPRITES) {
+        sprites[sprite_num] = sprite;
+        sprite_num++;
+    }
+}
+
+STATIC mp_obj_t reset_sprites() {
+    for (int i = 0; i < NUM_SPRITES; i++) {
+        sprites[i] = NULL;
+    }
+    sprite_num = 1;
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(reset_sprites_obj, reset_sprites);
+
+
 mp_obj_t sprite_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
 
     enum { ARG_strip, ARG_x, ARG_y, ARG_frame };
@@ -22,6 +42,7 @@ mp_obj_t sprite_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     self->x = args[ARG_x].u_int;
     self->y = args[ARG_y].u_int;
     self->frame = args[ARG_frame].u_int;
+    add_sprite(self);
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -147,8 +168,9 @@ const mp_obj_type_t sprite_type = {
 
 // Functions for the Module "sprites" and the Class "Sprite"
 STATIC const mp_rom_map_elem_t sprites_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_sprite) },
-    { MP_ROM_QSTR(MP_QSTR_Sprite),               MP_ROM_PTR(&sprite_type) },
+    { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_sprites) },
+    { MP_ROM_QSTR(MP_QSTR_Sprite),              MP_ROM_PTR(&sprite_type) },
+    { MP_ROM_QSTR(MP_QSTR_reset_sprites),       MP_ROM_PTR(&reset_sprites_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT (

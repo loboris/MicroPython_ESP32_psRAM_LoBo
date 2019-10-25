@@ -8,10 +8,10 @@
 
 const uint8_t TRANSPARENT = 0xFF;
 uint8_t deepspace[ROWS];
-sprite_obj_t sprites[NUM_SPRITES];
+sprite_obj_t* sprites[NUM_SPRITES];
 
 uint32_t* palette_pal;
-ImageStrip *image_stripes[NUM_IMAGES];
+ImageStrip* image_stripes[NUM_IMAGES];
 
 #define STARS COLUMNS/2
 
@@ -51,10 +51,7 @@ void init_sprites() {
 
 
   for (int i = 0; i < NUM_SPRITES; i++) {
-    sprites[i].x = 0;
-    sprites[i].y = 0;
-    sprites[i].image_strip = 0;
-    sprites[i].frame = DISABLED_FRAME;
+    sprites[i] = NULL;
   }
 
 }
@@ -90,11 +87,11 @@ void render(int column, uint32_t* pixels) {
 
   // el sprite 0 se dibuja arriba de todos los otros
   for (int n=NUM_SPRITES-1; n>=0; n--) {
-    sprite_obj_t* s = &sprites[n%NUM_SPRITES];
-    ImageStrip* is = s->image_strip;
-    if (s->frame == DISABLED_FRAME) {
+    sprite_obj_t* s = sprites[n%NUM_SPRITES];
+    if (s == NULL || s->frame == DISABLED_FRAME) {
       continue;
     }
+    ImageStrip* is = s->image_strip;
     uint8_t width = is->frame_width;
     int visible_column = get_visible_column(s->x, width, column);
     if (visible_column != -1) {
