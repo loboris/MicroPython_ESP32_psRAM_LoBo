@@ -180,6 +180,7 @@ SRC_C =  $(addprefix esp32/,\
 	machine_rtc.c \
 	modymodem.c \
 	pov/povdisplay.c \
+	pov/sprites.c \
 	pov/minispi.c \
 	pov/gpu.c \
 	machine_hw_i2c.c \
