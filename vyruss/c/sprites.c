@@ -1,8 +1,3 @@
-#include "py/nlr.h"
-#include "py/obj.h"
-#include "py/runtime.h"
-#include "py/binary.h"
-
 #include "gpu.h"
 
 #define DISABLED_FRAME -1

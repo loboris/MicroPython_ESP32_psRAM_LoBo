@@ -2,16 +2,13 @@
 #include <esp_system.h>
 #include "gpu.h"
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
 #define COLUMNS 256
 #define PIXELS 54
 #define ROWS 256
 
 const uint8_t TRANSPARENT = 0xFF;
 uint8_t deepspace[ROWS];
-Sprite sprites[NUM_SPRITES];
+sprite_obj_t sprites[NUM_SPRITES];
 
 uint32_t* palette_pal;
 ImageStrip *image_stripes[NUM_IMAGES];
@@ -93,8 +90,8 @@ void render(int column, uint32_t* pixels) {
 
   // el sprite 0 se dibuja arriba de todos los otros
   for (int n=NUM_SPRITES-1; n>=0; n--) {
-    Sprite* s = &sprites[n%NUM_SPRITES];
-    ImageStrip* is = image_stripes[s->image_strip];
+    sprite_obj_t* s = &sprites[n%NUM_SPRITES];
+    ImageStrip* is = s->image_strip;
     if (s->frame == DISABLED_FRAME) {
       continue;
     }
