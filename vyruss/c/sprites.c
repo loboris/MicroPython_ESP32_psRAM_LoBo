@@ -30,21 +30,6 @@ mp_obj_t sprite_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     return MP_OBJ_FROM_PTR(self);
 }
 
-/*
-STATIC void sprite_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
-    if (dest[0] != MP_OBJ_NULL) {
-        // not load attribute
-        return;
-    }
-    sprite_obj_t *self = self_in;
-    if (attr == MP_QSTR_x) {
-        dest[0] = mp_obj_new_int(self->x);
-    } else if (attr == MP_QSTR_y) {
-        dest[0] = mp_obj_new_int(self->y);
-    }
-}
-*/
-
 STATIC mp_obj_t sprite_disable(mp_obj_t self_in) {
     sprite_obj_t *self = self_in;
     self->frame = DISABLED_FRAME;
@@ -118,6 +103,26 @@ STATIC mp_obj_t sprite_height(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(sprite_height_obj, sprite_height);
 
+STATIC mp_obj_t sprite_frame(mp_obj_t self_in) {
+    sprite_obj_t *self = self_in;
+    return mp_obj_new_int(self->frame);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(sprite_frame_obj, sprite_frame);
+
+STATIC mp_obj_t sprite_set_frame(mp_obj_t self_in, mp_obj_t new_frame) {
+    sprite_obj_t *self = self_in;
+    self->frame = mp_obj_get_int(new_frame);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(sprite_set_frame_obj, sprite_set_frame);
+
+STATIC mp_obj_t sprite_set_strip(mp_obj_t self_in, mp_obj_t new_strip) {
+    sprite_obj_t *self = self_in;
+    uint8_t strip_num = mp_obj_get_int(new_strip);
+    self->image_strip = image_stripes[strip_num];
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(sprite_set_strip_obj, sprite_set_strip);
 
 // Methods for Class "Sprite"
 STATIC const mp_rom_map_elem_t sprite_locals_dict_table[] = {
@@ -130,9 +135,9 @@ STATIC const mp_rom_map_elem_t sprite_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_collision),       MP_ROM_PTR(&sprite_collision_obj) },
     { MP_ROM_QSTR(MP_QSTR_width),           MP_ROM_PTR(&sprite_width_obj) },
     { MP_ROM_QSTR(MP_QSTR_height),          MP_ROM_PTR(&sprite_height_obj) },
-    // { MP_ROM_QSTR(MP_QSTR_set_strip),       MP_ROM_PTR(&sprite_set_strip_obj) },
-    // { MP_ROM_QSTR(MP_QSTR_frame),           MP_ROM_PTR(&sprite_frame_obj) },
-    // { MP_ROM_QSTR(MP_QSTR_set_frame),       MP_ROM_PTR(&sprite_set_frame_obj) },
+    { MP_ROM_QSTR(MP_QSTR_frame),           MP_ROM_PTR(&sprite_frame_obj) },
+    { MP_ROM_QSTR(MP_QSTR_set_frame),       MP_ROM_PTR(&sprite_set_frame_obj) },
+    { MP_ROM_QSTR(MP_QSTR_set_strip),       MP_ROM_PTR(&sprite_set_strip_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(sprite_locals_dict, sprite_locals_dict_table);
