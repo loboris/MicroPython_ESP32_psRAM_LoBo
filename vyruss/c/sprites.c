@@ -3,19 +3,45 @@
 #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 #include "esp_log.h"
 
-static const char* TAG = "Sprites";
+//static const char* TAG = "Sprites";
 
 const mp_obj_type_t sprite_type;
 
 #define DISABLED_FRAME -1
 
-int sprite_num = 1;
+uint8_t sprite_num = 1;
 
-void add_sprite(sprite_obj_t* sprite) {
+sprite_obj_t* to_Sprite(mp_obj_t self_in) {
+    mp_obj_instance_t *self = MP_OBJ_TO_PTR(self_in);
+    for(;;) {
+        mp_obj_type_t* type = mp_obj_get_type(self);
+        if (type == &sprite_type) {
+            return (sprite_obj_t*)self;
+        } else {
+            self = self->subobj[0];
+            if (self == NULL) {
+                break;
+            }
+        }
+    }
+    return mp_const_none;
+}
+
+uint8_t add_sprite(sprite_obj_t* sprite) {
     if (sprite_num < NUM_SPRITES) {
         sprites[sprite_num] = sprite;
-        sprite_num++;
+        return sprite_num++;
     }
+    return 255;
+}
+
+uint8_t replace_sprite(sprite_obj_t* sprite, mp_obj_t replacing) {
+    sprite_obj_t* replacing_sprite = to_Sprite(replacing);
+    uint8_t existing_sprite_num = replacing_sprite->sprite_id;
+    if (existing_sprite_num < NUM_SPRITES) {
+        sprites[existing_sprite_num] = sprite;
+    }
+    return existing_sprite_num;
 }
 
 STATIC mp_obj_t reset_sprites() {
@@ -30,8 +56,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(reset_sprites_obj, reset_sprites);
 
 STATIC mp_obj_t set_imagestrip(mp_obj_t strip_number, mp_obj_t strip_data) {
     int strip_nr = mp_obj_get_int(strip_number);
-    char* strip_data_ptr = mp_obj_str_get_str(strip_data);
-    image_stripes[strip_nr] = (ImageStrip*) strip_data_ptr;
+    const char* strip_data_ptr = mp_obj_str_get_str(strip_data);
+    image_stripes[strip_nr] = (const ImageStrip*) strip_data_ptr;
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(set_imagestrip_obj, set_imagestrip);
@@ -42,26 +68,26 @@ STATIC void sprite_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kin
 }
 
 mp_obj_t sprite_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
-
-    enum { ARG_strip, ARG_x, ARG_y, ARG_frame };
+    enum { ARG_replacing };
     static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_strip, MP_ARG_REQUIRED | MP_ARG_INT,  {.u_int = 0} },
-        { MP_QSTR_x,                       MP_ARG_INT,  {.u_int = 0} },
-        { MP_QSTR_y,                       MP_ARG_INT,  {.u_int = 0} },
-        { MP_QSTR_frame,                   MP_ARG_INT,  {.u_int = DISABLED_FRAME} },
+        { MP_QSTR_replacing, MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+    mp_obj_t replacing = args[ARG_replacing].u_obj;
 
     sprite_obj_t *self = m_new_obj(sprite_obj_t);
     self->base.type = type;
-    uint8_t strip_num = args[ARG_strip].u_int;
-    self->image_strip = image_stripes[strip_num];
-    self->x = args[ARG_x].u_int;
-    self->y = args[ARG_y].u_int;
-    self->frame = args[ARG_frame].u_int;
-    add_sprite(self);
+    self->image_strip = image_stripes[0];
+    self->x = 0;
+    self->y = 0;
+    self->frame = DISABLED_FRAME;
+    if (replacing != MP_OBJ_NULL) {
+        self->sprite_id = replace_sprite(self, replacing);
+    } else {
+        self->sprite_id = add_sprite(self);
+    }
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -80,22 +106,6 @@ uint8_t height(sprite_obj_t* sprite) {
     return sprite->image_strip->frame_height;
 }
 
-sprite_obj_t* find_sprite(mp_obj_t self_in) {
-    mp_obj_instance_t *self = MP_OBJ_TO_PTR(self_in);
-    for(;;) {
-        mp_obj_type_t* type = mp_obj_get_type(self);
-        if (type == &sprite_type) {
-            return self;
-        } else {
-            self = self->subobj[0];
-            if (self == NULL) {
-                break;
-            }
-        }
-    }
-    return mp_const_none;
-}
-
 STATIC mp_obj_t sprite_collision(mp_obj_t self_in, mp_obj_t iterable) {
     sprite_obj_t *self = MP_OBJ_TO_PTR(self_in);
     // ESP_LOGD(TAG, "Collision, self=%p", self);
@@ -108,7 +118,7 @@ STATIC mp_obj_t sprite_collision(mp_obj_t self_in, mp_obj_t iterable) {
     mp_obj_t item;
 
     while ((item = mp_iternext(iter)) != MP_OBJ_STOP_ITERATION) {
-        sprite_obj_t *other = find_sprite(item);
+        sprite_obj_t *other = to_Sprite(item);
         if (other == mp_const_none) {
             continue;
         }

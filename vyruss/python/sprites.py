@@ -19,8 +19,11 @@ def reset_sprites():
 
 
 class Sprite:
-    def __init__(self):
-        self._sprite = new_sprite()
+    def __init__(self, replacing=None):
+        if replacing:
+            self._sprite = replacing._sprite    
+        else:
+            self._sprite = new_sprite()
         self.set_frame(DISABLED_FRAME)
 
     def disable(self):

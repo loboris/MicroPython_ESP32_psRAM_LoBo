@@ -11,7 +11,7 @@ uint8_t deepspace[ROWS];
 sprite_obj_t* sprites[NUM_SPRITES];
 
 uint32_t* palette_pal;
-ImageStrip* image_stripes[NUM_IMAGES];
+const ImageStrip* image_stripes[NUM_IMAGES];
 
 #define STARS COLUMNS/2
 
