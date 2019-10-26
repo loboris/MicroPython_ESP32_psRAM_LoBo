@@ -19,12 +19,9 @@ def reset_sprites():
 
 
 class Sprite:
-    def __init__(self, strip, x=0, y=0, frame=DISABLED_FRAME):
+    def __init__(self):
         self._sprite = new_sprite()
-        self.set_strip(strip)
-        self.set_x(x)
-        self.set_y(y)
-        self.set_frame(frame)
+        self.set_frame(DISABLED_FRAME)
 
     def disable(self):
         self.set_frame(DISABLED_FRAME)

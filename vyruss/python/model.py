@@ -254,7 +254,11 @@ class StateEntering(FleetState):
 class StarFighter(Sprite):
     def __init__(self):
         #super().__init__(strip=4, x=256-8, y=16, frame=0)
-        super().__init__(4, 256-8, 16, 0)
+        super().__init__()
+        self.set_x(256-8)
+        self.set_y(16)
+        self.set_strip(4)
+        self.set_frame(0)
 
 
     def step(self, where):
@@ -274,8 +278,8 @@ class StarFighter(Sprite):
 
 class Laser(Sprite):
     def __init__(self):
-        #super().__init__(strip=3, x=48, y=12)
-        super().__init__(3, 48, 12)
+        super().__init__()
+        self.set_strip(3)
         self.enabled = False
 
     def fire(self, starfighter):
@@ -297,6 +301,7 @@ class Laser(Sprite):
 
 class BaddieExploding(Sprite):
     def __init__(self, baddie):
+        super().__init__()
         # es necesario calcular el centro antes de cambiar el strip
         center_x = baddie.x() + baddie.width() // 2
         center_y = baddie.y() + baddie.height() // 2
@@ -315,8 +320,8 @@ class BaddieExploding(Sprite):
 
 class Baddie(Sprite):
     def __init__(self, base_frame):
-        #super().__init__(strip=0)
-        super().__init__(0)
+        super().__init__()
+        self.set_strip(0)
         self.base_frame = base_frame
         self.frame_step = 0
         self.exploded = False
