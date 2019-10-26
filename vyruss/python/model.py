@@ -2,10 +2,10 @@ import comms
 
 from sprites import Sprite, reset_sprites
 
+
 def audio_play(track):
     comms.send("audio_play " + track)
-
-
+    
 def calculate_direction(current, destination):
     center_delta = 128 - current
     new_destination = (destination + center_delta) % 256
@@ -14,6 +14,7 @@ def calculate_direction(current, destination):
     if new_destination > 128:
         return +1
     return 0
+
 
 class Scene:
     def __init__(self):
@@ -34,6 +35,7 @@ class Scene:
 
     def accel(self, accel, decel):
         pass
+
 
 def new_heading(up, down, left, right):
     """
@@ -100,6 +102,7 @@ class Fleet(Scene):
         self.state.step()
         if self.laser.enabled:
             self.laser.step()
+            #print("everyone", self.everyone)
             hit = self.laser.collision(self.everyone)
             if hit:
                 self.laser.finish()
@@ -110,13 +113,14 @@ class Fleet(Scene):
         if baddie:
             audio_play("explosion3")
             self.explode_baddie(baddie)
-            # TODO: explode the starship
-            pass
+            # self.starfighter.explode()
+            # TODO: what happens after the ship explodes?
 
         for e in self.explosions:
-            e.step()
-            if e.finished:
-                self.explosions.remove(e)
+            if not e.finished:
+                e.step()
+                # por ahora no lo removemos, para que no se vaya de scope
+                # self.explosions.remove(e)
 
     def fire(self):
         if not self.laser.enabled:
@@ -127,7 +131,7 @@ class Fleet(Scene):
         where = new_heading(up, down, left, right)
         if where is not None:
             where = where - 8 # ancho de la nave
-            self.starfighter.step(where)
+            self.starfighter.slide(where)
 
     def accel(self, accel, decel):
         self.starfighter.accel(accel, decel)
@@ -144,6 +148,7 @@ class FleetState:
     def step(self):
         pass
 
+
 class StateDefeated(FleetState):
     def setup(self):
         print("everyone defeated")
@@ -151,6 +156,7 @@ class StateDefeated(FleetState):
 
     def step(self):
         pass
+
 
 class StateResetting(FleetState):
     def setup(self):
@@ -160,6 +166,7 @@ class StateResetting(FleetState):
         StateResetting.next_state = StateEntering
         reset_sprites()
         self.fleet.setup()
+
 
 class StateAttacking(FleetState):
     next_state = StateDefeated
@@ -182,6 +189,7 @@ class StateAttacking(FleetState):
             delta = baddie.y() - 16
             baddie.movements = [TravelCloser(delta), TravelAway(delta), Hover()]
             self.attacking.append(baddie)
+
 
 class StateEntering(FleetState):
     next_state = StateResetting
@@ -251,7 +259,45 @@ class StateEntering(FleetState):
                 self.fleet.change_state()
 
 
-class StarFighter(Sprite):
+class Explodable(Sprite):
+    explosion_strip = 5
+    explosion_steps = 9
+
+    def __init__(self):
+        super().__init__()
+        self.exploded = False
+        self.step = self.dummy_step
+
+
+    def explode(self):
+        self.exploded = True
+        # hay que apagar mientras se cambia el stripe y reubica
+        self.disable()
+        # es necesario calcular el centro antes de cambiar el strip
+        center_x = self.x() + self.width() // 2
+        center_y = self.y() + self.height() // 2
+        self.set_strip(self.explosion_strip)
+        self.set_x(center_x - self.width() // 2)
+        self.set_y(center_y - self.height() // 2)
+        # recién ahora arranca el contador de frames
+        self.set_frame(0)
+        self.finished = False
+        self.step = self.exploded_step
+        return self
+
+    def dummy_step(self):
+        pass
+
+    def exploded_step(self):
+        if self.finished:
+            return
+        self.set_frame(self.frame() + 1)
+        if self.frame() == self.explosion_steps:
+            self.disable()
+            self.finished = True
+
+
+class StarFighter(Explodable):
     def __init__(self):
         #super().__init__(strip=4, x=256-8, y=16, frame=0)
         super().__init__()
@@ -260,8 +306,7 @@ class StarFighter(Sprite):
         self.set_strip(4)
         self.set_frame(0)
 
-
-    def step(self, where):
+    def slide(self, where):
         current_x = self.x()
         self.set_x((current_x + rotar(current_x, where) * 2) % 256)
 
@@ -275,6 +320,24 @@ class StarFighter(Sprite):
         if not accel and not decel:
             self.set_y(16)
 
+
+class Baddie(Explodable):
+    def __init__(self, base_frame):
+        super().__init__()
+        self.set_strip(0)
+        self.base_frame = base_frame
+        self.frame_step = 0
+        self.step = self.baddie_step
+
+    def baddie_step(self):
+        self.frame_step += 1
+        self.set_frame((not (self.frame_step & 8)) + self.base_frame)
+        if self.movements:
+            movement = self.movements[0]
+            movement.step(self)
+            if (movement.finished(self)):
+                self.movements.pop(0)
+    
 
 class Laser(Sprite):
     def __init__(self):
@@ -299,50 +362,13 @@ class Laser(Sprite):
             self.finish()
 
 
-class BaddieExploding(Sprite):
-    def __init__(self, baddie):
-        super().__init__(baddie)
-        # es necesario calcular el centro antes de cambiar el strip
-        center_x = baddie.x() + baddie.width() // 2
-        center_y = baddie.y() + baddie.height() // 2
-        self.set_strip(5)
-        self.set_x(center_x - self.width() // 2)
-        self.set_y(center_y - self.height() // 2)
-        self.set_frame(0)
-        self.finished = False
-
-    def step(self):
-        self.set_frame(self.frame() + 1)
-        if self.frame() == 9:
-            self.disable()
-            self.finished = True
-
-class Baddie(Sprite):
-    def __init__(self, base_frame):
-        super().__init__()
-        self.set_strip(0)
-        self.base_frame = base_frame
-        self.frame_step = 0
-        self.exploded = False
-
-    def step(self):
-        self.frame_step += 1
-        self.set_frame((not (self.frame_step & 8)) + self.base_frame)
-        if self.movements:
-            movement = self.movements[0]
-            movement.step(self)
-            if (movement.finished(self)):
-                self.movements.pop(0)
-    
-    def explode(self):
-        self.exploded = True
-        return BaddieExploding(self)
-
 class Movement:
     pass
 
+
 class FollowPath(Movement):
     pass
+
 
 class TravelTo(Movement):
     def __init__(self, x, y):
@@ -367,6 +393,7 @@ class TravelBy(Movement):
 X_SPEED = 3
 Y_SPEED = 2
 
+
 class TravelX(TravelBy):
     def step(self, sprite):
         if self.count > 0:
@@ -374,15 +401,18 @@ class TravelX(TravelBy):
 
         self.count -= X_SPEED
 
+
 class TravelCloser(TravelBy):
     def step(self, sprite):
         sprite.set_y(sprite.y() - Y_SPEED)
         self.count -= Y_SPEED
 
+
 class TravelAway(TravelBy):
     def step(self, sprite):
         sprite.set_y(sprite.y() + Y_SPEED)
         self.count -= Y_SPEED
+
 
 class Hover(Movement):
     """Hover around the current position."""
@@ -398,6 +428,7 @@ class Hover(Movement):
 
     def finished(self, sprite):
         return False
+
 
 class Chase(Movement):
     pass
