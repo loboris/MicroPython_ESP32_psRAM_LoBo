@@ -253,7 +253,8 @@ class StateEntering(FleetState):
 
 class StarFighter(Sprite):
     def __init__(self):
-        super().__init__(strip=4, x=256-8, y=16, frame=0)
+        #super().__init__(strip=4, x=256-8, y=16, frame=0)
+        super().__init__(4, 256-8, 16, 0)
 
 
     def step(self, where):
@@ -273,7 +274,8 @@ class StarFighter(Sprite):
 
 class Laser(Sprite):
     def __init__(self):
-        super().__init__(strip=3, x=48, y=12)
+        #super().__init__(strip=3, x=48, y=12)
+        super().__init__(3, 48, 12)
         self.enabled = False
 
     def fire(self, starfighter):
@@ -313,7 +315,8 @@ class BaddieExploding(Sprite):
 
 class Baddie(Sprite):
     def __init__(self, base_frame):
-        super().__init__(strip=0)
+        #super().__init__(strip=0)
+        super().__init__(0)
         self.base_frame = base_frame
         self.frame_step = 0
         self.exploded = False

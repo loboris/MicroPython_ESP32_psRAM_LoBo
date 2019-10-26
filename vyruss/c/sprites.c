@@ -1,7 +1,13 @@
 #include "gpu.h"
 
-#define DISABLED_FRAME -1
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+#include "esp_log.h"
 
+static const char* TAG = "Sprites";
+
+const mp_obj_type_t sprite_type;
+
+#define DISABLED_FRAME -1
 
 int sprite_num = 1;
 
@@ -21,6 +27,19 @@ STATIC mp_obj_t reset_sprites() {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(reset_sprites_obj, reset_sprites);
 
+
+STATIC mp_obj_t set_imagestrip(mp_obj_t strip_number, mp_obj_t strip_data) {
+    int strip_nr = mp_obj_get_int(strip_number);
+    char* strip_data_ptr = mp_obj_str_get_str(strip_data);
+    image_stripes[strip_nr] = (ImageStrip*) strip_data_ptr;
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(set_imagestrip_obj, set_imagestrip);
+
+STATIC void sprite_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
+    sprite_obj_t *self = self_in;
+    mp_printf(print, "<Sprite %p strip=%p>", self, self->image_strip);
+}
 
 mp_obj_t sprite_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
 
@@ -53,21 +72,51 @@ STATIC mp_obj_t sprite_disable(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(sprite_disable_obj, sprite_disable);
 
-inline uint8_t width(sprite_obj_t* sprite) {
+uint8_t width(sprite_obj_t* sprite) {
     return sprite->image_strip->frame_width;
 }
 
-inline uint8_t height(sprite_obj_t* sprite) {
+uint8_t height(sprite_obj_t* sprite) {
     return sprite->image_strip->frame_height;
 }
 
+sprite_obj_t* find_sprite(mp_obj_t self_in) {
+    mp_obj_instance_t *self = MP_OBJ_TO_PTR(self_in);
+    for(;;) {
+        mp_obj_type_t* type = mp_obj_get_type(self);
+        if (type == &sprite_type) {
+            return self;
+        } else {
+            self = self->subobj[0];
+            if (self == NULL) {
+                break;
+            }
+        }
+    }
+    return mp_const_none;
+}
 
 STATIC mp_obj_t sprite_collision(mp_obj_t self_in, mp_obj_t iterable) {
-    sprite_obj_t *self = self_in;
+    sprite_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    // ESP_LOGD(TAG, "Collision, self=%p", self);
+    // ESP_LOGD(TAG, "           strip=%p", self->image_strip);
+    // mp_obj_type_t *type = mp_obj_get_type(self_in);
+    // ESP_LOGD(TAG, "           type=%s", qstr_str(type->name));
+    // ESP_LOGD(TAG, "Again");
+    
     mp_obj_t iter = mp_getiter(iterable, NULL);
     mp_obj_t item;
+
     while ((item = mp_iternext(iter)) != MP_OBJ_STOP_ITERATION) {
-        sprite_obj_t *other = item;
+        sprite_obj_t *other = find_sprite(item);
+        if (other == mp_const_none) {
+            continue;
+        }
+        // ESP_LOGI(TAG, "           item=%p", item);
+        // ESP_LOGI(TAG, "           other=%p", other);
+        // ESP_LOGI(TAG, "           strip=%p", other->image_strip);
+        // type = mp_obj_get_type(other);
+        // ESP_LOGD(TAG, "           type=%s", qstr_str(type->name));
         if (self->x < other->x + width(other) &&
             self->x + width(self) > other->x &&
             self->y < other->y + height(other) &&
@@ -76,6 +125,7 @@ STATIC mp_obj_t sprite_collision(mp_obj_t self_in, mp_obj_t iterable) {
             return other;
         }
     }
+
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(sprite_collision_obj, sprite_collision);
@@ -161,6 +211,7 @@ STATIC MP_DEFINE_CONST_DICT(sprite_locals_dict, sprite_locals_dict_table);
 const mp_obj_type_t sprite_type = {
     { &mp_type_type },
     .name = MP_QSTR_Sprite,
+    .print = sprite_print,
     .make_new = sprite_make_new,
     .locals_dict = (mp_obj_dict_t*)&sprite_locals_dict,
 };
@@ -171,6 +222,7 @@ STATIC const mp_rom_map_elem_t sprites_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_sprites) },
     { MP_ROM_QSTR(MP_QSTR_Sprite),              MP_ROM_PTR(&sprite_type) },
     { MP_ROM_QSTR(MP_QSTR_reset_sprites),       MP_ROM_PTR(&reset_sprites_obj) },
+    { MP_ROM_QSTR(MP_QSTR_set_imagestrip),      MP_ROM_PTR(&set_imagestrip_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT (

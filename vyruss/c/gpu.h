@@ -5,6 +5,7 @@
 #include "py/obj.h"
 #include "py/runtime.h"
 #include "py/binary.h"
+#include "py/objtype.h"
 
 #include "sprites.h"
 

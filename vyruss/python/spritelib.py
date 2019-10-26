@@ -4,7 +4,6 @@ except:
     import povdisplay
 
 import uctypes
-import imagenes
 
 sprite_struct = {
     "x": uctypes.UINT8 | 0,
@@ -12,11 +11,6 @@ sprite_struct = {
     "image_strip": uctypes.UINT8 | 2,
     "frame": uctypes.INT8 | 3,
 }
-
-PIXELS=54
-DISABLED_FRAME = -1
-
-povdisplay.init(PIXELS, imagenes.palette_pal)
 
 stripes = {}
 

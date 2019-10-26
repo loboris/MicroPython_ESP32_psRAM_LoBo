@@ -141,18 +141,7 @@ void hall_init() {
 }
 
 
-STATIC mp_obj_t povdisplay_set_imagestrip(mp_obj_t strip_number, mp_obj_t strip_data) {
-    int strip_nr = mp_obj_get_int(strip_number);
-    char* strip_data_ptr = mp_obj_str_get_str(strip_data);
-
-    image_stripes[strip_nr] = (ImageStrip *)strip_data_ptr;
-
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(povdisplay_set_imagestrip_obj, povdisplay_set_imagestrip);
  
-//#define BIFLEN 10000
-//uint32_t biff[BIFLEN];
 
 void coreTask( void * pvParameters ){
     printf("task running on core %d\n", xPortGetCoreID());
@@ -215,7 +204,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(povdisplay_getaddress_obj, povdisplay_getaddres
 STATIC const mp_map_elem_t povdisplay_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_povdisplay) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_init), (mp_obj_t)&povdisplay_init_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_set_imagestrip), (mp_obj_t)&povdisplay_set_imagestrip_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_getaddress), (mp_obj_t)&povdisplay_getaddress_obj },
 };
 

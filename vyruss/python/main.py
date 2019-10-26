@@ -6,15 +6,18 @@ import model
 
 import imagenes
 
+PIXELS = 54
+
 DEBUG = True
 
 try:
     from remotepov import update
 except:
+    import povdisplay
+    povdisplay.init(PIXELS, imagenes.palette_pal)
     update = lambda: None
-    print("setting up fan debug")
     if DEBUG:
-        import povdisplay
+        print("setting up fan debug")
         import uctypes
         debug_buffer = uctypes.bytearray_at(povdisplay.getaddress(999), 32*16)
         next_loop = 1000
@@ -26,7 +29,6 @@ except:
                 comms.send("debug", debug_buffer)
 
 
-DISABLED_FRAME = -1
 
 # init images
 sprites.set_imagestrip(0, imagenes.galaga_png)
@@ -39,12 +41,12 @@ sprites.set_imagestrip(5, imagenes.explosion_png)
 sprites.set_imagestrip(6, imagenes.gameover_png)
 
 
-gameover = sprites.get_sprite(0)
-gameover.image_strip = 6
-# Disable Frame
-gameover.frame = DISABLED_FRAME
-gameover.x = -32
-gameover.y = 2
+#gameover = sprites.get_sprite(0)
+#gameover.image_strip = 6
+## Disable Frame
+#gameover.frame = DISABLED_FRAME
+#gameover.x = -32
+#gameover.y = 2
 
 def reset_game():
     global scene
@@ -104,11 +106,11 @@ def process_input(b):
     #print(text, end="")
 
 
-reset_game()
 
 def game_loop():
     last_val = None
     counter = 0    
+    reset_game()
  
     while True:
         next_loop = utime.ticks_add(utime.ticks_ms(), 30)
