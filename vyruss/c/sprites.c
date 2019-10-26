@@ -1,8 +1,7 @@
 #include "gpu.h"
 
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
-#include "esp_log.h"
-
+// #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+// #include "esp_log.h"
 //static const char* TAG = "Sprites";
 
 const mp_obj_type_t sprite_type;
@@ -83,10 +82,10 @@ mp_obj_t sprite_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     self->x = 0;
     self->y = 0;
     self->frame = DISABLED_FRAME;
-    if (replacing != MP_OBJ_NULL) {
-        self->sprite_id = replace_sprite(self, replacing);
-    } else {
+    if (replacing == MP_OBJ_NULL) {
         self->sprite_id = add_sprite(self);
+    } else {
+        self->sprite_id = replace_sprite(self, replacing);
     }
     return MP_OBJ_FROM_PTR(self);
 }
@@ -118,8 +117,8 @@ STATIC mp_obj_t sprite_collision(mp_obj_t self_in, mp_obj_t iterable) {
     mp_obj_t item;
 
     while ((item = mp_iternext(iter)) != MP_OBJ_STOP_ITERATION) {
-        sprite_obj_t *other = to_Sprite(item);
-        if (other == mp_const_none) {
+        sprite_obj_t *other_sprite = to_Sprite(item);
+        if (other_sprite == mp_const_none || other_sprite->frame == DISABLED_FRAME) {
             continue;
         }
         // ESP_LOGI(TAG, "           item=%p", item);
@@ -127,12 +126,12 @@ STATIC mp_obj_t sprite_collision(mp_obj_t self_in, mp_obj_t iterable) {
         // ESP_LOGI(TAG, "           strip=%p", other->image_strip);
         // type = mp_obj_get_type(other);
         // ESP_LOGD(TAG, "           type=%s", qstr_str(type->name));
-        if (self->x < other->x + width(other) &&
-            self->x + width(self) > other->x &&
-            self->y < other->y + height(other) &&
-            self->y + height(self) > other->y) {
+        if (self->x < other_sprite->x + width(other_sprite) &&
+            self->x + width(self) > other_sprite->x &&
+            self->y < other_sprite->y + height(other_sprite) &&
+            self->y + height(self) > other_sprite->y) {
             
-            return other;
+            return item;
         }
     }
 

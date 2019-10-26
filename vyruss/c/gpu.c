@@ -2,6 +2,10 @@
 #include <esp_system.h>
 #include "gpu.h"
 
+// static const char* TAG = "GPU";
+// #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+// #include "esp_log.h"
+
 #define COLUMNS 256
 #define PIXELS 54
 #define ROWS 256
@@ -91,7 +95,14 @@ void render(int column, uint32_t* pixels) {
     if (s == NULL || s->frame == DISABLED_FRAME) {
       continue;
     }
-    ImageStrip* is = s->image_strip;
+    const ImageStrip* is = s->image_strip;
+    // if(is < 1000) {
+    //   ESP_LOGD(TAG, "Rendering sprite=%p", s);
+    //   ESP_LOGD(TAG, "          imagestrip=%p", is);
+    //   ESP_LOGD(TAG, "          n=%d", n);
+    //   ESP_LOGD(TAG, "          frame=%d", s->frame);
+    //   continue;
+    // }
     uint8_t width = is->frame_width;
     int visible_column = get_visible_column(s->x, width, column);
     if (visible_column != -1) {
