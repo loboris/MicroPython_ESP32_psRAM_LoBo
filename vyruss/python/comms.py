@@ -50,14 +50,15 @@ def receive(bufsize):
                 conn = None
     return retval
 
-def send(line, data=None):
+def send(line, data=b""):
     global conn
     if conn:
         try:
-            conn.write(line + "\n")
-            if data:
-                conn.write(data)
+            conn.write(line + b"\n" + data)
         except OSError:
             conn.close()
             poller.unregister(conn)
             conn = None
+            conn, _ = sock.accept()
+            conn.setblocking(0)
+            poller.register(conn, uselect.POLLIN)

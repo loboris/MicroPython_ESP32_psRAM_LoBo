@@ -26,19 +26,9 @@ except:
             now = utime.ticks_ms()
             if utime.ticks_diff(next_loop, now) < 0:
                 next_loop = utime.ticks_add(now, 1000)
-                comms.send("debug", debug_buffer)
+                comms.send(b"debug", debug_buffer)
 
 
-
-# init images
-sprites.set_imagestrip(0, imagenes.galaga_png)
-sprites.set_imagestrip(1, imagenes.galaga_alt8_png)
-sprites.set_imagestrip(2, imagenes.galaga_alt10_png)
-sprites.set_imagestrip(3, imagenes.disparo_png)
-sprites.set_imagestrip(4, imagenes.ll9_png)
-#sprites.set_imagestrip(4, imagenes.crawling_png)
-sprites.set_imagestrip(5, imagenes.explosion_png)
-sprites.set_imagestrip(6, imagenes.gameover_png)
 
 
 #gameover = sprites.get_sprite(0)
@@ -49,6 +39,16 @@ sprites.set_imagestrip(6, imagenes.gameover_png)
 #gameover.y = 2
 
 def reset_game():
+    # init images
+    sprites.set_imagestrip(0, imagenes.galaga_png)
+    sprites.set_imagestrip(1, imagenes.galaga_alt8_png)
+    sprites.set_imagestrip(2, imagenes.galaga_alt10_png)
+    sprites.set_imagestrip(3, imagenes.disparo_png)
+    sprites.set_imagestrip(4, imagenes.ll9_png)
+    #sprites.set_imagestrip(4, imagenes.crawling_png)
+    sprites.set_imagestrip(5, imagenes.explosion_png)
+    sprites.set_imagestrip(6, imagenes.gameover_png)
+
     global scene
     scene = model.Fleet()
 
@@ -96,9 +96,6 @@ def process_input(b):
         scene.fire()
     button_was_down = boton
             
-    if (accel and decel and gameover.frame == 0):
-        reset_game()
-         
     scene.accel(accel, decel)
 
     #text = "\r{0} {2} {1} {3} {4}   ".format(direction, boton, int(nave.x), decel, accel)

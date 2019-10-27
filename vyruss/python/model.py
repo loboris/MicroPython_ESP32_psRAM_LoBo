@@ -4,7 +4,7 @@ from sprites import Sprite, reset_sprites
 
 
 def audio_play(track):
-    comms.send("audio_play " + track)
+    comms.send(b"audio_play " + track)
     
 def calculate_direction(current, destination):
     center_delta = 128 - current
@@ -106,12 +106,12 @@ class Fleet(Scene):
             hit = self.laser.collision(self.everyone)
             if hit:
                 self.laser.finish()
-                audio_play("explosion2")
+                audio_play(b"explosion2")
                 self.explode_baddie(hit)
 
         baddie = self.starfighter.collision(self.everyone)
         if baddie:
-            audio_play("explosion3")
+            audio_play(b"explosion3")
             self.explode_baddie(baddie)
             # self.starfighter.explode()
             # TODO: what happens after the ship explodes?
@@ -125,7 +125,7 @@ class Fleet(Scene):
     def fire(self):
         if not self.laser.enabled:
             self.laser.fire(self.starfighter)
-            audio_play("shoot1")
+            audio_play(b"shoot1")
 
     def heading(self, up, down, left, right):
         where = new_heading(up, down, left, right)
