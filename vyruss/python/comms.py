@@ -59,6 +59,6 @@ def send(line, data=b""):
             conn.close()
             poller.unregister(conn)
             conn = None
-            conn, _ = sock.accept()
-            conn.setblocking(0)
-            poller.register(conn, uselect.POLLIN)
+            # conn, _ = sock.accept()
+            # conn.setblocking(0)
+            # poller.register(conn, uselect.POLLIN)
