@@ -44,7 +44,6 @@ def send_velocidad(rpm, fps):
 def waitconnect():
     while looping:
         try:
-            print("reconectando....")
             global sock, sockfile
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((config.SERVER_IP, config.SERVER_PORT))

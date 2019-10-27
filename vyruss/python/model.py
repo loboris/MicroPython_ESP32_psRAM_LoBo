@@ -1,4 +1,5 @@
 import comms
+#import random
 
 from sprites import Sprite, reset_sprites
 
@@ -87,6 +88,9 @@ class Fleet(Scene):
         self.state = StateEntering(self)
         self.starfighter = StarFighter()
         self.laser = Laser()
+        self.level = 4
+        self.unfired_bombs = [Bomb() for _ in range(self.level)]
+        self.active_bombs = []
         self.explosions = []
      
     def change_state(self):
@@ -97,6 +101,11 @@ class Fleet(Scene):
         self.state.remove_baddie(baddie)
         explosion = baddie.explode()
         self.explosions.append(explosion)
+
+    def explode_starfighter(self):
+        self.starfighter.explode()
+        audio_play(b"explosion3")
+        # TODO: what happens after the ship explodes?
 
     def step(self):
         self.state.step()
@@ -111,12 +120,18 @@ class Fleet(Scene):
 
         self.starfighter.step()
         if not self.starfighter.exploded:
+            bomb = self.starfighter.collision(self.active_bombs)
+            if bomb:
+                self.explode_starfighter()
+                bomb.disable()
+                self.active_bombs.remove(bomb)
+                self.unfired_bombs.append(bomb)
+
             baddie = self.starfighter.collision(self.everyone)
             if baddie:
-                audio_play(b"explosion3")
-                self.explode_baddie(baddie)
-                self.starfighter.explode()
-                # TODO: what happens after the ship explodes?
+                if isinstance(baddie, Explodable):
+                    self.explode_starfighter()
+                    self.explode_baddie(baddie)
 
         for e in self.explosions:
             if not e.finished:
@@ -124,10 +139,22 @@ class Fleet(Scene):
                 # por ahora no lo removemos, para que no se vaya de scope
                 # self.explosions.remove(e)
 
+        for bomb in self.active_bombs:
+            bomb.step()
+            if not bomb.enabled:
+                self.active_bombs.remove(bomb)
+                self.unfired_bombs.append(bomb)
+
+
     def fire(self):
         if not self.laser.enabled and not self.starfighter.exploded:
             self.laser.fire(self.starfighter)
-            audio_play(b"shoot1")
+
+    def drop_bomb(self):
+        if self.everyone and self.unfired_bombs:
+            bomb = self.unfired_bombs.pop()
+            bomb.fire(self.everyone[-1])
+            self.active_bombs.append(bomb)
 
     def heading(self, up, down, left, right):
         where = new_heading(up, down, left, right)
@@ -260,6 +287,9 @@ class StateEntering(FleetState):
             else:
                 self.fleet.change_state()
 
+        if self.steps % 37 == 0:
+            self.fleet.drop_bomb()
+
 
 class Explodable(Sprite):
     explosion_strip = 5
@@ -355,6 +385,7 @@ class Laser(Sprite):
         self.enabled = False
 
     def fire(self, starfighter):
+        audio_play(b"shoot1")
         self.enabled = True
         self.set_y(starfighter.y() + 11)
         self.set_x(starfighter.x() + 6)
@@ -368,6 +399,30 @@ class Laser(Sprite):
         LASER_SPEED = 6
         self.set_y(self.y() + LASER_SPEED)
         if self.y() > 170:
+            self.finish()
+
+
+class Bomb(Sprite):
+    def __init__(self):
+        super().__init__()
+        self.set_strip(3)
+        self.enabled = False
+
+    def fire(self, baddie):
+        audio_play(b"shoot3")
+        self.enabled = True
+        self.set_y(baddie.y() + 11)
+        self.set_x(baddie.x() + 6)
+        self.set_frame(1)
+
+    def finish(self):
+        self.enabled = False
+        self.disable()
+
+    def step(self):
+        BOMB_SPEED = 3
+        self.set_y(self.y() - BOMB_SPEED)
+        if self.y() < 6:
             self.finish()
 
 

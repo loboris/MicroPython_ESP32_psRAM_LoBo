@@ -13,7 +13,7 @@ fps_display = pyglet.clock.ClockDisplay()
 
 
 sounds = {}
-for sn in ["shoot1", "explosion2", "explosion3"]:
+for sn in ["shoot1", "explosion2", "explosion3", "shoot3"]:
     sounds[bytes(sn, "latin1")] = pyglet.media.load("sounds/%s.wav" % sn, streaming=False)
 
 sound_queue = []
