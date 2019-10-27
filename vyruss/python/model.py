@@ -109,12 +109,14 @@ class Fleet(Scene):
                 audio_play(b"explosion2")
                 self.explode_baddie(hit)
 
-        baddie = self.starfighter.collision(self.everyone)
-        if baddie:
-            audio_play(b"explosion3")
-            self.explode_baddie(baddie)
-            # self.starfighter.explode()
-            # TODO: what happens after the ship explodes?
+        self.starfighter.step()
+        if not self.starfighter.exploded:
+            baddie = self.starfighter.collision(self.everyone)
+            if baddie:
+                audio_play(b"explosion3")
+                self.explode_baddie(baddie)
+                self.starfighter.explode()
+                # TODO: what happens after the ship explodes?
 
         for e in self.explosions:
             if not e.finished:
@@ -123,7 +125,7 @@ class Fleet(Scene):
                 # self.explosions.remove(e)
 
     def fire(self):
-        if not self.laser.enabled:
+        if not self.laser.enabled and not self.starfighter.exploded:
             self.laser.fire(self.starfighter)
             audio_play(b"shoot1")
 
@@ -192,7 +194,7 @@ class StateAttacking(FleetState):
 
 
 class StateEntering(FleetState):
-    next_state = StateResetting
+    next_state = StateAttacking
 
     def setup(self):
         self.phase = 0
@@ -261,7 +263,7 @@ class StateEntering(FleetState):
 
 class Explodable(Sprite):
     explosion_strip = 5
-    explosion_steps = 9
+    explosion_steps = 5
 
     def __init__(self):
         super().__init__()
@@ -298,6 +300,9 @@ class Explodable(Sprite):
 
 
 class StarFighter(Explodable):
+    explosion_strip = 6
+    explosion_steps = 4
+
     def __init__(self):
         #super().__init__(strip=4, x=256-8, y=16, frame=0)
         super().__init__()
@@ -307,10 +312,14 @@ class StarFighter(Explodable):
         self.set_frame(0)
 
     def slide(self, where):
-        current_x = self.x()
-        self.set_x((current_x + rotar(current_x, where) * 2) % 256)
+        if not self.exploded:
+            current_x = self.x()
+            self.set_x((current_x + rotar(current_x, where) * 2) % 256)
 
     def accel(self, accel, decel):
+        if self.exploded:
+            return
+
         if accel:
             self.set_y(self.y() - 1)
 
