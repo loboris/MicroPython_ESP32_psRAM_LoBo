@@ -79,12 +79,23 @@ def receive_loop():
             if command == b"debug":
                 length = 32 * 16
                 data = sockfile.read(length)
+
+                readings = []
                 for now, duration in struct.iter_unpack("qq", data):
+                    if now < 10000:
+                        last_time_seen = 0
+
                     if now > last_time_seen:
                         last_time_seen = now
                         rpm, fps = 1000000 / duration * 60, (1000000/duration)*2
                         print(now, duration, "(%.2f rpm, %.2f fps)" % (rpm, fps))
-                        send_velocidad(rpm, fps)
+                        readings.append(rpm)
+
+                if len(readings):
+                    avg_rpm = sum(readings) / len(readings)
+                    avg_fps = avg_rpm / 30
+                    print("average %.2f rpm %.2f fps" % (avg_rpm, avg_fps))
+                    send_velocidad(avg_rpm, avg_fps)
                 #print(struct.unpack("q"*32*2, data))
 
 
