@@ -332,6 +332,12 @@ class Explodable(Sprite):
 class StarFighter(Explodable):
     explosion_strip = 6
     explosion_steps = 4
+    keyframes = {
+        0: 0,
+        30: 1,
+        45: 2,
+        75: 3
+    }
 
     def __init__(self):
         #super().__init__(strip=4, x=256-8, y=16, frame=0)
@@ -340,6 +346,14 @@ class StarFighter(Explodable):
         self.set_y(16)
         self.set_strip(4)
         self.set_frame(0)
+        self.frame_counter = 0
+        self.step = self.starship_step
+
+    def starship_step(self):
+        if not self.exploded:
+            self.frame_counter = (self.frame_counter + 1) % 90
+            if self.frame_counter in self.keyframes:
+                self.set_frame(self.keyframes[self.frame_counter])
 
     def slide(self, where):
         if not self.exploded:
