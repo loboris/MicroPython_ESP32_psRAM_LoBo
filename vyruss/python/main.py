@@ -28,9 +28,6 @@ except:
                 next_loop = utime.ticks_add(now, 1000)
                 comms.send(b"debug", debug_buffer)
 
-
-
-
 #gameover = sprites.get_sprite(0)
 #gameover.image_strip = 6
 ## Disable Frame
@@ -41,13 +38,12 @@ except:
 def reset_game():
     # init images
     sprites.set_imagestrip(0, imagenes.galaga_png)
-    sprites.set_imagestrip(1, imagenes.galaga_alt8_png)
-    sprites.set_imagestrip(2, imagenes.galaga_alt10_png)
     sprites.set_imagestrip(3, imagenes.disparo_png)
     sprites.set_imagestrip(4, imagenes.ll9_png)
     #sprites.set_imagestrip(4, imagenes.crawling_png)
     sprites.set_imagestrip(5, imagenes.explosion_png)
-    sprites.set_imagestrip(6, imagenes.gameover_png)
+    sprites.set_imagestrip(6, imagenes.explosion_nave_png)
+#    sprites.set_imagestrip(7, imagenes.gameover_png)
 
     global scene
     scene = model.Fleet()

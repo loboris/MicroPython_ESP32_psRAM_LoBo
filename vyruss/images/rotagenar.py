@@ -5,6 +5,21 @@ def sprite_coords(x, y):
 
 src = Image.open("galaga-rotated-sprites.png")
 
+nombres = [
+    "galaga",
+    "captured",
+    "greenboss",
+    "blueboss",
+    "redmoth",
+    "bluebee",
+    "galaxian",
+    "skorpion",
+    "greenshit",
+    "dumbbug",
+    "newsat",
+    "spock"
+]
+
 def rotpos(j):
     rems = [6, 7, 5, 4, 3, 2, 1]
     rotations = [None, Image.ROTATE_90, Image.ROTATE_180, Image.ROTATE_270]
@@ -20,5 +35,6 @@ for y in range(12):
         if rot:
             crp = crp.transpose(rot)
         dest.paste(crp, sprite_coords(27-j, 0))
-    dest.save("recorte/tira-sprites-%02d.png" % y)
+    filename = nombres[y]
+    dest.save("recorte/%02d_%s.png" % (y, filename))
 

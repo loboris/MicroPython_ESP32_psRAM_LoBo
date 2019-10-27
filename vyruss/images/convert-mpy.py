@@ -4,21 +4,31 @@ from PIL import Image
 import os
 from itertools import zip_longest
 
-MAGENTA = (255, 0, 255)
+TRANSPARENT = (255, 0, 255)
 FOLDER = "galaga"
 
 # width, height, frames, palette
 attributes = {
-  "disparo.png": (3, 8, 1, 0),
-  "explosion.png": (32, 32, 9, 0),
-  "galaga.10.png": (10, 10, 12, 0),
-  "galaga.8.png": (8, 8, 12, 0),
-  "galaga.alt10.png": (10, 10, 12, 0),
-  "galaga.alt8.png": (8, 8, 12, 0),
+  "disparo.png": (3, 8, 2, 0),
+  "explosion.png": (32, 32, 5, 0),
+  "explosion_nave.png": (32, 32, 4, 0),
   "galaga.png": (16, 16, 12, 0),
-  "ll9.png": (16, 16, 1, 0),
+  "ll9.png": (16, 16, 4, 0),
   "gameover.png": (64, 20, 1, 0),
   "crawling.png": (72, 228, 1, 0),
+
+  "00_galaga.png": (16, 16, 28, 0),
+  "01_captured.png": (16, 16, 28, 0),
+  "02_greenboss.png": (16, 16, 28, 0),
+  "03_blueboss.png": (16, 16, 28, 0),
+  "04_redmoth.png": (16, 16, 28, 0),
+  "05_bluebee.png": (16, 16, 28, 0),
+  "06_galaxian.png": (16, 16, 28, 0),
+  "07_skorpion.png": (16, 16, 28, 0),
+  "08_greenshit.png": (16, 16, 28, 0),
+  "09_dumbbug.png": (16, 16, 28, 0),
+  "10_newsat.png": (16, 16, 28, 0),
+  "11_spock.png": (16, 16, 28, 0),
 }
 
 def grouper(iterable, n, fillvalue=None):
@@ -33,25 +43,25 @@ images = [Image.open(os.path.join(FOLDER, f)) for f in filenames]
 
 w_size = (sum(i.width for i in images), max(i.height for i in images))
 
-workspace = Image.new("RGB", w_size, (0,0,0))
+workspace = Image.new("RGB", w_size, (255,0,255))
 
 x = 0
 for i in images:
     workspace.paste(i, (x, 0, x+i.width, i.height))
     x+=i.width
 
-#workspace.save("w1.png")
+workspace.save("w1.png")
 
-workspace = workspace.convert("P", palette=Image.ADAPTIVE)
+workspace = workspace.convert("P", palette=Image.ADAPTIVE, dither=0)
 palette = list(grouper(workspace.getpalette(), 3))
-mi = palette.index(MAGENTA)
+mi = palette.index(TRANSPARENT)
 palorder = list(range(256))
 palorder[255] = mi
 palorder[mi] = 255
 workspace = workspace.remap_palette(palorder)
 palette = list(grouper(workspace.getpalette(), 3))
-mi = palette.index(MAGENTA)
-#workspace.save("w2.png")
+mi = palette.index(TRANSPARENT)
+workspace.save("w2.png")
 
 def gamma(value, gamma=2.5, offset=0.5):
     assert 0 <= value <= 255
@@ -79,13 +89,16 @@ raws = []
 sizes = []
 
 
-for i in images:
-    p = i.convert("RGB").quantize(palette=workspace)
+for (j, i) in enumerate(images):
+    p = i.convert("RGB").quantize(palette=workspace, method=3)
+    p.save("debug/xx%02d.png" % j)
     b = p.transpose(Image.ROTATE_270).tobytes()
     filename = i.filename.rsplit("/", 1)[-1]
     attrs = bytes(attributes[filename])
 
     var_name = filename.replace(".", "_")
+    if var_name.startswith("0") or var_name.startswith("1"):
+        var_name = "_" + var_name
     print(var_name, "=", repr(attrs + b))
     #print("unsigned char %s[] PROGMEM = {" % var_name)
     for g in grouper(("0x%02x" % n for n in b), 8):
