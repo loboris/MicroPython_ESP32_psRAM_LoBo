@@ -226,12 +226,20 @@ const mp_obj_type_t sprite_type = {
 };
 
 
+STATIC mp_obj_t randint(mp_obj_t high) {
+    return mp_obj_new_int(
+        esp_random() % mp_obj_get_int(high)
+    );
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(randint_obj, randint);
+
 // Functions for the Module "sprites" and the Class "Sprite"
 STATIC const mp_rom_map_elem_t sprites_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_sprites) },
     { MP_ROM_QSTR(MP_QSTR_Sprite),              MP_ROM_PTR(&sprite_type) },
     { MP_ROM_QSTR(MP_QSTR_reset_sprites),       MP_ROM_PTR(&reset_sprites_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_imagestrip),      MP_ROM_PTR(&set_imagestrip_obj) },
+    { MP_ROM_QSTR(MP_QSTR_randint),             MP_ROM_PTR(&randint_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT (
