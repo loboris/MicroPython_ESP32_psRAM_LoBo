@@ -10,7 +10,7 @@ const mp_obj_type_t sprite_type;
 
 uint8_t sprite_num = 1;
 
-sprite_obj_t* to_Sprite(mp_obj_t self_in) {
+sprite_obj_t* to_sprite(mp_obj_t self_in) {
     mp_obj_instance_t *self = MP_OBJ_TO_PTR(self_in);
     for(;;) {
         mp_obj_type_t* type = mp_obj_get_type(self);
@@ -35,7 +35,7 @@ uint8_t add_sprite(sprite_obj_t* sprite) {
 }
 
 uint8_t replace_sprite(sprite_obj_t* sprite, mp_obj_t replacing) {
-    sprite_obj_t* replacing_sprite = to_Sprite(replacing);
+    sprite_obj_t* replacing_sprite = to_sprite(replacing);
     uint8_t existing_sprite_num = replacing_sprite->sprite_id;
     if (existing_sprite_num < NUM_SPRITES) {
         sprites[existing_sprite_num] = sprite;
@@ -117,7 +117,7 @@ STATIC mp_obj_t sprite_collision(mp_obj_t self_in, mp_obj_t iterable) {
     mp_obj_t item;
 
     while ((item = mp_iternext(iter)) != MP_OBJ_STOP_ITERATION) {
-        sprite_obj_t *other_sprite = to_Sprite(item);
+        sprite_obj_t *other_sprite = to_sprite(item);
         if (other_sprite == mp_const_none || other_sprite->frame == DISABLED_FRAME) {
             continue;
         }
