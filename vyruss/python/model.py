@@ -6,6 +6,7 @@ from sprites import Sprite, reset_sprites
 
 def audio_play(track):
     comms.send(b"audio_play " + track)
+
     
 def calculate_direction(current, destination):
     center_delta = 128 - current
@@ -144,7 +145,6 @@ class Fleet(Scene):
             if not bomb.enabled:
                 self.active_bombs.remove(bomb)
                 self.unfired_bombs.append(bomb)
-
 
     def fire(self):
         if not self.laser.enabled and not self.starfighter.exploded:
@@ -299,7 +299,6 @@ class Explodable(Sprite):
         super().__init__()
         self.exploded = False
         self.step = self.dummy_step
-
 
     def explode(self):
         self.exploded = True
@@ -460,6 +459,7 @@ class TravelTo(Movement):
     def finished(self, sprite):
         return sprite.x() == self.dest_x and sprite.y() == self.dest_y
 
+
 class TravelBy(Movement):
     def __init__(self, count, speed=None):
         self.count = abs(count)
@@ -467,6 +467,7 @@ class TravelBy(Movement):
 
     def finished(self, sprite):
         return self.count <= 0
+
 
 X_SPEED = 3
 Y_SPEED = 2
