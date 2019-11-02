@@ -1,14 +1,11 @@
 import comms
-import urandom
+from urandom import seed, choice, randrange
 import utime
 #import random
 
 # TODO: para hacerlo más random esto debería suceder después de que
 # le jugadore toca el botón para iniciar la partida
-urandom.seed(utime.ticks_ms())
-
-def randint(max):
-    return urandom.getrandbits(16) % max
+seed(utime.ticks_ms())
 
 from sprites import Sprite, reset_sprites
 
@@ -188,8 +185,7 @@ class Fleet(Scene):
     def drop_bomb(self):
         if self.everyone and self.unfired_bombs:
             bomb = self.unfired_bombs.pop()
-            baddie_number = randint(len(self.everyone))
-            bomb.fire(self.everyone[baddie_number])
+            bomb.fire(choice(self.everyone))
             self.active_bombs.append(bomb)
 
     def heading(self, up, down, left, right):
@@ -327,7 +323,7 @@ class StateEntering(FleetState):
         self.next_bomb -= 1
         if self.next_bomb == 0:
             self.fleet.drop_bomb()
-            self.next_bomb = 20 + randint(30)
+            self.next_bomb = 20 + randrange(30)
 
 
 class Explodable(Sprite):
