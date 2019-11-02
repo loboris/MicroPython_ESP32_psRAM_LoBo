@@ -16,7 +16,7 @@ from sprites import Sprite, reset_sprites
 def audio_play(track):
     comms.send(b"audio_play " + track)
 
-    
+
 def calculate_direction(current, destination):
     center_delta = 128 - current
     new_destination = (destination + center_delta) % 256
@@ -93,10 +93,41 @@ def rotar(desde, hasta):
     return 0
 
 
+class StarfleetState:
+    def __init__(self):
+        self.fighters = [StarFighter(n) for n in [0]] #[-1, 0, 1]]
+        self.fighter = self.fighters[0]
+        self.exploded = False
+
+    def step(self):
+        for f in self.fighters:
+            f.step()
+
+    def explode(self):
+        self.fighter.explode()
+        self.exploded = True
+        audio_play(b"explosion3")
+        # TODO: what happens after the ship explodes?
+
+    def collision(self, others):
+        if self.fighter:
+            return self.fighter.collision(others)
+
+    def slide(self, where):
+        if not self.exploded:
+            for f in self.fighters:
+                f.slide(where)
+
+    def accel(self, accel, decel):
+        if not self.exploded:
+            for f in self.fighters:
+                f.accel(accel, decel)
+
 class Fleet(Scene):
     def setup(self):
         self.state = StateEntering(self)
-        self.starfighter = StarFighter()
+        self.starfleet = StarfleetState()
+        self.killed = []
         self.laser = Laser()
         self.level = 4
         self.unfired_bombs = [Bomb() for _ in range(self.level)]
@@ -112,11 +143,6 @@ class Fleet(Scene):
         explosion = baddie.explode()
         self.explosions.append(explosion)
 
-    def explode_starfighter(self):
-        self.starfighter.explode()
-        audio_play(b"explosion3")
-        # TODO: what happens after the ship explodes?
-
     def step(self):
         self.state.step()
         if self.laser.enabled:
@@ -128,19 +154,19 @@ class Fleet(Scene):
                 audio_play(b"explosion2")
                 self.explode_baddie(hit)
 
-        self.starfighter.step()
-        if not self.starfighter.exploded:
-            bomb = self.starfighter.collision(self.active_bombs)
+        self.starfleet.step()
+        if not self.starfleet.exploded:
+            bomb = self.starfleet.collision(self.active_bombs)
             if bomb:
-                self.explode_starfighter()
+                self.starfleet.explode()
                 bomb.disable()
                 self.active_bombs.remove(bomb)
                 self.unfired_bombs.append(bomb)
 
-            baddie = self.starfighter.collision(self.everyone)
+            baddie = self.starfleet.collision(self.everyone)
             if baddie:
+                self.starfleet.explode()
                 if isinstance(baddie, Explodable):
-                    self.explode_starfighter()
                     self.explode_baddie(baddie)
 
         for e in self.explosions:
@@ -156,8 +182,8 @@ class Fleet(Scene):
                 self.unfired_bombs.append(bomb)
 
     def fire(self):
-        if not self.laser.enabled and not self.starfighter.exploded:
-            self.laser.fire(self.starfighter)
+        if not self.laser.enabled and not self.starfleet.exploded:
+            self.laser.fire(self.starfleet.fighter)
 
     def drop_bomb(self):
         if self.everyone and self.unfired_bombs:
@@ -170,10 +196,10 @@ class Fleet(Scene):
         where = new_heading(up, down, left, right)
         if where is not None:
             where = where - 8 # ancho de la nave
-            self.starfighter.slide(where)
+            self.starfleet.slide(where)
 
     def accel(self, accel, decel):
-        self.starfighter.accel(accel, decel)
+        self.starfleet.accel(accel, decel)
 
 
 class FleetState:
@@ -344,17 +370,19 @@ class Explodable(Sprite):
 class StarFighter(Explodable):
     explosion_strip = 6
     explosion_steps = 4
+
+    BLINK_RATE = int(30.0 * 1.5) 
     keyframes = {
-        0: 0,
-        30: 1,
-        45: 2,
-        75: 3
+        int(BLINK_RATE * 0) : 0,
+        int(BLINK_RATE * 0.333333333): 1,
+        int(BLINK_RATE * 0.5): 2,
+        int(BLINK_RATE * 0.833333333): 3,
     }
 
-    def __init__(self):
+    def __init__(self, n):
         #super().__init__(strip=4, x=256-8, y=16, frame=0)
         super().__init__()
-        self.set_x(256-8)
+        self.set_x(256-8 - n * 18)
         self.set_y(16)
         self.set_strip(4)
         self.set_frame(0)
@@ -363,9 +391,10 @@ class StarFighter(Explodable):
 
     def starship_step(self):
         if not self.exploded:
-            self.frame_counter = (self.frame_counter + 1) % 90
+            self.frame_counter = (self.frame_counter + 1) % self.BLINK_RATE
             if self.frame_counter in self.keyframes:
                 self.set_frame(self.keyframes[self.frame_counter])
+#            self.set_frame(int(self.frame_counter/3.214285714))
 
     def slide(self, where):
         if not self.exploded:
