@@ -22,8 +22,15 @@ def playsound(name):
         sound_queue.append(sounds[name])
 
 import imagenes
-image_stripes = {"0": imagenes.galaga_png, "3": imagenes.disparo_png, "4":
-imagenes.ll9_png, "5": imagenes.explosion_png, "6": imagenes.explosion_nave_png}
+image_stripes = {
+    "0": imagenes.galaga_png,
+    "3": imagenes.disparo_png,
+    # "4": imagenes.crawling_png,
+    "4": imagenes.ll9_png,
+    # "4": imagenes._07_skorpion_png,
+    "5": imagenes.explosion_png,
+    "6": imagenes.explosion_nave_png
+}
 spritedata = bytearray( b"\0\0\0\0\x10\0\0\2\x20\0\0\4\x30\0\0\6\x40\0\0\x08\x50\0\0\x0A"
 + b"\0\0\0\xff" * 58)
 

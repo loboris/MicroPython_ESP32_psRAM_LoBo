@@ -35,15 +35,17 @@ except:
 #gameover.x = -32
 #gameover.y = 2
 
-def reset_game():
-    # init images
-    sprites.set_imagestrip(0, imagenes.galaga_png)
-    sprites.set_imagestrip(3, imagenes.disparo_png)
-    sprites.set_imagestrip(4, imagenes.ll9_png)
-    #sprites.set_imagestrip(4, imagenes.crawling_png)
-    sprites.set_imagestrip(5, imagenes.explosion_png)
-    sprites.set_imagestrip(6, imagenes.explosion_nave_png)
+# init images
+sprites.set_imagestrip(0, imagenes.galaga_png)
+sprites.set_imagestrip(3, imagenes.disparo_png)
+sprites.set_imagestrip(4, imagenes.ll9_png)
+#sprites.set_imagestrip(4, imagenes._00_galaga_png)
+#sprites.set_imagestrip(4, imagenes.crawling_png)
+sprites.set_imagestrip(5, imagenes.explosion_png)
+sprites.set_imagestrip(6, imagenes.explosion_nave_png)
 #    sprites.set_imagestrip(7, imagenes.gameover_png)
+
+def reset_game():
 
     global scene
     scene = model.Fleet()
