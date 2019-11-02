@@ -287,14 +287,14 @@ class StateEntering(FleetState):
             baddie.movements = [
                 TravelCloser(80), TravelX(112),
                 TravelCloser(32), TravelX(-96),
-                TravelAway(42), TravelTo(final_x, final_y), Hover()
+                TravelAway(42), TravelTo(final_x, final_y),
             ] 
         else:
             baddie.set_x(base_x - 16)
             baddie.movements = [
                 TravelCloser(80), TravelX(-112),
                 TravelCloser(32), TravelX(96),
-                TravelAway(42), TravelTo(final_x, final_y), Hover()
+                TravelAway(42), TravelTo(final_x, final_y),
             ] 
 
         self.groups[-1].append(baddie)
@@ -303,6 +303,10 @@ class StateEntering(FleetState):
     def all_baddies_in_last_group_exploded(self):
         g = self.groups[-1]
         return g and all(b.exploded for b in g)
+
+    def all_baddies_in_last_group_finished(self):
+        g = self.groups[-1]
+        return g and all(b.finished for b in g)
 
     def step(self):
         for baddie in self.fleet.everyone:
@@ -313,7 +317,8 @@ class StateEntering(FleetState):
         if self.steps % 8 == 0 and len(self.groups[-1]) < 10:
             self.add_baddie()
 
-        if self.steps % 256 == 0 or self.all_baddies_in_last_group_exploded():
+        if self.all_baddies_in_last_group_finished() or \
+           self.all_baddies_in_last_group_exploded():
             self.steps = 0
             if len(self.groups) < 5:
                 self.create_group()
@@ -418,6 +423,7 @@ class Baddie(Explodable):
         self.base_frame = base_frame
         self.frame_step = 0
         self.step = self.baddie_step
+        self.finished = False
 
     def baddie_step(self):
         self.frame_step += 1
@@ -427,6 +433,8 @@ class Baddie(Explodable):
             movement.step(self)
             if (movement.finished(self)):
                 self.movements.pop(0)
+        elif not self.finished:
+            self.finished = True
     
 
 class Laser(Sprite):
@@ -485,17 +493,21 @@ class FollowPath(Movement):
     pass
 
 
+X_SPEED = 3
+Y_SPEED = 2
+
+
 class TravelTo(Movement):
     def __init__(self, x, y):
         self.dest_x = x
         self.dest_y = y
 
     def step(self, sprite):
-        sprite.set_x(sprite.x() + calculate_direction(sprite.x(), self.dest_x) * 4)
-        sprite.set_y(sprite.y() + calculate_direction(sprite.y(), self.dest_y) * 2)
+        sprite.set_x(sprite.x() + calculate_direction(sprite.x(), self.dest_x) * X_SPEED)
+        sprite.set_y(sprite.y() + calculate_direction(sprite.y(), self.dest_y) * Y_SPEED)
         
     def finished(self, sprite):
-        return sprite.x() == self.dest_x and sprite.y() == self.dest_y
+        return abs(sprite.x() - self.dest_x) < X_SPEED and abs(sprite.y() - self.dest_y) < Y_SPEED
 
 
 class TravelBy(Movement):
@@ -505,10 +517,6 @@ class TravelBy(Movement):
 
     def finished(self, sprite):
         return self.count <= 0
-
-
-X_SPEED = 3
-Y_SPEED = 2
 
 
 class TravelX(TravelBy):
