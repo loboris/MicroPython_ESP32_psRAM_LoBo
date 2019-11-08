@@ -17,7 +17,7 @@ typedef struct _sprite_obj_t {
     uint8_t sprite_id;
 } sprite_obj_t;
 
-#define NUM_SPRITES 64
+#define NUM_SPRITES 100
 extern sprite_obj_t* sprites[NUM_SPRITES];
 
 #define NUM_IMAGES 16
