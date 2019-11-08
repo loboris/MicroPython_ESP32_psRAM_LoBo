@@ -90,9 +90,35 @@ def rotar(desde, hasta):
     return 0
 
 
+class ScoreBoard:
+    def __init__(self):
+        self.chars = []
+        for n in range(9):
+            s = Sprite()
+            s.set_strip(1)
+            s.set_x(110 + n * 4)
+            s.set_y(16)
+            s.set_frame(10)
+            self.chars.append(s)
+
+        self.setscore(0)
+        self.setlives(3)
+
+    def setscore(self, value):
+        for n, l in enumerate("%05d" % value):
+            v = ord(l) - 0x30
+            self.chars[n].set_frame(v)
+
+    def setlives(self, lives):
+        for n in range(6, 9):
+            if lives > n-6:
+                self.chars[n].set_frame(11)
+            else:
+                self.chars[n].set_frame(10)
+
 class StarfleetState:
     def __init__(self):
-        self.fighters = [StarFighter(n) for n in [0]] #[-1, 0, 1]]
+        self.fighters = [StarFighter(n) for n in [0]]
         self.fighter = self.fighters[0]
         self.exploded = False
 
@@ -112,8 +138,7 @@ class StarfleetState:
 
     def slide(self, where):
         if not self.exploded:
-            for f in self.fighters:
-                f.slide(where)
+            self.fighter.slide(where)
 
     def accel(self, accel, decel):
         if not self.exploded:
@@ -122,6 +147,8 @@ class StarfleetState:
 
 class Fleet(Scene):
     def setup(self):
+        self.scoreboard = ScoreBoard()
+        self.hiscore = 0
         self.state = StateEntering(self)
         self.starfleet = StarfleetState()
         self.killed = []
@@ -135,6 +162,8 @@ class Fleet(Scene):
         self.state = self.state.next_state(self)
 
     def explode_baddie(self, baddie):
+        self.hiscore += randrange(10, 19)
+        self.scoreboard.setscore(self.hiscore)
         self.everyone.remove(baddie)
         self.state.remove_baddie(baddie)
         explosion = baddie.explode()
@@ -156,6 +185,7 @@ class Fleet(Scene):
             bomb = self.starfleet.collision(self.active_bombs)
             if bomb:
                 self.starfleet.explode()
+                self.scoreboard.setlives(2)
                 bomb.disable()
                 self.active_bombs.remove(bomb)
                 self.unfired_bombs.append(bomb)
@@ -163,6 +193,7 @@ class Fleet(Scene):
             baddie = self.starfleet.collision(self.everyone)
             if baddie:
                 self.starfleet.explode()
+                self.scoreboard.setlives(2)
                 if isinstance(baddie, Explodable):
                     self.explode_baddie(baddie)
 
@@ -381,7 +412,6 @@ class StarFighter(Explodable):
     }
 
     def __init__(self, n):
-        #super().__init__(strip=4, x=256-8, y=16, frame=0)
         super().__init__()
         self.set_x(256-8 - n * 18)
         self.set_y(16)
@@ -395,7 +425,6 @@ class StarFighter(Explodable):
             self.frame_counter = (self.frame_counter + 1) % self.BLINK_RATE
             if self.frame_counter in self.keyframes:
                 self.set_frame(self.keyframes[self.frame_counter])
-#            self.set_frame(int(self.frame_counter/3.214285714))
 
     def slide(self, where):
         if not self.exploded:

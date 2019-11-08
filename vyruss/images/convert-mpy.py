@@ -16,6 +16,7 @@ attributes = {
   "ll9.png": (16, 16, 4, 0),
   "gameover.png": (64, 20, 1, 0),
   "crawling.png": (72, 228, 1, 0),
+  "numerals.png": (4, 5, 12, 0),
 
   "00_galaga.png": (16, 16, 28, 0),
   "01_captured.png": (16, 16, 28, 0),
