@@ -32,8 +32,7 @@ image_stripes = {
     "5": imagenes.explosion_png,
     "6": imagenes.explosion_nave_png
 }
-spritedata = bytearray( b"\0\0\0\0\x10\0\0\2\x20\0\0\4\x30\0\0\6\x40\0\0\x08\x50\0\0\x0A"
-+ b"\0\0\0\xff" * 94)
+spritedata = bytearray( b"\0\0\0\xff\xff" * 100)
 
 window = pyglet.window.Window(config=Config(double_buffer=True), fullscreen=config.FULLSCREEN)
 keys = key.KeyStateHandler()
@@ -183,7 +182,7 @@ class PygletEngine():
 
             # el sprite 0 se dibuja arriba de todos los otros
             for n in range(63, -1, -1):
-                x, y, image, frame = unpack("BBBb", spritedata[n*4:n*4+4])
+                x, y, image, frame, perspective = unpack("BBBbb", spritedata[n*5:n*5+5])
                 if frame == -1:
                     continue
 
@@ -206,7 +205,11 @@ class PygletEngine():
                         src += 1
                         if index != TRANSPARENT:
                             color = upalette[index]
-                            px = deepspace[y] * 4
+                            if perspective:
+                                y = deepspace[y]
+                            else:
+                                y = led_count - 1 - y
+                            px = y * 4
                             pixels[px:px+4] = [color] * 4
 
             return pack_colors(pixels)

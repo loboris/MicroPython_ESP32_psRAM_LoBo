@@ -10,6 +10,7 @@ sprite_struct = {
     "y": uctypes.UINT8 | 1,
     "image_strip": uctypes.UINT8 | 2,
     "frame": uctypes.INT8 | 3,
+    "perspective": uctypes.INT8 | 4,
 }
 
 stripes = {}

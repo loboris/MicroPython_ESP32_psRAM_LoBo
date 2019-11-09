@@ -56,6 +56,9 @@ class Sprite:
     def set_frame(self, value):
         self._sprite.frame = value
 
+    def set_perspective(self, value):
+        self._sprite.perspective = value
+
     def collision(self, targets):
         for target in targets:
             other = target

@@ -64,7 +64,7 @@ def receive_loop():
             command, *args = l.split()
 
             if command == b"sprites":
-                spritedata[:] = sockfile.read(256)
+                spritedata[:] = sockfile.read(5*100)
 
             if command == b"pal":
                 palette[:] = sockfile.read(1024)

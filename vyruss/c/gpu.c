@@ -116,7 +116,13 @@ void render(int column, uint32_t* pixels) {
       for(int y=desde; y<hasta; y++, imagen++) {
         uint8_t color = *imagen;
         if (color != TRANSPARENT) {
-          pixels[deepspace[y]] = palette_pal[color];
+          int px_y;
+          if (s->perspective) {
+            px_y = deepspace[y];
+          } else {
+            px_y = PIXELS - 1 - y;
+          }
+          pixels[px_y] = palette_pal[color];
         }
       }
     }

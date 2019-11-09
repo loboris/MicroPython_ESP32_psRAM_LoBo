@@ -199,6 +199,13 @@ STATIC mp_obj_t sprite_set_strip(mp_obj_t self_in, mp_obj_t new_strip) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(sprite_set_strip_obj, sprite_set_strip);
 
+STATIC mp_obj_t sprite_set_perspective(mp_obj_t self_in, mp_obj_t value) {
+    sprite_obj_t *self = self_in;
+    self->perspective = mp_obj_get_int(value);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(sprite_set_perspective_obj, sprite_set_perspective);
+
 // Methods for Class "Sprite"
 STATIC const mp_rom_map_elem_t sprite_locals_dict_table[] = {
     // METHOD EXAMPLES
@@ -213,6 +220,7 @@ STATIC const mp_rom_map_elem_t sprite_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_frame),           MP_ROM_PTR(&sprite_frame_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_frame),       MP_ROM_PTR(&sprite_set_frame_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_strip),       MP_ROM_PTR(&sprite_set_strip_obj) },
+    { MP_ROM_QSTR(MP_QSTR_set_perspective), MP_ROM_PTR(&sprite_set_perspective_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(sprite_locals_dict, sprite_locals_dict_table);

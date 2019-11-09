@@ -14,6 +14,7 @@ typedef struct _sprite_obj_t {
     uint8_t y;
     int8_t frame;
     const ImageStrip* image_strip;
+    int8_t perspective;
     uint8_t sprite_id;
 } sprite_obj_t;
 

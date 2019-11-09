@@ -97,8 +97,9 @@ class ScoreBoard:
             s = Sprite()
             s.set_strip(1)
             s.set_x(110 + n * 4)
-            s.set_y(16)
+            s.set_y(0)
             s.set_frame(10)
+            s.set_perspective(0)
             self.chars.append(s)
 
         self.setscore(0)
