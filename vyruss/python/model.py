@@ -95,7 +95,8 @@ def make_me_a_planet(n):
     planet.set_strip(10+n)
     planet.set_perspective(0)
     planet.set_x(0)
-    planet.set_y(4 if n == 3 else 29)
+    y = 54 - planet.height()
+    planet.set_y(y)
     return planet
 
 class ScoreBoard:
@@ -112,7 +113,7 @@ class ScoreBoard:
 
         self.setscore(0)
         self.setlives(3)
-        self.planet = make_me_a_planet(randrange(4))
+        self.planet = make_me_a_planet(randrange(7))
         self.planet.set_frame(0)
 
     def setscore(self, value):

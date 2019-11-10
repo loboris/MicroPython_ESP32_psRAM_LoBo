@@ -21,7 +21,7 @@ typedef struct _sprite_obj_t {
 #define NUM_SPRITES 100
 extern sprite_obj_t* sprites[NUM_SPRITES];
 
-#define NUM_IMAGES 16
+#define NUM_IMAGES 20
 extern const ImageStrip* image_stripes[NUM_IMAGES];
 
 static const int8_t DISABLED_FRAME = -1;
