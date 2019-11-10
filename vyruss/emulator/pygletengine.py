@@ -31,8 +31,11 @@ image_stripes = {
     # "4": imagenes._07_skorpion_png,
     "5": imagenes.explosion_png,
     "6": imagenes.explosion_nave_png,
-    "7": imagenes.marte_flat_png,
-    "8": imagenes.saturno_flat_png,
+
+    "10": imagenes.tierra_flat_png,
+    "11": imagenes.marte_flat_png,
+    "12": imagenes.jupiter_flat_png,
+    "13": imagenes.saturno_flat_png,
 }
 spritedata = bytearray( b"\0\0\0\xff\xff" * 100)
 
@@ -183,7 +186,7 @@ class PygletEngine():
                         print(y, deepspace)
 
             # el sprite 0 se dibuja arriba de todos los otros
-            for n in range(63, -1, -1):
+            for n in range(99, -1, -1):
                 x, y, image, frame, perspective = unpack("BBBbb", spritedata[n*5:n*5+5])
                 if frame == -1:
                     continue

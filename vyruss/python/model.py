@@ -90,6 +90,14 @@ def rotar(desde, hasta):
     return 0
 
 
+def make_me_a_planet(n):
+    planet = Sprite()
+    planet.set_strip(10+n)
+    planet.set_perspective(0)
+    planet.set_x(0)
+    planet.set_y(4 if n == 3 else 29)
+    return planet
+
 class ScoreBoard:
     def __init__(self):
         self.chars = []
@@ -104,13 +112,8 @@ class ScoreBoard:
 
         self.setscore(0)
         self.setlives(3)
-
-        planet = Sprite()
-        planet.set_strip(8)
-        planet.set_frame(0)
-        planet.set_perspective(0)
-        planet.set_x(0)
-        planet.set_y(4) #+25)
+        self.planet = make_me_a_planet(randrange(4))
+        self.planet.set_frame(0)
 
     def setscore(self, value):
         for n, l in enumerate("%05d" % value):
