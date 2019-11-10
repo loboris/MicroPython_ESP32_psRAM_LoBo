@@ -30,6 +30,11 @@ attributes = {
   "09_dumbbug.png": (16, 16, 28, 0),
   "10_newsat.png": (16, 16, 28, 0),
   "11_spock.png": (16, 16, 28, 0),
+
+  "tierra_flat.png": (255, 25, 1, 0),
+  "marte_flat.png": (255, 25, 1, 0),
+  "jupiter_flat.png": (255, 25, 1, 0),
+  "saturno_flat.png": (255, 50, 1, 0),
 }
 
 def grouper(iterable, n, fillvalue=None):
