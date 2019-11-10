@@ -1,5 +1,5 @@
 WIFI=ventilastation
-
+nmcli connection down ventilastation
 if nmcli -t -g GENERAL.STATE connection show $WIFI | grep activated ;
 then
     echo esp wifi connected;
