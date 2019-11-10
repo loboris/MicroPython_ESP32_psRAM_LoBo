@@ -79,7 +79,7 @@ pal_raw = []
 with open("raw/palette.pal", "wb") as pal:
     for c in palette:
         r, g, b = c
-        r, g, b = gamma(r), gamma(g), gamma(b)
+        #r, g, b = gamma(r), gamma(g), gamma(b)
         quad = bytearray((255, b, g, r))
         pal.write(quad)
         #print("    0x%02x%02x%02x%02x," % (r, g, b, 255))
