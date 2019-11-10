@@ -44,7 +44,8 @@ sprites.set_imagestrip(4, imagenes.ll9_png)
 #sprites.set_imagestrip(4, imagenes.crawling_png)
 sprites.set_imagestrip(5, imagenes.explosion_png)
 sprites.set_imagestrip(6, imagenes.explosion_nave_png)
-#    sprites.set_imagestrip(7, imagenes.gameover_png)
+sprites.set_imagestrip(7, imagenes.tierra_flat_png)
+sprites.set_imagestrip(8, imagenes.saturno_flat_png)
 
 def reset_game():
 

@@ -103,7 +103,8 @@ void render(int column, uint32_t* pixels) {
     //   ESP_LOGD(TAG, "          frame=%d", s->frame);
     //   continue;
     // }
-    uint8_t width = is->frame_width;
+    int width = is->frame_width;
+    if (width == 255) width++; // caso especial, para los planetas
     int visible_column = get_visible_column(s->x, width, column);
     if (visible_column != -1) {
       uint8_t height = is->frame_height;

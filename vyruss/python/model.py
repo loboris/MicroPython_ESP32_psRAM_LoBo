@@ -105,6 +105,13 @@ class ScoreBoard:
         self.setscore(0)
         self.setlives(3)
 
+        planet = Sprite()
+        planet.set_strip(8)
+        planet.set_frame(0)
+        planet.set_perspective(0)
+        planet.set_x(0)
+        planet.set_y(4) #+25)
+
     def setscore(self, value):
         for n, l in enumerate("%05d" % value):
             v = ord(l) - 0x30

@@ -30,7 +30,9 @@ image_stripes = {
     "4": imagenes.ll9_png,
     # "4": imagenes._07_skorpion_png,
     "5": imagenes.explosion_png,
-    "6": imagenes.explosion_nave_png
+    "6": imagenes.explosion_nave_png,
+    "7": imagenes.marte_flat_png,
+    "8": imagenes.saturno_flat_png,
 }
 spritedata = bytearray( b"\0\0\0\xff\xff" * 100)
 
@@ -188,6 +190,7 @@ class PygletEngine():
 
                 strip = image_stripes["%d" % image]
                 w, h, total_frames, _pal = unpack("BBBB", strip[0:4])
+                if w == 255: w = 256 # caso especial, para los planetas
                 pixeldata = memoryview(strip)[4:]
 
                 frame %= total_frames
