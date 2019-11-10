@@ -79,6 +79,7 @@ mp_obj_t sprite_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     sprite_obj_t *self = m_new_obj(sprite_obj_t);
     self->base.type = type;
     self->image_strip = image_stripes[0];
+    self->perspective = 1;
     self->x = 0;
     self->y = 0;
     self->frame = DISABLED_FRAME;
