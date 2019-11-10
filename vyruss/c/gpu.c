@@ -13,6 +13,7 @@
 const uint8_t TRANSPARENT = 0xFF;
 uint8_t deepspace[ROWS];
 sprite_obj_t* sprites[NUM_SPRITES];
+uint8_t intensidades[PIXELS];
 
 uint32_t* palette_pal;
 const ImageStrip* image_stripes[NUM_IMAGES];
@@ -44,9 +45,16 @@ void calculate_deepspace() {
   }
 }
 
+void calculate_intensidades() {
+  for (int n=0; n<PIXELS; n++) {
+    intensidades[n] = 0b11100000 | (uint8_t)(32 * pow(n, 2) / pow(PIXELS, 2) + 1);
+  }
+}
+
 void init_sprites() {
 
   calculate_deepspace();
+  calculate_intensidades();
 
   for (int f = 0; f<STARS; f++) {
     starfield[f].x = random(COLUMNS);
@@ -79,13 +87,19 @@ int inline get_visible_column(int sprite_x, int sprite_width, int render_column)
 }
 
 void render(int column, uint32_t* pixels) {
+  inline void set_pixel(uint8_t n, uint32_t color) {
+    if (n < PIXELS) {
+      pixels[n] = (color & 0xffffff00) | intensidades[n];
+    }
+  }
+
   column = column % COLUMNS;
   for (int y=0; y<PIXELS; y++) {
     pixels[y] = 0x000000ff;
   }
   for (int f=0; f<STARS; f++) {
     if (starfield[f].x == column) {
-      pixels[deepspace[starfield[f].y]] = 0x040404ff;
+      set_pixel(deepspace[starfield[f].y], 0x040404ff);
     }
   }
 
@@ -123,7 +137,7 @@ void render(int column, uint32_t* pixels) {
           } else {
             px_y = PIXELS - 1 - y;
           }
-          pixels[px_y] = palette_pal[color];
+          set_pixel(px_y, palette_pal[color]);
         }
       }
     }
