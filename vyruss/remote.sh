@@ -9,4 +9,4 @@ else
 fi
 cd emulator
 . venv/bin/activate
-python emu.py 192.168.4.1
+python emu.py 192.168.4.1 --no-display

@@ -95,12 +95,13 @@ upalette = unpack_palette(palette)
 
 
 class PygletEngine():
-    def __init__(self, led_count, keyhandler):
+    def __init__(self, led_count, keyhandler, enable_display=True):
         self.led_count = led_count
         self.total_angle = 0
         self.last_sent = 0
         self.keyhandler = keyhandler
         led_step = (LED_SIZE / led_count)
+        self.enable_display = enable_display
 
         vertex_pos = []
         theta = (math.pi * 2 / COLUMNS)
@@ -140,6 +141,7 @@ class PygletEngine():
                 boton = joystick.buttons[1]
                 accel = joystick.rz > 0
                 decel = joystick.z > 0
+                reset = joystick.buttons[8]
             except Exception:
                 left = keys[key.LEFT]
                 right = keys[key.RIGHT]
@@ -225,6 +227,8 @@ class PygletEngine():
 
         @window.event
         def on_draw():
+            if not self.enable_display:
+                return
             window.clear()
             fps_display.draw()
 
