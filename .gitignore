@@ -116,3 +116,6 @@ deplete1.mp4
 vyruss/images/w1.png
 vyruss/images/w2.png
 vyruss/images/debug/*
+Tools/wixel_linux/*
+tests/micropython-mqtt/*
+vyruss/influxdb/arduino-influxdb/*
