@@ -57,15 +57,16 @@ def update_over_the_air():
 
 class GamesMenu(menu.Menu):
     OPTIONS = [
-        'hola',
-        'vyruss',
-        'salir',
+        ('vong', 7, 1, 64),
+        ('ventilagon', 7, 2, 64),
+        ('vyruss', 7, 3, 64),
+        ('credits', 7, 0, 64),
     ]
 
     def on_option_pressed(self, option_index):
         option_pressed = self.options[option_index]
         print(option_pressed)
-        if option_pressed == 'vyruss':
+        if option_pressed[0] == 'vyruss':
             director.push(vyruss.VyrusGame())
 
 
