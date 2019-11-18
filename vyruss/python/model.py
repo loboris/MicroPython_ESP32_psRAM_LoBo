@@ -1,9 +1,9 @@
 from urandom import choice, randrange
 
 from director import director
+from scene import Scene
 from sprites import Sprite, reset_sprites
 import comms
-import utime
 
 
 def audio_play(track):
@@ -18,45 +18,6 @@ def calculate_direction(current, destination):
     if new_destination > 128:
         return +1
     return 0
-
-
-class Scene:
-    def __init__(self):
-        reset_sprites()
-        self.setup()
-        self.pending_calls = []
-
-    def call_later(self, delay, callable):
-        when = utime.ticks_add(utime.ticks_ms(), delay)
-        self.pending_calls.append((when, callable))
-        self.pending_calls.sort()
-
-    def scene_step(self):
-        self.step()
-        now = utime.ticks_ms()
-        while self.pending_calls:
-            when, callable = self.pending_calls[0]
-            if utime.ticks_diff(when, now) <= 0:
-                self.pending_calls.pop(0)
-                callable()
-            else:
-                break
-
-    def step(self):
-        pass
-
-    def change_state(self):
-        pass
-
-    def fire(self):
-        pass
-
-    def heading(self, up, down, left, right):
-        pass
-
-    def accel(self, accel, decel):
-        pass
-
 
 
 def new_heading(up, down, left, right):
@@ -148,7 +109,7 @@ class StarfleetState:
         self.game_over_sprite.set_x(256-32)
         self.game_over_sprite.set_y(0)
         self.game_over_sprite.set_perspective(0)
-        self.game_over_sprite.set_strip(7)
+        self.game_over_sprite.set_strip(2)
         
         self.fighters = [StarFighter() for n in range(3)]
         self.fighter = self.fighters[0]
@@ -192,7 +153,8 @@ class StarfleetState:
             self.fighter.accel(accel, decel)
 
 class VyrusGame(Scene):
-    def setup(self):
+    def __init__(self):
+        super(VyrusGame, self).__init__()
         self.scoreboard = ScoreBoard()
         self.hiscore = 0
         self.state = StateEntering(self)
