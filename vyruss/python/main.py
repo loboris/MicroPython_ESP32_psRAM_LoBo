@@ -68,6 +68,7 @@ class GamesMenu(menu.Menu):
         print(option_pressed)
         if option_pressed[0] == 'vyruss':
             director.push(vyruss.VyrusGame())
+            raise StopIteration()
 
 
 def main():
