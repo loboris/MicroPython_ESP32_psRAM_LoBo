@@ -11,7 +11,7 @@ def new_sprite():
     return sprite
 
 def reset_sprites():
-    for n in range(1, 64):
+    for n in range(1, 100):
         sp = get_sprite(n)
         sp.frame = DISABLED_FRAME
     global sprite_num
