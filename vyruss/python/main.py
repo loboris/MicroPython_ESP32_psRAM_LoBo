@@ -10,6 +10,8 @@ PIXELS = 54
 
 DEBUG = True
 
+UPGRADEABLES = "model.py".split("|")
+
 try:
     from remotepov import update
 except:
@@ -54,9 +56,41 @@ sprites.set_imagestrip(15, imagenes.ventilastation_flat_png)
 sprites.set_imagestrip(16, imagenes.tecno_estructuras_flat_png)
 
 def reset_game():
-
     global scene
     scene = model.Fleet()
+
+
+def update_over_the_air():
+    try:
+        import network
+        import requests
+        import machine
+        import os
+        sta_if = network.WLAN(network.STA_IF)
+        sta_if.active(True)
+        sta_if.connect("alecu-casa", "plagazombie2")
+        print("connecting to wifi", end="")
+        while not sta_if.isconnected():
+            print(".", end="")
+            utime.sleep_ms(333)
+        print()
+        mdns = network.mDNS()
+        print("Iniciando mdns")
+        mdns.start("esptilador", "deadbeef")
+        print("Buscando mdns")
+        base_url = "http://" + mdns.queryHost("bollo.local") + ":8000/"
+        for fn in UPGRADEABLES:
+            print("updating " + fn)
+            tmpfn = "TMP_" + fn
+            result = requests.get(base_url + fn, file=tmpfn)
+            if result[0] == 200:
+                os.rename(tmpfn, fn)
+            
+        print("rebooting")
+        machine.reset()
+    except Exception as e:
+        print(e)
+
 
 button_was_down = False
 reset_was_down = False
@@ -73,6 +107,8 @@ def process_input(b):
 
     global reset_was_down
     if not reset_was_down and reset:
+        if accel and decel:
+            update_over_the_air()
         reset_game()
     reset_was_down = reset
 
