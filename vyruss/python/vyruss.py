@@ -193,7 +193,6 @@ class VyrusGame(Scene):
 
         if director.was_pressed(director.BUTTON_D):
             director.pop()
-            director.push(VyrusGame())
             raise StopIteration()
 
     def step(self):

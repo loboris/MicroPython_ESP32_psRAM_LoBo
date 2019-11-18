@@ -3,6 +3,7 @@ import utime
 
 from director import director
 import imagenes
+import menu
 import vyruss
 
 PIXELS = 54
@@ -53,6 +54,21 @@ def update_over_the_air():
     except Exception as e:
         print(e)
 
+
+class GamesMenu(menu.Menu):
+    OPTIONS = [
+        'hola',
+        'vyruss',
+        'salir',
+    ]
+
+    def on_option_pressed(self, option_index):
+        option_pressed = self.options[option_index]
+        print(option_pressed)
+        if option_pressed == 'vyruss':
+            director.push(vyruss.VyrusGame())
+
+
 def main():
     # TODO: para hacerlo más random esto debería suceder después de que
     # le jugadore toca el botón para iniciar la partida
@@ -75,7 +91,7 @@ def main():
     director.register_strip(15, imagenes.ventilastation_flat_png)
     director.register_strip(16, imagenes.tecno_estructuras_flat_png)
 
-    director.push(vyruss.VyrusGame())
+    director.push(GamesMenu())
     director.run()
 
 if __name__ == '__main__':
