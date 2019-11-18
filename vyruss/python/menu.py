@@ -25,15 +25,18 @@ class Menu(Scene):
             self.sprites.append(sprite)
 
     def step(self):
-        if director.was_pressed(director.BUTTON_LEFT):
+        if director.was_pressed(director.BUTTON_RIGHT):
+            director.audio_play(b'shoot3')
             self.selected_index -= 1
             if self.selected_index == -1:
                 self.selected_index = len(self.options) - 1
-        if director.was_pressed(director.BUTTON_RIGHT):
+        if director.was_pressed(director.BUTTON_LEFT):
+            director.audio_play(b'shoot3')
             self.selected_index += 1
             if self.selected_index > len(self.options) - 1:
                 self.selected_index = 0
         if director.was_pressed(director.BUTTON_A):
+            director.audio_play(b'shoot1')
             self.on_option_pressed(self.selected_index)
 
         # option[3] has the width
@@ -44,10 +47,8 @@ class Menu(Scene):
 
         start_x = 0
         accumulated_width = 0
-        #offset = 0
         for option_index, sprite in enumerate(self.sprites):
-            current_x = start_x + accumulated_width - offset
-            sprite.set_x(current_x)
+            sprite.set_x(start_x + accumulated_width - offset)
             sprite.set_y(0)
             accumulated_width += self.options[option_index][3]  # option width
 

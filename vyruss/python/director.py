@@ -61,6 +61,9 @@ class Director:
     def was_released(self, button):
         return not bool(button & self.buttons) and bool(button & self.last_buttons)
 
+    def audio_play(self, track):
+        comms.send(b"audio_play " + track)
+
     def run(self):
         while True:
             scene = self.scene_stack[-1]
