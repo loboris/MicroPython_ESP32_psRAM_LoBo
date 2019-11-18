@@ -1,13 +1,9 @@
-import comms
-from urandom import seed, choice, randrange
-import utime
-#import random
+from urandom import choice, randrange
 
-# TODO: para hacerlo más random esto debería suceder después de que
-# le jugadore toca el botón para iniciar la partida
-seed(utime.ticks_ms())
-
+from director import director
 from sprites import Sprite, reset_sprites
+import comms
+import utime
 
 
 def audio_play(track):
@@ -132,7 +128,7 @@ class ScoreBoard:
         self.setscore(0)
         self.setlives(3)
         self.planet = make_me_a_planet(randrange(7))
-        #self.planet.set_frame(0)
+        # self.planet.set_frame(0)
 
     def setscore(self, value):
         for n, l in enumerate("%05d" % value):
@@ -195,7 +191,7 @@ class StarfleetState:
         if not self.exploded:
             self.fighter.accel(accel, decel)
 
-class Fleet(Scene):
+class VyrusGame(Scene):
     def setup(self):
         self.scoreboard = ScoreBoard()
         self.hiscore = 0
@@ -207,7 +203,7 @@ class Fleet(Scene):
         self.unfired_bombs = [Bomb() for _ in range(self.level)]
         self.active_bombs = []
         self.explosions = []
-     
+
     def change_state(self):
         self.state = self.state.next_state(self)
 
@@ -219,7 +215,28 @@ class Fleet(Scene):
         explosion = baddie.explode()
         self.explosions.append(explosion)
 
+    def process_input(self):
+        if director.was_pressed(director.BUTTON_A):
+            self.fire()
+
+        accel = director.is_pressed(director.BUTTON_B)
+        decel = director.is_pressed(director.BUTTON_C)
+        self.starfleet.accel(accel, decel)
+
+        up = director.is_pressed(director.BUTTON_UP)
+        down = director.is_pressed(director.BUTTON_DOWN)
+        left = director.is_pressed(director.BUTTON_LEFT)
+        right = director.is_pressed(director.BUTTON_RIGHT)
+        self.heading(up, down, left, right)
+
+        if director.was_pressed(director.BUTTON_D):
+            director.pop()
+            director.push(VyrusGame())
+            raise StopIteration()
+
     def step(self):
+        self.process_input()
+
         self.state.step()
         if self.laser.enabled:
             self.laser.step()
@@ -272,9 +289,6 @@ class Fleet(Scene):
         if where is not None:
             where = where - 8 # ancho de la nave
             self.starfleet.slide(where)
-
-    def accel(self, accel, decel):
-        self.starfleet.accel(accel, decel)
 
 
 class FleetState:
@@ -367,14 +381,14 @@ class StateEntering(FleetState):
                 TravelCloser(80), TravelX(112),
                 TravelCloser(32), TravelX(-96),
                 TravelAway(42), TravelTo(final_x, final_y),
-            ] 
+            ]
         else:
             baddie.set_x(base_x - 16)
             baddie.movements = [
                 TravelCloser(80), TravelX(-112),
                 TravelCloser(32), TravelX(96),
                 TravelAway(42), TravelTo(final_x, final_y),
-            ] 
+            ]
 
         self.groups[-1].append(baddie)
         self.fleet.everyone.append(baddie)
@@ -451,7 +465,7 @@ class StarFighter(Explodable):
     explosion_strip = 6
     explosion_steps = 4
 
-    BLINK_RATE = int(30.0 * 1.5) 
+    BLINK_RATE = int(30.0 * 1.5)
     keyframes = {
         int(BLINK_RATE * 0) : 0,
         int(BLINK_RATE * 0.333333333): 1,
@@ -511,7 +525,7 @@ class Baddie(Explodable):
                 self.movements.pop(0)
         elif not self.finished:
             self.finished = True
-    
+
 
 class Laser(Sprite):
     def __init__(self):
@@ -581,7 +595,7 @@ class TravelTo(Movement):
     def step(self, sprite):
         sprite.set_x(sprite.x() + calculate_direction(sprite.x(), self.dest_x) * X_SPEED)
         sprite.set_y(sprite.y() + calculate_direction(sprite.y(), self.dest_y) * Y_SPEED)
-        
+
     def finished(self, sprite):
         return abs(sprite.x() - self.dest_x) < X_SPEED and abs(sprite.y() - self.dest_y) < Y_SPEED
 
