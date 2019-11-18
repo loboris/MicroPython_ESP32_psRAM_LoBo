@@ -5,8 +5,6 @@ from director import director
 import imagenes
 import model
 
-PIXELS = 54
-
 DEBUG = True
 UPGRADEABLES = "model.py".split("|")
 

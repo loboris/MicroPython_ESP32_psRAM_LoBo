@@ -3,11 +3,14 @@ import utime
 import comms
 import sprites
 
+DEBUG = True
 
 try:
     from remotepov import update
 except:
     import povdisplay
+    import imagenes
+    PIXELS = 54
     povdisplay.init(PIXELS, imagenes.palette_pal)
     update = lambda: None
     if DEBUG:
