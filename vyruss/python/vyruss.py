@@ -292,13 +292,15 @@ class StateAttacking(FleetState):
     def step(self):
         for baddie in self.fleet.everyone:
             baddie.step()
+            if baddie.finished:
+                self.remove_baddie(baddie)
 
         if len(self.fleet.everyone) == 0:
             self.fleet.change_state()
         elif len(self.attacking) < 2:
-            baddie = self.fleet.everyone[0]
+            baddie = choice(self.fleet.everyone)
             delta = baddie.y() - 16
-            baddie.movements = [TravelCloser(delta), TravelAway(delta), Hover()]
+            baddie.movements = [TravelCloser(delta), TravelAway(delta)]
             self.attacking.append(baddie)
 
 
@@ -476,9 +478,10 @@ class Baddie(Explodable):
         self.frame_step += 1
         self.set_frame((not (self.frame_step & 8)) + self.base_frame)
         if self.movements:
+            self.finished = False
             movement = self.movements[0]
             movement.step(self)
-            if (movement.finished(self)):
+            if movement.finished(self):
                 self.movements.pop(0)
         elif not self.finished:
             self.finished = True
