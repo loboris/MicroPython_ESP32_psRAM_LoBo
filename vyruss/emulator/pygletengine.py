@@ -28,9 +28,9 @@ image_stripes = {
     "2": imagenes.gameover_png,
     "3": imagenes.disparo_png,
     "4": imagenes.ll9_png,
-    # "4": imagenes._07_skorpion_png,
     "5": imagenes.explosion_png,
     "6": imagenes.explosion_nave_png,
+    "7": imagenes.menu_png,
 
     "10": imagenes.tierra_flat_png,
     "11": imagenes.marte_flat_png,
