@@ -38,6 +38,7 @@ except:
 # init images
 sprites.set_imagestrip(0, imagenes.galaga_png)
 sprites.set_imagestrip(1, imagenes.numerals_png)
+sprites.set_imagestrip(2, imagenes.gameover_png)
 sprites.set_imagestrip(3, imagenes.disparo_png)
 sprites.set_imagestrip(4, imagenes.ll9_png)
 #sprites.set_imagestrip(4, imagenes._00_galaga_png)
@@ -124,7 +125,7 @@ def game_loop():
         elif last_val is not None:
             process_input(last_val)
 
-        scene.step()
+        scene.scene_step()
 
         update()
         delay = utime.ticks_diff(next_loop, utime.ticks_ms())

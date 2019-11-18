@@ -25,8 +25,8 @@ import imagenes
 image_stripes = {
     "0": imagenes.galaga_png,
     "1": imagenes.numerals_png,
+    "2": imagenes.gameover_png,
     "3": imagenes.disparo_png,
-    # "4": imagenes.crawling_png,
     "4": imagenes.ll9_png,
     # "4": imagenes._07_skorpion_png,
     "5": imagenes.explosion_png,

@@ -28,6 +28,23 @@ class Scene:
     def __init__(self):
         reset_sprites()
         self.setup()
+        self.pending_calls = []
+
+    def call_later(self, delay, callable):
+        when = utime.ticks_add(utime.ticks_ms(), delay)
+        self.pending_calls.append((when, callable))
+        self.pending_calls.sort()
+
+    def scene_step(self):
+        self.step()
+        now = utime.ticks_ms()
+        while self.pending_calls:
+            when, callable = self.pending_calls[0]
+            if utime.ticks_diff(when, now) <= 0:
+                self.pending_calls.pop(0)
+                callable()
+            else:
+                break
 
     def step(self):
         pass
@@ -43,6 +60,7 @@ class Scene:
 
     def accel(self, accel, decel):
         pass
+
 
 
 def new_heading(up, down, left, right):
@@ -114,7 +132,7 @@ class ScoreBoard:
         self.setscore(0)
         self.setlives(3)
         self.planet = make_me_a_planet(randrange(7))
-        self.planet.set_frame(0)
+        #self.planet.set_frame(0)
 
     def setscore(self, value):
         for n, l in enumerate("%05d" % value):
@@ -129,20 +147,41 @@ class ScoreBoard:
                 self.chars[n].set_frame(10)
 
 class StarfleetState:
-    def __init__(self):
-        self.fighters = [StarFighter(n) for n in [0]]
+    def __init__(self, scene):
+        self.game_over_sprite = Sprite()
+        self.game_over_sprite.set_x(256-32)
+        self.game_over_sprite.set_y(0)
+        self.game_over_sprite.set_perspective(0)
+        self.game_over_sprite.set_strip(2)
+        
+        self.fighters = [StarFighter() for n in range(3)]
         self.fighter = self.fighters[0]
         self.exploded = False
+        self.scene = scene
 
     def step(self):
-        for f in self.fighters:
-            f.step()
+        self.fighter.step()
+
+    def game_over(self):
+        self.game_over_sprite.set_frame(0)
+        #self.scene.call_later(self.scene.finished)
+
+    def respawn(self):
+        self.fighters.pop(0)
+        self.fighter = self.fighters[0]
+        self.fighter.set_frame(0)
+        self.exploded = False
 
     def explode(self):
         self.fighter.explode()
+        remaining_lives = len(self.fighters) - 1
+        self.scene.scoreboard.setlives(remaining_lives)
         self.exploded = True
         audio_play(b"explosion3")
-        # TODO: what happens after the ship explodes?
+        if remaining_lives:
+            self.scene.call_later(1500, self.respawn)
+        else:
+            self.game_over()
 
     def collision(self, others):
         if self.fighter:
@@ -154,15 +193,14 @@ class StarfleetState:
 
     def accel(self, accel, decel):
         if not self.exploded:
-            for f in self.fighters:
-                f.accel(accel, decel)
+            self.fighter.accel(accel, decel)
 
 class Fleet(Scene):
     def setup(self):
         self.scoreboard = ScoreBoard()
         self.hiscore = 0
         self.state = StateEntering(self)
-        self.starfleet = StarfleetState()
+        self.starfleet = StarfleetState(self)
         self.killed = []
         self.laser = Laser()
         self.level = 4
@@ -197,7 +235,6 @@ class Fleet(Scene):
             bomb = self.starfleet.collision(self.active_bombs)
             if bomb:
                 self.starfleet.explode()
-                self.scoreboard.setlives(2)
                 bomb.disable()
                 self.active_bombs.remove(bomb)
                 self.unfired_bombs.append(bomb)
@@ -205,7 +242,6 @@ class Fleet(Scene):
             baddie = self.starfleet.collision(self.everyone)
             if baddie:
                 self.starfleet.explode()
-                self.scoreboard.setlives(2)
                 if isinstance(baddie, Explodable):
                     self.explode_baddie(baddie)
 
@@ -423,12 +459,11 @@ class StarFighter(Explodable):
         int(BLINK_RATE * 0.833333333): 3,
     }
 
-    def __init__(self, n):
+    def __init__(self):
         super().__init__()
-        self.set_x(256-8 - n * 18)
+        self.set_x(256-8)
         self.set_y(16)
         self.set_strip(4)
-        self.set_frame(0)
         self.frame_counter = 0
         self.step = self.starship_step
 
