@@ -110,7 +110,7 @@ class StarfleetState:
         self.game_over_sprite.set_y(0)
         self.game_over_sprite.set_perspective(0)
         self.game_over_sprite.set_strip(2)
-
+        
         self.fighters = [StarFighter() for n in range(3)]
         self.fighter = self.fighters[0]
         self.exploded = False
