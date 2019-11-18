@@ -284,10 +284,12 @@ class StateAttacking(FleetState):
 
     def setup(self):
         self.attacking = []
+        self.max_attacking = 1
 
     def remove_baddie(self, baddie):
         if baddie in self.attacking:
             self.attacking.remove(baddie)
+            self.max_attacking += 1
 
     def step(self):
         for baddie in self.fleet.everyone:
@@ -297,11 +299,12 @@ class StateAttacking(FleetState):
 
         if len(self.fleet.everyone) == 0:
             self.fleet.change_state()
-        elif len(self.attacking) < 2:
+        elif len(self.attacking) < self.max_attacking:
             baddie = choice(self.fleet.everyone)
-            delta = baddie.y() - 16
-            baddie.movements = [TravelCloser(delta), TravelAway(delta)]
-            self.attacking.append(baddie)
+            if baddie not in self.attacking:
+                delta = baddie.y() - 16
+                baddie.movements = [TravelCloser(delta), TravelAway(delta)]
+                self.attacking.append(baddie)
 
 
 class StateEntering(FleetState):
