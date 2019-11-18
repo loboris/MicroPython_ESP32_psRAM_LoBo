@@ -8,6 +8,12 @@ class Scene:
         reset_sprites()
         self.pending_calls = []
 
+    def on_enter(self):
+        pass
+
+    def on_exit(self):
+        pass
+
     def call_later(self, delay, callable):
         when = utime.ticks_add(utime.ticks_ms(), delay)
         self.pending_calls.append((when, callable))

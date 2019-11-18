@@ -40,9 +40,14 @@ class Director:
 
     def push(self, scene):
         self.scene_stack.append(scene)
+        scene.on_enter()
 
     def pop(self):
-        return self.scene_stack.pop()
+        scene = self.scene_stack.pop()
+        scene.on_exit()
+        if self.scene_stack:
+            self.scene_stack[-1].on_enter()
+        return scene
 
     def register_strip(self, sprite_index, image):
         sprites.set_imagestrip(sprite_index, image)
