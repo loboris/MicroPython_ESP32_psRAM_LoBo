@@ -3,7 +3,7 @@ import utime
 
 from director import director
 import imagenes
-import model
+import vyruss
 
 PIXELS = 54
 
@@ -47,7 +47,7 @@ def update_over_the_air():
             result = requests.get(base_url + fn, file=tmpfn)
             if result[0] == 200:
                 os.rename(tmpfn, fn)
-            
+
         print("rebooting")
         machine.reset()
     except Exception as e:
@@ -75,7 +75,7 @@ def main():
     director.register_strip(15, imagenes.ventilastation_flat_png)
     director.register_strip(16, imagenes.tecno_estructuras_flat_png)
 
-    director.push(model.VyrusGame())
+    director.push(vyruss.VyrusGame())
     director.run()
 
 if __name__ == '__main__':
