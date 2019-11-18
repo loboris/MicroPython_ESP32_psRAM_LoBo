@@ -6,10 +6,6 @@ from sprites import Sprite, reset_sprites
 import comms
 
 
-def audio_play(track):
-    comms.send(b"audio_play " + track)
-
-
 def calculate_direction(current, destination):
     center_delta = 128 - current
     new_destination = (destination + center_delta) % 256
@@ -110,7 +106,7 @@ class StarfleetState:
         self.game_over_sprite.set_y(0)
         self.game_over_sprite.set_perspective(0)
         self.game_over_sprite.set_strip(2)
-        
+
         self.fighters = [StarFighter() for n in range(3)]
         self.fighter = self.fighters[0]
         self.exploded = False
@@ -134,7 +130,7 @@ class StarfleetState:
         remaining_lives = len(self.fighters) - 1
         self.scene.scoreboard.setlives(remaining_lives)
         self.exploded = True
-        audio_play(b"explosion3")
+        director.audio_play(b"explosion3")
         if remaining_lives:
             self.scene.call_later(1500, self.respawn)
         else:
@@ -193,7 +189,6 @@ class VyrusGame(Scene):
 
         if director.was_pressed(director.BUTTON_D):
             director.pop()
-            director.push(VyrusGame())
             raise StopIteration()
 
     def step(self):
@@ -206,7 +201,7 @@ class VyrusGame(Scene):
             hit = self.laser.collision(self.everyone)
             if hit:
                 self.laser.finish()
-                audio_play(b"explosion2")
+                director.audio_play(b"explosion2")
                 self.explode_baddie(hit)
 
         self.starfleet.step()
@@ -289,22 +284,28 @@ class StateAttacking(FleetState):
 
     def setup(self):
         self.attacking = []
+        self.max_attacking = 1
 
     def remove_baddie(self, baddie):
         if baddie in self.attacking:
             self.attacking.remove(baddie)
+            self.max_attacking += 1
 
     def step(self):
         for baddie in self.fleet.everyone:
             baddie.step()
+            if baddie.finished:
+                self.remove_baddie(baddie)
 
         if len(self.fleet.everyone) == 0:
             self.fleet.change_state()
-        elif len(self.attacking) < 2:
-            baddie = self.fleet.everyone[0]
-            delta = baddie.y() - 16
-            baddie.movements = [TravelCloser(delta), TravelAway(delta), Hover()]
-            self.attacking.append(baddie)
+        elif len(self.attacking) < self.max_attacking:
+            baddie = choice(self.fleet.everyone)
+            if baddie not in self.attacking:
+                delta = baddie.y() - 16
+                baddie.movements = [TravelCloser(delta), TravelAway(delta)]
+                self.attacking.append(baddie)
+                self.fleet.drop_bomb()
 
 
 class StateEntering(FleetState):
@@ -481,9 +482,10 @@ class Baddie(Explodable):
         self.frame_step += 1
         self.set_frame((not (self.frame_step & 8)) + self.base_frame)
         if self.movements:
+            self.finished = False
             movement = self.movements[0]
             movement.step(self)
-            if (movement.finished(self)):
+            if movement.finished(self):
                 self.movements.pop(0)
         elif not self.finished:
             self.finished = True
@@ -496,7 +498,7 @@ class Laser(Sprite):
         self.enabled = False
 
     def fire(self, starfighter):
-        audio_play(b"shoot1")
+        director.audio_play(b"shoot1")
         self.enabled = True
         self.set_y(starfighter.y() + 11)
         self.set_x(starfighter.x() + 6)
@@ -520,7 +522,7 @@ class Bomb(Sprite):
         self.enabled = False
 
     def fire(self, baddie):
-        audio_play(b"shoot3")
+        director.audio_play(b"shoot3")
         self.enabled = True
         self.set_y(baddie.y() + 11)
         self.set_x(baddie.x() + 6)

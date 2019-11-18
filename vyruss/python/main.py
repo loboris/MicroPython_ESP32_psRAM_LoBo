@@ -3,7 +3,8 @@ import utime
 
 from director import director
 import imagenes
-import model
+import menu
+import vyruss
 
 DEBUG = True
 UPGRADEABLES = "model.py".split("|")
@@ -45,11 +46,28 @@ def update_over_the_air():
             result = requests.get(base_url + fn, file=tmpfn)
             if result[0] == 200:
                 os.rename(tmpfn, fn)
-            
+
         print("rebooting")
         machine.reset()
     except Exception as e:
         print(e)
+
+
+class GamesMenu(menu.Menu):
+    OPTIONS = [
+        ('vyruss', 7, 3, 64),
+        ('credits', 7, 0, 64),
+        ('vong', 7, 1, 64),
+        ('ventilagon', 7, 2, 64),
+    ]
+
+    def on_option_pressed(self, option_index):
+        option_pressed = self.options[option_index]
+        print(option_pressed)
+        if option_pressed[0] == 'vyruss':
+            director.push(vyruss.VyrusGame())
+            raise StopIteration()
+
 
 def main():
     # TODO: para hacerlo más random esto debería suceder después de que
@@ -73,7 +91,7 @@ def main():
     director.register_strip(15, imagenes.ventilastation_flat_png)
     director.register_strip(16, imagenes.tecno_estructuras_flat_png)
 
-    director.push(model.VyrusGame())
+    director.push(GamesMenu())
     director.run()
 
 if __name__ == '__main__':
