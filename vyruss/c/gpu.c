@@ -106,13 +106,13 @@ void render(int column, uint32_t* pixels) {
       continue;
     }
     const ImageStrip* is = s->image_strip;
-    // if(is < 1000) {
-    //   ESP_LOGD(TAG, "Rendering sprite=%p", s);
-    //   ESP_LOGD(TAG, "          imagestrip=%p", is);
-    //   ESP_LOGD(TAG, "          n=%d", n);
-    //   ESP_LOGD(TAG, "          frame=%d", s->frame);
-    //   continue;
-    // }
+    if(is < 1000) {
+      // ESP_LOGD(TAG, "BUG en gpu render=%p", s);
+      // ESP_LOGD(TAG, "           n=%d", n);
+      // ESP_LOGD(TAG, "           imagestrip=%p", is);
+      // ESP_LOGD(TAG, "           frame=%d", s->frame);
+      continue;
+    }
     int width = is->frame_width;
     if (width == 255) width++; // caso especial, para los planetas
     int visible_column = get_visible_column(s->x, width, column);

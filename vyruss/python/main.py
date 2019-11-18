@@ -4,7 +4,7 @@ import menu
 import vyruss
 
 DEBUG = True
-UPGRADEABLES = "model.py".split("|")
+UPGRADEABLES = "director.py|scene.py|menu.py|vyruss.py".split("|")
 
 #gameover = sprites.get_sprite(0)
 #gameover.image_strip = 6

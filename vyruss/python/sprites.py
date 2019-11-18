@@ -20,6 +20,7 @@ def reset_sprites():
 
 class Sprite:
     def __init__(self, replacing=None):
+        # print(sprite_num, self.__class__)
         if replacing:
             self._sprite = replacing._sprite    
         else:

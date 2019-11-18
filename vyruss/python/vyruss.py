@@ -109,6 +109,7 @@ class StarfleetState:
         self.game_over_sprite.set_strip(2)
 
         self.fighters = [StarFighter() for n in range(3)]
+        self.destroyed = []
         self.fighter = self.fighters[0]
         self.exploded = False
         self.scene = scene
@@ -121,7 +122,7 @@ class StarfleetState:
         #self.scene.call_later(self.scene.finished)
 
     def respawn(self):
-        self.fighters.pop(0)
+        self.destroyed.append(self.fighters.pop(0))
         self.fighter = self.fighters[0]
         self.fighter.set_frame(0)
         self.exploded = False
@@ -153,6 +154,8 @@ class VyrusGame(Scene):
     def __init__(self):
         super(VyrusGame, self).__init__()
         seed(utime.ticks_ms())
+        
+    def on_enter(self):
         self.scoreboard = ScoreBoard()
         self.hiscore = 0
         self.state = StateEntering(self)
@@ -183,10 +186,10 @@ class VyrusGame(Scene):
         decel = director.is_pressed(director.BUTTON_C)
         self.starfleet.accel(accel, decel)
 
-        up = director.is_pressed(director.BUTTON_UP)
-        down = director.is_pressed(director.BUTTON_DOWN)
-        left = director.is_pressed(director.BUTTON_LEFT)
-        right = director.is_pressed(director.BUTTON_RIGHT)
+        up = director.is_pressed(director.JOY_UP)
+        down = director.is_pressed(director.JOY_DOWN)
+        left = director.is_pressed(director.JOY_LEFT)
+        right = director.is_pressed(director.JOY_RIGHT)
         self.heading(up, down, left, right)
 
         if director.was_pressed(director.BUTTON_D):
@@ -214,12 +217,12 @@ class VyrusGame(Scene):
                 bomb.disable()
                 self.active_bombs.remove(bomb)
                 self.unfired_bombs.append(bomb)
-
-            baddie = self.starfleet.collision(self.everyone)
-            if baddie:
-                self.starfleet.explode()
-                if isinstance(baddie, Explodable):
-                    self.explode_baddie(baddie)
+            else:
+                baddie = self.starfleet.collision(self.everyone)
+                if baddie:
+                    self.starfleet.explode()
+                    if isinstance(baddie, Explodable):
+                        self.explode_baddie(baddie)
 
         for e in self.explosions:
             if not e.finished:
@@ -443,7 +446,7 @@ class StarFighter(Explodable):
         self.set_x(256-8)
         self.set_y(16)
         self.set_strip(4)
-        self.frame_counter = 0
+        self.frame_counter = -1
         self.step = self.starship_step
 
     def starship_step(self):

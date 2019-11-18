@@ -12,7 +12,6 @@ class Menu(Scene):
         self.selected_index = selected_index
 
     def on_enter(self):
-        reset_sprites()
         self.sprites = []
         for option_id, strip_id, frame, width in self.options:
             sprite = Sprite()
@@ -25,12 +24,12 @@ class Menu(Scene):
             self.sprites.append(sprite)
 
     def step(self):
-        if director.was_pressed(director.BUTTON_RIGHT):
+        if director.was_pressed(director.JOY_RIGHT):
             director.audio_play(b'shoot3')
             self.selected_index -= 1
             if self.selected_index == -1:
                 self.selected_index = len(self.options) - 1
-        if director.was_pressed(director.BUTTON_LEFT):
+        if director.was_pressed(director.JOY_LEFT):
             director.audio_play(b'shoot3')
             self.selected_index += 1
             if self.selected_index > len(self.options) - 1:

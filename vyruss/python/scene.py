@@ -1,11 +1,8 @@
 import utime
 
-from sprites import reset_sprites
-
 
 class Scene:
     def __init__(self):
-        reset_sprites()
         self.pending_calls = []
 
     def on_enter(self):

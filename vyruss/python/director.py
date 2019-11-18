@@ -2,8 +2,9 @@ import utime
 
 import comms
 import sprites
+import gc
 
-DEBUG = True
+DEBUG = False
 
 try:
     from remotepov import update
@@ -27,10 +28,10 @@ except:
 
 
 class Director:
-    BUTTON_LEFT = 1
-    BUTTON_RIGHT = 2
-    BUTTON_UP = 4
-    BUTTON_DOWN = 8
+    JOY_LEFT = 1
+    JOY_RIGHT = 2
+    JOY_UP = 4
+    JOY_DOWN = 8
     BUTTON_A = 16
     BUTTON_B = 32
     BUTTON_C = 64
@@ -40,14 +41,20 @@ class Director:
         self.scene_stack = []
         self.buttons = 0
         self.last_buttons = 0
+        gc.disable()
+        sprites.reset_sprites()
+
 
     def push(self, scene):
         self.scene_stack.append(scene)
+        sprites.reset_sprites()
+        gc.collect()
         scene.on_enter()
 
     def pop(self):
         scene = self.scene_stack.pop()
         scene.on_exit()
+        sprites.reset_sprites()
         if self.scene_stack:
             self.scene_stack[-1].on_enter()
         return scene
@@ -86,6 +93,7 @@ class Director:
             # TODO check this hack
             update()
 
+            gc.collect()
             delay = utime.ticks_diff(next_loop, utime.ticks_ms())
             if delay > 0:
                 utime.sleep_ms(delay)

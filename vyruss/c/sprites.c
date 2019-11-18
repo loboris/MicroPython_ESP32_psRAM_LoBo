@@ -6,8 +6,6 @@
 
 const mp_obj_type_t sprite_type;
 
-#define DISABLED_FRAME -1
-
 uint8_t sprite_num = 1;
 
 sprite_obj_t* to_sprite(mp_obj_t self_in) {
@@ -56,7 +54,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(reset_sprites_obj, reset_sprites);
 STATIC mp_obj_t set_imagestrip(mp_obj_t strip_number, mp_obj_t strip_data) {
     int strip_nr = mp_obj_get_int(strip_number);
     const char* strip_data_ptr = mp_obj_str_get_str(strip_data);
-    image_stripes[strip_nr] = (const ImageStrip*) strip_data_ptr;
+    image_stripes[strip_nr % NUM_IMAGES] = (const ImageStrip*) strip_data_ptr;
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(set_imagestrip_obj, set_imagestrip);
