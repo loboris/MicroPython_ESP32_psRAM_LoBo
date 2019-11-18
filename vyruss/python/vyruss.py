@@ -305,6 +305,7 @@ class StateAttacking(FleetState):
                 delta = baddie.y() - 16
                 baddie.movements = [TravelCloser(delta), TravelAway(delta)]
                 self.attacking.append(baddie)
+                self.fleet.drop_bomb()
 
 
 class StateEntering(FleetState):
