@@ -1,6 +1,3 @@
-from urandom import seed
-import utime
-
 from director import director
 import imagenes
 import menu
@@ -70,10 +67,6 @@ class GamesMenu(menu.Menu):
 
 
 def main():
-    # TODO: para hacerlo más random esto debería suceder después de que
-    # le jugadore toca el botón para iniciar la partida
-    seed(utime.ticks_ms())
-
     # init images
     director.register_strip(0, imagenes.galaga_png)
     director.register_strip(1, imagenes.numerals_png)

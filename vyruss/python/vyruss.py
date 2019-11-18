@@ -1,4 +1,5 @@
-from urandom import choice, randrange
+from urandom import choice, randrange, seed
+import utime
 
 from director import director
 from scene import Scene
@@ -151,6 +152,7 @@ class StarfleetState:
 class VyrusGame(Scene):
     def __init__(self):
         super(VyrusGame, self).__init__()
+        seed(utime.ticks_ms())
         self.scoreboard = ScoreBoard()
         self.hiscore = 0
         self.state = StateEntering(self)
