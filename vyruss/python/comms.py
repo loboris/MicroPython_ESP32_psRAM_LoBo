@@ -3,12 +3,19 @@ import usocket
 
 try:
     import network
+    import utime
 
-    ap_if = network.WLAN(network.AP_IF)
-    print('starting access point...')
-    ap_if.active(True)
-    ap_if.config(essid="ventilastation", authmode=3, password="plagazombie2")
-    print('network config:', ap_if.ifconfig())
+    sta_if = network.WLAN(network.STA_IF)
+    if not sta_if.isconnected():
+        print('connecting to network', end="")
+        sta_if.active(True)
+        sta_if.connect('ventilastation', 'plagazombie2')
+        while not sta_if.isconnected():
+            print(".", end="")
+            utime.sleep_ms(333)
+        print()
+    print('network config:', sta_if.ifconfig())
+    network.telnet.start()
 except:
     print("no need to set up wifi")
 

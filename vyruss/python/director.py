@@ -1,6 +1,9 @@
 import utime
 
-import comms
+try:
+    import serialcomms as comms
+except:
+    import comms
 import sprites
 import gc
 
@@ -80,7 +83,7 @@ class Director:
             next_loop = utime.ticks_add(utime.ticks_ms(), 30)
 
             val = comms.receive(1)
-            if val is not None:
+            if val:
                 self.buttons = val[0]
 
             try:
@@ -97,8 +100,6 @@ class Director:
             delay = utime.ticks_diff(next_loop, utime.ticks_ms())
             if delay > 0:
                 utime.sleep_ms(delay)
-            else:
-                print("odelay:", delay)
 
 
 director = Director()

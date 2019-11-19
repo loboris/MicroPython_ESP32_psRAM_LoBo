@@ -53,8 +53,8 @@ def update_over_the_air():
 class GamesMenu(menu.Menu):
     OPTIONS = [
         ('vyruss', 7, 3, 64),
-        ('credits', 7, 0, 64),
         ('vong', 7, 1, 64),
+        ('credits', 7, 0, 64),
         ('ventilagon', 7, 2, 64),
     ]
 

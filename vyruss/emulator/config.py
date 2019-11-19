@@ -1,7 +1,15 @@
 import sys
 FULLSCREEN=False
+
+
+USE_IP = True
+SERIAL_DEVICE = "/dev/ttyACM0"
+
 if len(sys.argv) > 1:
-    SERVER_IP = sys.argv[1]
+    if sys.argv[1] == "SERIAL":
+        USE_IP = False
+    else:
+        SERVER_IP = sys.argv[1]
 else:
     SERVER_IP = "192.168.4.1" # esp32
 

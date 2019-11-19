@@ -4,7 +4,6 @@ import utime
 from director import director
 from scene import Scene
 from sprites import Sprite, reset_sprites
-import comms
 
 
 def calculate_direction(current, destination):

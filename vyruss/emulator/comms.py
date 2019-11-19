@@ -42,26 +42,37 @@ def send_velocidad(rpm, fps):
             print("cannot publish in mqtt:", err)
 
 def waitconnect():
+    print("conectando...")
     while looping:
         try:
             global sock, sockfile
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((config.SERVER_IP, config.SERVER_PORT))
-            sockfile = sock.makefile(mode="rb")
+            if config.USE_IP:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect((config.SERVER_IP, config.SERVER_PORT))
+                sockfile = sock.makefile(mode="rb")
+            else:
+                import serial
+                sock = sockfile = serial.Serial(config.SERIAL_DEVICE, 115200)
             return
         except socket.error as err:
-            pass
-            #print(err)
+            print(err)
 
 
 def receive_loop():
     last_time_seen = 0
 
+    print("waitconnecting...")
     waitconnect()
+    print("waitconnected!")
     while looping:
         try:
+            print("readlining")
             l = sockfile.readline()
+            print("readlined", l)
             command, *args = l.split()
+
+            if not command:
+                continue
 
             if command == b"sprites":
                 spritedata[:] = sockfile.read(5*100)
@@ -104,6 +115,7 @@ def receive_loop():
             waitconnect()
 
         except Exception as err:
+            print(err)
             sock.close()
             waitconnect()
 
@@ -119,7 +131,10 @@ receive_thread.start()
 
 def send(b):
     try:
-        sock.send(b)
+        if config.USE_IP:
+            sock.send(b)
+        else:
+            sockfile.write(b)
     except socket.error as err:
         print(err)
 
