@@ -1,6 +1,6 @@
 from director import director
 from scene import Scene
-from sprites import Sprite, reset_sprites
+from sprites import Sprite
 
 
 class Menu(Scene):

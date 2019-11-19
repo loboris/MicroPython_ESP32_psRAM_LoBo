@@ -6,7 +6,6 @@ def receive(bufsize):
     return uart.read(bufsize)
 
 def send(line, data=b""):
-    print("sending line: ", line)
     uart.write(line)
     uart.write("\n")
     if data:

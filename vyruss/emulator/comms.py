@@ -61,14 +61,10 @@ def waitconnect():
 def receive_loop():
     last_time_seen = 0
 
-    print("waitconnecting...")
     waitconnect()
-    print("waitconnected!")
     while looping:
         try:
-            print("readlining")
             l = sockfile.readline()
-            print("readlined", l)
             command, *args = l.split()
 
             if not command:
