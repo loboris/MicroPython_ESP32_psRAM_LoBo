@@ -3,20 +3,7 @@ import imagenes
 import menu
 import vyruss
 
-DEBUG = True
 UPGRADEABLES = "director.py|scene.py|menu.py|vyruss.py".split("|")
-
-#gameover = sprites.get_sprite(0)
-#gameover.image_strip = 6
-## Disable Frame
-#gameover.frame = DISABLED_FRAME
-#gameover.x = -32
-#gameover.y = 2
-
-def verificar_start_ota():
-    if not reset_was_down and reset:
-        if accel and decel:
-            update_over_the_air()
 
 def update_over_the_air():
     try:
@@ -26,7 +13,7 @@ def update_over_the_air():
         import os
         sta_if = network.WLAN(network.STA_IF)
         sta_if.active(True)
-        sta_if.connect("alecu-casa", "plagazombie2")
+        sta_if.connect("ventilastation", "plagazombie2")
         print("connecting to wifi", end="")
         while not sta_if.isconnected():
             print(".", end="")
@@ -34,9 +21,11 @@ def update_over_the_air():
         print()
         mdns = network.mDNS()
         print("Iniciando mdns")
-        mdns.start("esptilador", "deadbeef")
+        mdns.start("ventilador", "deadbeef")
         print("Buscando mdns")
-        base_url = "http://" + mdns.queryHost("bollo.local") + ":8000/"
+        host = mdns.queryHost("ventilastation.local")
+        print("Encontrado host: ", host)
+        base_url = "http://" + host + ":8000/"
         for fn in UPGRADEABLES:
             print("updating " + fn)
             tmpfn = "TMP_" + fn
@@ -65,6 +54,12 @@ class GamesMenu(menu.Menu):
             director.push(vyruss.VyrusGame())
             raise StopIteration()
 
+    def step(self):
+        if director.is_pressed(director.BUTTON_D) \
+            and director.is_pressed(director.BUTTON_B)\
+            and director.is_pressed(director.BUTTON_C):
+            update_over_the_air()
+        super(Menu, self).step()
 
 def main():
     # init images
