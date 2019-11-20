@@ -52,7 +52,8 @@ def waitconnect():
                 sockfile = sock.makefile(mode="rb")
             else:
                 import serial
-                sock = sockfile = serial.Serial(config.SERIAL_DEVICE, 115200)
+                device = [f for f in os.listdir("/dev/") if f.startswith(config.SERIAL_DEVICE)][0]
+                sock = sockfile = serial.Serial("/dev/" + device, 115200)
             return
         except socket.error as err:
             print(err)

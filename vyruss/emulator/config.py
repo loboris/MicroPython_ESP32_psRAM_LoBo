@@ -3,7 +3,7 @@ FULLSCREEN=False
 
 
 USE_IP = True
-SERIAL_DEVICE = "/dev/ttyACM0"
+SERIAL_DEVICE = "ttyACM"
 
 if len(sys.argv) > 1:
     if sys.argv[1] == "SERIAL":
