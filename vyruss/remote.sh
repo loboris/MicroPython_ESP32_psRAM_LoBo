@@ -1,3 +1,4 @@
+#!/bin/bash
 #WIFI=ventilastation
 #nmcli connection down ventilastation
 #if nmcli -t -g GENERAL.STATE connection show $WIFI | grep activated ;
@@ -7,6 +8,7 @@
 #    echo connecting esp wifi;
 #    nmcli connection up ventilastation
 #fi
+cd "$(dirname "$0")"
 cd emulator
 . venv/bin/activate
 python emu.py SERIAL --no-display
