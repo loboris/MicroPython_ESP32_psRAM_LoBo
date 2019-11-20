@@ -35,6 +35,7 @@ class Update(Scene):
                 tmpfn = "TMP_" + fn
                 result = requests.get(base_url + fn, file=tmpfn)
                 if result[0] == 200:
+                    os.remove(fn)
                     os.rename(tmpfn, fn)
 
             print("rebooting")
