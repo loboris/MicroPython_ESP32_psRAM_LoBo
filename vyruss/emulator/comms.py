@@ -56,6 +56,8 @@ def waitconnect():
             return
         except socket.error as err:
             print(err)
+            time.sleep(.5)
+            print("retry...")
 
 
 def receive_loop():
