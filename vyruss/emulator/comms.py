@@ -115,14 +115,16 @@ def receive_loop():
 
         except Exception as err:
             print(err)
-            sock.close()
+            if sock:
+                sock.close()
             waitconnect()
 
 
 def shutdown():
     global looping
     looping = False
-    sock.close()
+    if sock:
+        sock.close()
 
 receive_thread = threading.Thread(target=receive_loop)
 receive_thread.daemon = True
@@ -131,9 +133,11 @@ receive_thread.start()
 def send(b):
     try:
         if config.USE_IP:
-            sock.send(b)
+            if sock:
+                sock.send(b)
         else:
-            sockfile.write(b)
+            if sockfile:
+                sockfile.write(b)
     except socket.error as err:
         print(err)
 
@@ -218,7 +222,8 @@ def shutdown():
     STOP.set()
     global looping
     looping = False
-    sock.close()
+    if sock:
+        sock.close()
 
 mqtt_thread = threading.Thread(target=mqtt_loop)
 mqtt_thread.daemon = True

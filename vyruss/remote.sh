@@ -11,5 +11,7 @@
 cd "$(dirname "$0")"
 cd emulator
 . venv/bin/activate
-python emu.py SERIAL --no-display
+while true; do
+    python emu.py SERIAL --no-display
+done
 #python emu.py 192.168.4.1 --no-display
