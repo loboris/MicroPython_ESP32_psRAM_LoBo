@@ -11,7 +11,7 @@
 #include "gpu.h"
 
 #define GPIO_HALL     GPIO_NUM_26
-#define GPIO_HALL_B     GPIO_NUM_25
+#define GPIO_HALL_B     GPIO_NUM_36
 
 
 #define ESP_INTR_FLAG_DEFAULT 0
@@ -125,19 +125,18 @@ static void IRAM_ATTR hall_sensed(void* arg)
 
 
 
-void hall_init() {
+void hall_init(int gpio_hall) {
 #ifdef DEBUG_ROTATION
     for (int n = 0; n<DEBUG_BUFFER_SIZE; n++) {
         DEBUG_rotlog[n].now = 0xAA55AA55;
         DEBUG_rotlog[n].turn_duration = 0xFF00FF00;
     }
 #endif
-    gpio_set_direction(GPIO_HALL, GPIO_MODE_INPUT);
-    gpio_set_pull_mode(GPIO_HALL, GPIO_PULLUP_ONLY);
-    gpio_pullup_en(GPIO_HALL);
-    gpio_set_intr_type(GPIO_HALL, GPIO_INTR_NEGEDGE);
-    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
-    gpio_isr_handler_add(GPIO_HALL, hall_sensed, (void*) GPIO_HALL);
+    gpio_set_direction(gpio_hall, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(gpio_hall, GPIO_PULLUP_ONLY);
+    gpio_pullup_en(gpio_hall);
+    gpio_set_intr_type(gpio_hall, GPIO_INTR_NEGEDGE);
+    gpio_isr_handler_add(gpio_hall, hall_sensed, (void*) gpio_hall);
 }
 
 
@@ -148,7 +147,10 @@ void coreTask( void * pvParameters ){
     int last_column = 0;
     int64_t last_starfield_step = 0;
 
-    hall_init();
+    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
+    hall_init(GPIO_HALL);
+    hall_init(GPIO_HALL_B);
+
     init_sprites();
 
     while(true){
