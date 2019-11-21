@@ -1,3 +1,4 @@
+import sys
 from director import director
 from scene import Scene
 from sprites import Sprite, reset_sprites
@@ -43,7 +44,7 @@ class Menu(Scene):
             except StopIteration:
                 raise
             except Exception as e:
-                print(e)
+                sys.print_exception(e)
 
         # option[3] has the width
         offset = sum([option[3]
