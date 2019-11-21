@@ -5,6 +5,7 @@ from director import director
 from scene import Scene
 from sprites import Sprite, reset_sprites
 
+NUM_GROUPS = 5
 
 def calculate_direction(current, destination):
     center_delta = 128 - current
@@ -63,10 +64,10 @@ def rotar(desde, hasta):
 
 def make_me_a_planet(n):
     planet = Sprite()
-    planet.set_strip(10+n)
+    planet.set_strip(n)
     planet.set_perspective(0)
     planet.set_x(0)
-    y = 54 - planet.height()
+    y = 62
     planet.set_y(y)
     return planet
 
@@ -84,8 +85,6 @@ class ScoreBoard:
 
         self.setscore(0)
         self.setlives(3)
-        self.planet = make_me_a_planet(randrange(7))
-        # self.planet.set_frame(0)
 
     def setscore(self, value):
         for n, l in enumerate("%05d" % value):
@@ -104,7 +103,7 @@ class StarfleetState:
         self.game_over_sprite = Sprite()
         self.game_over_sprite.set_x(256-32)
         self.game_over_sprite.set_y(0)
-        self.game_over_sprite.set_perspective(0)
+        self.game_over_sprite.set_perspective(2)
         self.game_over_sprite.set_strip(2)
 
         self.fighters = [StarFighter() for n in range(3)]
@@ -118,7 +117,7 @@ class StarfleetState:
 
     def game_over(self):
         self.game_over_sprite.set_frame(0)
-        #self.scene.call_later(self.scene.finished)
+        self.scene.call_later(3000, self.scene.finished)
 
     def respawn(self):
         self.destroyed.append(self.fighters.pop(0))
@@ -146,8 +145,9 @@ class StarfleetState:
             self.fighter.slide(where)
 
     def accel(self, accel, decel):
-        if not self.exploded:
-            self.fighter.accel(accel, decel)
+        pass
+        # if not self.exploded:
+        #     self.fighter.accel(accel, decel)
 
 class VyrusGame(Scene):
     def __init__(self):
@@ -251,6 +251,10 @@ class VyrusGame(Scene):
             where = where - 8 # ancho de la nave
             self.starfleet.slide(where)
 
+    def finished(self):
+        director.pop()
+        raise StopIteration()
+
 
 class FleetState:
     def __init__(self, fleet):
@@ -266,11 +270,32 @@ class FleetState:
 
 class StateDefeated(FleetState):
     def setup(self):
-        print("everyone defeated")
-        pass
+        self.planet = make_me_a_planet(13)
+        self.planet.set_frame(0)
+        self.animating_planet = True
+        self.animating_ship = False
+        self.fleet.call_later(4000, self.warp_ahead)
 
     def step(self):
-        pass
+        if self.animating_planet:
+            new_y = self.planet.y() + 1
+            self.planet.set_y(new_y)
+            if new_y == 255:
+                self.animating_planet = False
+                self.fleet.call_later(1500, self.finished)
+        if self.animating_ship:
+            sf = self.fleet.starfleet.fighter
+            new_y = sf.y() + 2
+            if new_y > 250:
+                self.animating_ship = False
+            sf.set_y(new_y)
+
+    def warp_ahead(self):
+        self.animating_ship = True
+
+    def finished(self):
+        director.pop()
+        raise StopIteration()
 
 
 class StateResetting(FleetState):
@@ -380,7 +405,7 @@ class StateEntering(FleetState):
         if self.all_baddies_in_last_group_finished() or \
            self.all_baddies_in_last_group_exploded():
             self.steps = 0
-            if len(self.groups) < 5:
+            if len(self.groups) < NUM_GROUPS:
                 self.create_group()
             else:
                 self.fleet.change_state()
