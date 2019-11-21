@@ -4,6 +4,8 @@ from sprites import Sprite
 
 SPEED = 4
 TITLE_DELAYS = 3000
+END_OF_TITLES = 583
+
 
 def make_me_a_planet(n):
     planet = Sprite()
@@ -41,25 +43,34 @@ class Credits(Scene):
         self.vs.disable()
         self.scrolling = True
 
-    def moveup(self):
-        self.y += 1
-        for n in range(32):
-            sprite = self.sprites[n]
+    def move(self, direction):
+        self.y += direction
+        if self.y < 0:
+            self.y = 0
+        if self.y > END_OF_TITLES:
+            self.y = END_OF_TITLES
+
+
+        for n, sprite in enumerate(self.sprites):
             this_y = self.y - n * 16
-            if this_y > 0 and this_y < 255:
+            if this_y >= 0 and this_y < 255:
                 sprite.set_y(this_y)
 
-        print(self.y)
-
-        if self.y == 512:
+        if self.y == END_OF_TITLES:
             self.scrolling = False
             self.te.set_frame(0)
             self.call_later(TITLE_DELAYS, self.end_credit)
 
     def step(self):
         self.counter = self.counter + 1
-        if self.scrolling and self.counter % SPEED == 0:
-            self.moveup()
+
+        if self.scrolling:
+            if director.is_pressed(director.JOY_UP):
+                self.move(1)
+            elif director.is_pressed(director.JOY_DOWN):
+                self.move(-1)
+            elif self.counter % SPEED == 0:
+                self.move(1)
 
     def end_credit(self):
         self.te.disable()
