@@ -1,8 +1,6 @@
 from director import director
 import imagenes
 import menu
-import vyruss
-import credits
 
 def update_over_the_air():
     import ota_update
@@ -20,10 +18,20 @@ class GamesMenu(menu.Menu):
         option_pressed = self.options[option_index]
         print(option_pressed)
         if option_pressed[0] == 'vyruss':
+            import vyruss
             director.push(vyruss.VyrusGame())
             raise StopIteration()
         if option_pressed[0] == 'credits':
+            import credits
             director.push(credits.Credits())
+            raise StopIteration()
+        if option_pressed[0] == 'vong':
+            import vong
+            director.push(vong.VongGame())
+            raise StopIteration()
+        if option_pressed[0] == 'ventilagon':
+            import ventilagon
+            director.push(ventilagon.VentilagonGame())
             raise StopIteration()
 
     def step(self):

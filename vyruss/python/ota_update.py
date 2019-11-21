@@ -2,7 +2,7 @@ from director import director
 from scene import Scene
 from sprites import Sprite
 
-UPGRADEABLES = "director.py|scene.py|menu.py|vyruss.py".split("|")
+UPGRADEABLES = "ota_update.py|main.py|director.py|scene.py|menu.py|vyruss.py|credits.py|ventilagon.py|vong.py".split("|")
 
 class Update(Scene):
     def on_enter(self):
@@ -35,7 +35,10 @@ class Update(Scene):
                 tmpfn = "TMP_" + fn
                 result = requests.get(base_url + fn, file=tmpfn)
                 if result[0] == 200:
-                    os.remove(fn)
+                    try:
+                        os.remove(fn)
+                    except:
+                        pass
                     os.rename(tmpfn, fn)
 
             print("rebooting")

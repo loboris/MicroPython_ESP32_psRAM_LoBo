@@ -11,9 +11,13 @@ def new_sprite():
     return sprite
 
 def reset_sprites():
-    for n in range(1, 100):
+    for n in range(0, 100):
         sp = get_sprite(n)
         sp.frame = DISABLED_FRAME
+        sp.image_strip = 4
+        sp.x = 0
+        sp.y = 0
+        sp.perspective = 1
     global sprite_num
     sprite_num = 1
 
@@ -26,6 +30,9 @@ class Sprite:
         else:
             self._sprite = new_sprite()
         self.set_frame(DISABLED_FRAME)
+        self.set_x(0)
+        self.set_y(0)
+        self.set_perspective(True)
 
     def disable(self):
         self.set_frame(DISABLED_FRAME)

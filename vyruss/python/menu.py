@@ -1,6 +1,6 @@
 from director import director
 from scene import Scene
-from sprites import Sprite
+from sprites import Sprite, reset_sprites
 
 
 class Menu(Scene):
@@ -36,7 +36,12 @@ class Menu(Scene):
                 self.selected_index = 0
         if director.was_pressed(director.BUTTON_A):
             director.audio_play(b'shoot1')
-            self.on_option_pressed(self.selected_index)
+            try:
+                self.on_option_pressed(self.selected_index)
+            except StopIteration:
+                raise
+            except Exception as e:
+                print(e)
 
         # option[3] has the width
         offset = sum([option[3]
