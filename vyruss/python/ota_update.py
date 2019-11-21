@@ -31,7 +31,7 @@ class Update(Scene):
             print()
             base_url = "http://192.168.4.1:8000/"
             for fn in UPGRADEABLES:
-                print("updating " + fn)
+                print("updating " + fn, end="")
                 tmpfn = "TMP_" + fn
                 result = requests.get(base_url + fn, file=tmpfn)
                 if result[0] == 200:
@@ -40,6 +40,9 @@ class Update(Scene):
                     except:
                         pass
                     os.rename(tmpfn, fn)
+                    print(" sucess")
+                else:
+                    print(" ", result[0])
 
             print("rebooting")
             machine.reset()
