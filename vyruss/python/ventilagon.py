@@ -2,13 +2,14 @@ from director import director
 from scene import Scene
 from sprites import Sprite, reset_sprites
 
+INITIAL = 62
 
 def make_me_a_planet(n):
     planet = Sprite()
     planet.set_strip(n)
     planet.set_perspective(0)
     planet.set_x(0)
-    y = 54 - planet.height()
+    y = INITIAL  #54 - planet.height()
     planet.set_y(y)
     return planet
 
@@ -22,6 +23,8 @@ class VentilagonGame(Scene):
     
     def animate(self):
         new_y = (self.planet.y() + 1) % 256
+        if new_y < INITIAL:
+            new_y = INITIAL
         self.planet.set_y(new_y)
         self.call_later(30, self.animate)
 
