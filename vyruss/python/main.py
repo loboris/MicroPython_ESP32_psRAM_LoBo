@@ -2,6 +2,7 @@ from director import director
 import imagenes
 import menu
 import vyruss
+import credits
 
 def update_over_the_air():
     import ota_update
@@ -21,6 +22,9 @@ class GamesMenu(menu.Menu):
         if option_pressed[0] == 'vyruss':
             director.push(vyruss.VyrusGame())
             raise StopIteration()
+        if option_pressed[0] == 'credits':
+            director.push(credits.Credits())
+            raise StopIteration()
 
     def step(self):
         super(GamesMenu, self).step()
@@ -39,6 +43,7 @@ def main():
     director.register_strip(5, imagenes.explosion_png)
     director.register_strip(6, imagenes.explosion_nave_png)
     director.register_strip(7, imagenes.menu_png)
+    director.register_strip(8, imagenes.credits_png)
     director.register_strip(10, imagenes.tierra_flat_png)
     director.register_strip(11, imagenes.marte_flat_png)
     director.register_strip(12, imagenes.jupiter_flat_png)

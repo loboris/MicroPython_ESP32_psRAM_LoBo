@@ -31,6 +31,7 @@ image_stripes = {
     "5": imagenes.explosion_png,
     "6": imagenes.explosion_nave_png,
     "7": imagenes.menu_png,
+    "8": imagenes.credits_png,
 
     "10": imagenes.tierra_flat_png,
     "11": imagenes.marte_flat_png,

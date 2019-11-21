@@ -41,6 +41,7 @@ attributes = {
   "sves_flat.png": (255, 54, 1, 0),
 
   "menu.png": (64, 20, 4, 0),
+  "credits.png": (64, 16, 32, 0),
 }
 
 def grouper(iterable, n, fillvalue=None):
