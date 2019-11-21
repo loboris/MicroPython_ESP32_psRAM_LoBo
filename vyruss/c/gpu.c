@@ -118,22 +118,36 @@ void render(int column, uint32_t* pixels) {
     int visible_column = get_visible_column(s->x, width, column);
     if (visible_column != -1) {
       uint8_t height = is->frame_height;
-      int desde = MAX(s->y, 0);
-      int hasta = MIN(s->y + height, ROWS-1);
-      int comienzo = MAX(-s->y, 0);
       int base = visible_column * height + (s->frame * width * height);
-      const uint8_t* imagen = is->data + base + comienzo;
+      if(s->perspective) {
+        int desde = MAX(s->y, 0);
+        int hasta = MIN(s->y + height, ROWS-1);
+        int comienzo = MAX(-s->y, 0);
+        const uint8_t* imagen = is->data + base + comienzo;
 
-      for(int y=desde; y<hasta; y++, imagen++) {
-        uint8_t color = *imagen;
-        if (color != TRANSPARENT) {
-          int px_y;
-          if (s->perspective) {
-            px_y = deepspace[y];
-          } else {
-            px_y = PIXELS - 1 - y;
+        for(int y=desde; y<hasta; y++, imagen++) {
+          uint8_t color = *imagen;
+          if (color != TRANSPARENT) {
+            int px_y;
+            if (s->perspective == 1) {
+              px_y = deepspace[y];
+            } else {
+              px_y = PIXELS - 1 - y;
+            }
+            set_pixel(px_y, palette_pal[color]);
           }
-          set_pixel(px_y, palette_pal[color]);
+        }
+      } else {
+        int zleds = deepspace[255 - s->y];
+        for (int led=0; led < zleds; led++) {
+          int src = led * PIXELS / zleds;
+          if (src >= height) {
+            break;
+          }
+          uint8_t color = is->data[base + height - 1 - src];
+          if (color != TRANSPARENT) {
+            set_pixel(led, palette_pal[color]);
+          }
         }
       }
     }

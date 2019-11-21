@@ -12,8 +12,7 @@ def make_me_a_planet(n):
     planet.set_strip(n)
     planet.set_perspective(0)
     planet.set_x(0)
-    y = 54 - planet.height()
-    planet.set_y(y)
+    planet.set_y(255)
     return planet
 
 

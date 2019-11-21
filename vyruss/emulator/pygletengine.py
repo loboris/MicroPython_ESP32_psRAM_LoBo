@@ -206,23 +206,36 @@ class PygletEngine():
 
                 visible_column = get_visible_column(x, w, column)
                 if visible_column != -1:
-                    desde = max(y, 0)
-                    hasta = min(y + h, ROWS - 1)
-                    comienzo = max( -y, 0)
                     base = visible_column * h + (frame * w * h)
-                    src = base + comienzo
+                    if perspective:
+                        desde = max(y, 0)
+                        hasta = min(y + h, ROWS - 1)
+                        comienzo = max( -y, 0)
+                        src = base + comienzo
 
-                    for y in range(desde, hasta):
-                        index = pixeldata[src]
-                        src += 1
-                        if index != TRANSPARENT:
-                            color = upalette[index]
-                            if perspective:
-                                y = deepspace[y]
-                            else:
-                                y = led_count - 1 - y
-                            px = y * 4
-                            pixels[px:px+4] = [color] * 4
+                        for y in range(desde, hasta):
+                            index = pixeldata[src]
+                            src += 1
+                            if index != TRANSPARENT:
+                                color = upalette[index]
+                                if perspective == 1:
+                                    y = deepspace[y]
+                                else:
+                                    y = led_count - 1 - y
+                                px = y * 4
+                                pixels[px:px+4] = [color] * 4
+                    else:
+                        zleds = deepspace[255-y]
+
+                        for led in range(zleds):
+                            src = led * led_count // zleds
+                            if src >= h:
+                                break
+                            index = pixeldata[base + h - 1 - src]
+                            if index != TRANSPARENT:
+                                color = upalette[index]
+                                px = led * 4
+                                pixels[px:px+4] = [color] * 4
 
             return pack_colors(pixels)
 

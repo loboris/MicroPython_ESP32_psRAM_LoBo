@@ -18,7 +18,7 @@ class Menu(Scene):
             sprite = Sprite()
             sprite.set_x(256 - 32 + accumulated_width)
             sprite.set_y(0)
-            sprite.set_perspective(0)
+            sprite.set_perspective(2)
             sprite.set_strip(strip_id)
             sprite.set_frame(frame)
             accumulated_width += sprite.width()
