@@ -13,13 +13,15 @@ class Menu(Scene):
 
     def on_enter(self):
         self.sprites = []
+        accumulated_width = 0
         for option_id, strip_id, frame, width in self.options:
             sprite = Sprite()
-            sprite.set_x(256 - 32)
+            sprite.set_x(256 - 32 + accumulated_width)
             sprite.set_y(0)
             sprite.set_perspective(0)
             sprite.set_strip(strip_id)
             sprite.set_frame(frame)
+            accumulated_width += sprite.width()
 
             self.sprites.append(sprite)
 
