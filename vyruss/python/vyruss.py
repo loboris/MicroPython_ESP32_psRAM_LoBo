@@ -5,7 +5,18 @@ from director import director
 from scene import Scene
 from sprites import Sprite, reset_sprites
 
-NUM_GROUPS = 5
+
+LEVELS = [
+    # oleadas, planeta, disparos_simultaneos
+    (2, 13, 3),
+    (3, 12, 4),
+    (4, 11, 6),
+    (5, 10, 8),
+]
+
+MAX_BOMBS = max(l[2] for l in LEVELS)
+MAX_GROUPS = max(l[0] for l in LEVELS)
+BADDIES_PER_GROUP = 10
 
 def calculate_direction(current, destination):
     center_delta = 128 - current
@@ -153,18 +164,39 @@ class VyrusGame(Scene):
     def __init__(self):
         super(VyrusGame, self).__init__()
         seed(utime.ticks_ms())
-        
+
     def on_enter(self):
         self.scoreboard = ScoreBoard()
         self.hiscore = 0
-        self.state = StateEntering(self)
         self.starfleet = StarfleetState(self)
         self.killed = []
         self.laser = Laser()
-        self.level = 4
-        self.unfired_bombs = [Bomb() for _ in range(self.level)]
+        self.level = 0
         self.active_bombs = []
+        total_buddies = MAX_GROUPS * BADDIES_PER_GROUP
+        self.all_baddies = [Baddie() for _ in range(total_buddies)]
+        self.all_bombs = [Bomb() for _ in range(MAX_BOMBS)]
+        self.planet = make_me_a_planet(13)
+        self.used_baddie = 0
+        self.start_level()
+
+    def start_level(self):
+        print("Nuevo entering.........")
+        self.state = StateEntering(self)
+        self.waves, planet_number, unfired_bombs = LEVELS[self.level]
+        self.unfired_bombs = self.all_bombs[0:unfired_bombs]
+        self.starfleet.fighter.reset()
+        self.planet.disable()
+        self.planet.set_strip(planet_number)
+        self.used_baddie = 0
+        self.everyone = []
         self.explosions = []
+
+    def getBaddie(self, base_picture):
+        b = self.all_baddies[self.used_baddie]
+        b.reset(base_picture)
+        self.used_baddie += 1
+        return b
 
     def change_state(self):
         self.state = self.state.next_state(self)
@@ -255,6 +287,14 @@ class VyrusGame(Scene):
         director.pop()
         raise StopIteration()
 
+    def advance_level(self):
+        self.level += 1
+        if self.level >= len(LEVELS):
+            director.pop()
+            raise StopIteration()
+        self.start_level()
+
+
 
 class FleetState:
     def __init__(self, fleet):
@@ -270,16 +310,16 @@ class FleetState:
 
 class StateDefeated(FleetState):
     def setup(self):
-        self.planet = make_me_a_planet(13)
-        self.planet.set_frame(0)
+        self.fleet.planet.set_y(0)
+        self.fleet.planet.set_frame(0)
         self.animating_planet = True
         self.animating_ship = False
         self.fleet.call_later(4000, self.warp_ahead)
 
     def step(self):
         if self.animating_planet:
-            new_y = self.planet.y() + 1
-            self.planet.set_y(new_y)
+            new_y = self.fleet.planet.y() + 1
+            self.fleet.planet.set_y(new_y)
             if new_y == 255:
                 self.animating_planet = False
                 self.fleet.call_later(1500, self.finished)
@@ -294,8 +334,7 @@ class StateDefeated(FleetState):
         self.animating_ship = True
 
     def finished(self):
-        director.pop()
-        raise StopIteration()
+        self.fleet.advance_level()
 
 
 class StateResetting(FleetState):
@@ -341,6 +380,7 @@ class StateEntering(FleetState):
     next_state = StateAttacking
 
     def setup(self):
+        print("setupando")
         self.phase = 0
         self.steps = 0
         self.groups = []
@@ -365,7 +405,7 @@ class StateEntering(FleetState):
 
         base_x = self.bases[len(self.groups)-1]
 
-        baddie = Baddie(picture)
+        baddie = self.fleet.getBaddie(picture)
         baddie.set_y(128 + 32)
         if len(self.groups[-1]) % 2:
             baddie.set_x(base_x + 16)
@@ -399,13 +439,13 @@ class StateEntering(FleetState):
 
         self.steps += 1
 
-        if self.steps % 8 == 0 and len(self.groups[-1]) < 10:
+        if self.steps % 8 == 0 and len(self.groups[-1]) < BADDIES_PER_GROUP:
             self.add_baddie()
 
         if self.all_baddies_in_last_group_finished() or \
            self.all_baddies_in_last_group_exploded():
             self.steps = 0
-            if len(self.groups) < NUM_GROUPS:
+            if len(self.groups) < self.fleet.waves:
                 self.create_group()
             else:
                 self.fleet.change_state()
@@ -422,6 +462,10 @@ class Explodable(Sprite):
 
     def __init__(self):
         super().__init__()
+        self.exploded = False
+        self.step = self.dummy_step
+    
+    def reset(self):
         self.exploded = False
         self.step = self.dummy_step
 
@@ -467,6 +511,10 @@ class StarFighter(Explodable):
 
     def __init__(self):
         super().__init__()
+        self.reset()
+
+    def reset(self):
+        super().reset()
         self.set_x(256-8)
         self.set_y(16)
         self.set_strip(4)
@@ -499,8 +547,8 @@ class StarFighter(Explodable):
 
 
 class Baddie(Explodable):
-    def __init__(self, base_frame):
-        super().__init__()
+    def reset(self, base_frame):
+        super().reset()
         self.set_strip(0)
         self.base_frame = base_frame
         self.frame_step = 0
