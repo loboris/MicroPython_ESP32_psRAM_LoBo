@@ -25,9 +25,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="2.1964504"
-     inkscape:cx="183.35106"
-     inkscape:cy="750.64899"
+     inkscape:zoom="4.8733743"
+     inkscape:cx="148.15984"
+     inkscape:cy="737.8242"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -55,8 +55,9 @@
     <g
        id="g874"
        inkscape:export-filename="/home/alecu/club-de-jaqueo/ventilastation/vyruss/images/galaga/menu.png"
-       inkscape:export-xdpi="95.889999"
-       inkscape:export-ydpi="95.889999">
+       inkscape:export-xdpi="95.88765"
+       inkscape:export-ydpi="95.88765"
+       transform="matrix(1,0,0,1.4971077,0,-54.069337)">
       <rect
          ry="0"
          y="103.47619"
@@ -81,10 +82,10 @@
     </g>
     <g
        id="g879"
-       transform="translate(7.2571411,-7.2347794)"
+       transform="matrix(1,0,0,1.4971077,7.2571411,-64.900584)"
        inkscape:export-filename="/home/alecu/club-de-jaqueo/ventilastation/vyruss/images/galaga/menu.png"
-       inkscape:export-xdpi="95.889999"
-       inkscape:export-ydpi="95.889999">
+       inkscape:export-xdpi="95.88765"
+       inkscape:export-ydpi="95.88765">
       <rect
          ry="0"
          y="110.71097"
@@ -125,10 +126,10 @@
     </g>
     <g
        id="g909"
-       transform="translate(41.123804,-7.2347794)"
+       transform="matrix(1,0,0,1.4971077,41.123804,-64.900584)"
        inkscape:export-filename="/home/alecu/club-de-jaqueo/ventilastation/vyruss/images/galaga/menu.png"
-       inkscape:export-xdpi="95.889999"
-       inkscape:export-ydpi="95.889999">
+       inkscape:export-xdpi="95.88765"
+       inkscape:export-ydpi="95.88765">
       <rect
          style="opacity:0.98000004;vector-effect:none;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.07937501;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:stroke fill markers"
          id="rect897"
@@ -163,11 +164,11 @@
            id="tspan905">credits</tspan></text>
     </g>
     <g
-       transform="translate(24.521738,-6.4216843)"
+       transform="matrix(1,0,0,1.4971077,24.521738,-63.683291)"
        id="g925"
        inkscape:export-filename="/home/alecu/club-de-jaqueo/ventilastation/vyruss/images/galaga/menu.png"
-       inkscape:export-xdpi="95.889999"
-       inkscape:export-ydpi="95.889999">
+       inkscape:export-xdpi="95.88765"
+       inkscape:export-ydpi="95.88765">
       <rect
          ry="0"
          y="109.89787"
