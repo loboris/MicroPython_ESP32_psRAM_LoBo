@@ -28,17 +28,17 @@ class Menu(Scene):
 
     def step(self):
         if director.was_pressed(director.JOY_RIGHT):
-            director.audio_play(b'shoot3')
+            director.sound_play(b'shoot3')
             self.selected_index -= 1
             if self.selected_index == -1:
                 self.selected_index = len(self.options) - 1
         if director.was_pressed(director.JOY_LEFT):
-            director.audio_play(b'shoot3')
+            director.sound_play(b'shoot3')
             self.selected_index += 1
             if self.selected_index > len(self.options) - 1:
                 self.selected_index = 0
         if director.was_pressed(director.BUTTON_A):
-            director.audio_play(b'shoot1')
+            director.sound_play(b'shoot1')
             try:
                 self.on_option_pressed(self.selected_index)
             except StopIteration:

@@ -16,10 +16,16 @@ sounds = {}
 for sn in ["shoot1", "explosion2", "explosion3", "shoot3"]:
     sounds[bytes(sn, "latin1")] = pyglet.media.load("sounds/%s.wav" % sn, streaming=False)
 
+for mn in ["credits", "vy-gameover", "vy-main", "vy-3warps"]:
+    sounds[bytes(mn, "latin1")] = pyglet.media.load("sounds/%s.wav" % mn, streaming=False)
+
 sound_queue = []
 def playsound(name):
-    if name in sounds:
-        sound_queue.append(sounds[name])
+    sound_queue.append(("sound", name))
+
+def playmusic(name):
+    sound_queue.append(("music", name))
+
 
 import imagenes
 image_stripes = {
@@ -103,6 +109,7 @@ class PygletEngine():
         self.keyhandler = keyhandler
         led_step = (LED_SIZE / led_count)
         self.enable_display = enable_display
+        self.music_player = None
 
         vertex_pos = []
         theta = (math.pi * 2 / COLUMNS)
@@ -267,7 +274,14 @@ class PygletEngine():
         def animate(dt):
             send_keys()
             while sound_queue:
-                sound_queue.pop().play()
+                command, name = sound_queue.pop()
+                if command == "sound":
+                    sounds[name].play()
+                elif command == "music":
+                    if self.music_player:
+                        self.music_player.pause()
+                    if name != b"off":
+                        self.music_player = sounds[name].play()
             return
             "FIXME"
             for n in range(6):

@@ -127,8 +127,9 @@ class StarfleetState:
         self.fighter.step()
 
     def game_over(self):
+        director.music_play("vy-gameover")
         self.game_over_sprite.set_frame(0)
-        self.scene.call_later(3000, self.scene.finished)
+        self.scene.call_later(8333, self.scene.finished)
 
     def respawn(self):
         self.destroyed.append(self.fighters.pop(0))
@@ -141,7 +142,7 @@ class StarfleetState:
         remaining_lives = len(self.fighters) - 1
         self.scene.scoreboard.setlives(remaining_lives)
         self.exploded = True
-        director.audio_play(b"explosion3")
+        director.sound_play(b"explosion3")
         if remaining_lives:
             self.scene.call_later(1500, self.respawn)
         else:
@@ -181,7 +182,6 @@ class VyrusGame(Scene):
         self.start_level()
 
     def start_level(self):
-        print("Nuevo entering.........")
         self.state = StateEntering(self)
         self.waves, planet_number, unfired_bombs = LEVELS[self.level]
         self.unfired_bombs = self.all_bombs[0:unfired_bombs]
@@ -191,6 +191,7 @@ class VyrusGame(Scene):
         self.used_baddie = 0
         self.everyone = []
         self.explosions = []
+        director.music_play("vy-main")
 
     def getBaddie(self, base_picture):
         b = self.all_baddies[self.used_baddie]
@@ -237,7 +238,7 @@ class VyrusGame(Scene):
             hit = self.laser.collision(self.everyone)
             if hit:
                 self.laser.finish()
-                director.audio_play(b"explosion2")
+                director.sound_play(b"explosion2")
                 self.explode_baddie(hit)
 
         self.starfleet.step()
@@ -295,7 +296,6 @@ class VyrusGame(Scene):
         self.start_level()
 
 
-
 class FleetState:
     def __init__(self, fleet):
         self.fleet = fleet
@@ -310,6 +310,7 @@ class FleetState:
 
 class StateDefeated(FleetState):
     def setup(self):
+        director.music_play("vy-3warps")
         self.fleet.planet.set_y(0)
         self.fleet.planet.set_frame(0)
         self.animating_planet = True
@@ -575,7 +576,7 @@ class Laser(Sprite):
         self.enabled = False
 
     def fire(self, starfighter):
-        director.audio_play(b"shoot1")
+        director.sound_play(b"shoot1")
         self.enabled = True
         self.set_y(starfighter.y() + 11)
         self.set_x(starfighter.x() + 6)
@@ -599,7 +600,7 @@ class Bomb(Sprite):
         self.enabled = False
 
     def fire(self, baddie):
-        director.audio_play(b"shoot3")
+        director.sound_play(b"shoot3")
         self.enabled = True
         self.set_y(baddie.y() + 11)
         self.set_x(baddie.x() + 6)

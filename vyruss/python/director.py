@@ -57,6 +57,7 @@ class Director:
     def pop(self):
         scene = self.scene_stack.pop()
         scene.on_exit()
+        self.music_off()
         sprites.reset_sprites()
         if self.scene_stack:
             self.scene_stack[-1].on_enter()
@@ -74,8 +75,14 @@ class Director:
     def was_released(self, button):
         return not bool(button & self.buttons) and bool(button & self.last_buttons)
 
-    def audio_play(self, track):
-        comms.send(b"audio_play " + track)
+    def sound_play(self, track):
+        comms.send(b"sound " + track)
+
+    def music_play(self, track):
+        comms.send(b"music " + track)
+
+    def music_off(self):
+        comms.send(b"music off")
 
     def run(self):
         while True:

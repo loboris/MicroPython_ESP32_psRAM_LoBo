@@ -11,7 +11,7 @@ import urllib.parse
 import struct
 import socket
 import threading
-from pygletengine import image_stripes, palette, spritedata, playsound
+from pygletengine import image_stripes, palette, spritedata, playsound, playmusic
 
 sock = None
 sockfile = None
@@ -79,9 +79,15 @@ def receive_loop():
             if command == b"pal":
                 palette[:] = sockfile.read(1024)
 
-            if command == b"audio_play":
+            if command == b"sound":
                 playsound(args[0])
-                
+
+            if command == b"music":
+                playmusic(args[0])
+
+            if command == b"musicstop":
+                playmusic("off")
+
             if command == b"imagestrip":
                 length, slot = args
                 image_stripes[slot.decode()] = sockfile.read(int(length))
@@ -146,8 +152,8 @@ def on_connect(client, flags, rc, properties):
     mqtt_client = client
     print('Connected')
     client.subscribe('fan_debug', qos=0)
-    client.subscribe('audio_play', qos=0)
-    client.subscribe('audio_play', qos=0)
+    client.subscribe('sound_play', qos=0)
+    client.subscribe('music_play', qos=0)
     client.subscribe('temperatura', qos=0)
     client.subscribe('joystick_leds', qos=0)
     client.subscribe('start_fan', qos=0)
