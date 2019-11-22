@@ -39,6 +39,8 @@ attributes = {
   "tecno_estructuras_flat.png": (255, 54, 1, 0),
   "ventilastation_flat.png": (255, 54, 1, 0),
   "sves_flat.png": (255, 54, 1, 0),
+  "yourgame_flat.png": (255, 54, 1, 0),
+  "menatwork_flat.png": (255, 40, 1, 0),
 
   "menu.png": (64, 30, 4, 0),
   "credits.png": (64, 16, 32, 0),

@@ -59,6 +59,8 @@ def main():
     director.register_strip(14, imagenes.sves_flat_png)
     director.register_strip(15, imagenes.ventilastation_flat_png)
     director.register_strip(16, imagenes.tecno_estructuras_flat_png)
+    director.register_strip(17, imagenes.menatwork_flat_png)
+    director.register_strip(18, imagenes.yourgame_flat_png)
 
     director.push(GamesMenu())
     director.run()

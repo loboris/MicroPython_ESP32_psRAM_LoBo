@@ -64,6 +64,9 @@ class Credits(Scene):
     def step(self):
         self.counter = self.counter + 1
 
+        if director.was_pressed(director.BUTTON_D):
+            self.finished()
+
         if self.scrolling:
             if director.is_pressed(director.JOY_UP):
                 self.move(1)

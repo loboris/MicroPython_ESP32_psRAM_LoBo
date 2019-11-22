@@ -16,22 +16,22 @@ def make_me_a_planet(n):
 
 class VentilagonGame(Scene):
     def on_enter(self):
-        self.planet_id = 3
-        self.planet = make_me_a_planet(10)
+        self.planet_id = 7
+        self.planet = make_me_a_planet(17)
         self.planet.set_frame(0)
         self.call_later(30, self.animate)
     
     def animate(self):
-        new_y = (self.planet.y() + 1) % 256
-        if new_y < INITIAL:
-            new_y = INITIAL
-        self.planet.set_y(new_y)
+        current_y = self.planet.y()
+        if current_y < 255:
+            self.planet.set_y(current_y + 1)
         self.call_later(30, self.animate)
 
     def step(self):
         if director.was_pressed(director.BUTTON_A):
-            self.planet_id = (self.planet_id + 1) % 4
+            self.planet_id = (self.planet_id + 1) % 9
             self.planet.set_strip(self.planet_id + 10)
+            self.planet.set_y(INITIAL)
 
         if director.was_pressed(director.BUTTON_D):
             director.pop()
