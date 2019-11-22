@@ -13,9 +13,11 @@ Terry Cavanagh
 Micropython
 loboris
 Espressif
+Incompetech
+No Shades
+Nasa
 ditentec
 TecnoEstructuras
-
 
 Vyruss
 
@@ -44,7 +46,7 @@ ezequiel
 sasha.k
 
 
-Thanks
+Gracias
 nico, ame
 lucila
 diten
