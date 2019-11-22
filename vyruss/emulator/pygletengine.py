@@ -148,7 +148,7 @@ class PygletEngine():
                 up = joystick.y < -0.5
                 down = joystick.y > 0.5
 
-                boton = joystick.buttons[1]
+                boton = joystick.buttons[0] | joystick.buttons[1] | joystick.buttons[2] | joystick.buttons[3]
                 accel = joystick.rz > 0
                 decel = joystick.z > 0
                 reset = joystick.buttons[8]
