@@ -68,10 +68,14 @@ class Sprite:
         self._sprite.perspective = value
 
     def collision(self, targets):
+        def intersects(x1, w1, x2, w2):
+            delta = min(x1, x2)
+            x1 = (x1 - delta + 128) % 256
+            x2 = (x2 - delta + 128) % 256
+            return x1 < x2 + w2 and x1 + w1 > x2
+            
         for target in targets:
             other = target
-            if (self.x() < other.x() + other.width() and
-                self.x() + self.width() > other.x() and
-                self.y() < other.y() + other.height() and
-                self.y() + self.height() > other.y()):
+            if (intersects(self.x(), self.width(), other.x(), other.width()) and
+                intersects(self.y(), self.height(), other.y(), other.height())):
                 return target

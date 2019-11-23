@@ -104,6 +104,13 @@ uint8_t height(sprite_obj_t* sprite) {
     return sprite->image_strip->frame_height;
 }
 
+bool intersects(int x1, int w1, int x2, int w2) {
+    int delta = MIN(x1, x2);
+    x1 = (x1 - delta + 128) % 256;
+    x2 = (x2 - delta + 128) % 256;
+    return (x1 < x2 + w2) && (x1 + w1 > x2);
+}
+
 STATIC mp_obj_t sprite_collision(mp_obj_t self_in, mp_obj_t iterable) {
     sprite_obj_t *self = MP_OBJ_TO_PTR(self_in);
     // ESP_LOGD(TAG, "Collision, self=%p", self);
@@ -125,11 +132,8 @@ STATIC mp_obj_t sprite_collision(mp_obj_t self_in, mp_obj_t iterable) {
         // ESP_LOGI(TAG, "           strip=%p", other->image_strip);
         // type = mp_obj_get_type(other);
         // ESP_LOGD(TAG, "           type=%s", qstr_str(type->name));
-        if (self->x < other_sprite->x + width(other_sprite) &&
-            self->x + width(self) > other_sprite->x &&
-            self->y < other_sprite->y + height(other_sprite) &&
-            self->y + height(self) > other_sprite->y) {
-            
+        if (intersects(self->x, width(self), other_sprite->x, width(other_sprite)) &&
+            intersects(self->y, height(self), other_sprite->y, height(other_sprite))) {            
             return item;
         }
     }
