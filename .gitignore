@@ -119,3 +119,4 @@ vyruss/images/debug/*
 Tools/wixel_linux/*
 tests/micropython-mqtt/*
 vyruss/influxdb/arduino-influxdb/*
+.DS_Store
