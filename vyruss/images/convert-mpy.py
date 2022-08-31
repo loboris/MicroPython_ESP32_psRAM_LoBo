@@ -3,6 +3,7 @@
 from PIL import Image
 import os
 from itertools import zip_longest
+import struct
 
 TRANSPARENT = (255, 0, 255)
 FOLDER = "galaga"
@@ -100,9 +101,12 @@ with open("raw/palette.pal", "wb") as pal:
 print("palette_pal =", b"".join(pal_raw))
 print()
 
+palettes = [b"".join(pal_raw)]
+
 raws = []
 sizes = []
 
+rom_strips = []
 
 for (j, i) in enumerate(images):
     p = i.convert("RGB").quantize(palette=workspace, method=3)
@@ -121,6 +125,7 @@ for (j, i) in enumerate(images):
         pass
     #print("};")
     print()
+    rom_strips.append(struct.pack("<16s", var_name.encode("utf-8")) + attrs + b)
     
     if ("fondo.png" in i.filename):
         fn = "raw/" + i.filename.rsplit(".", 1)[0] + ".raw"
@@ -132,3 +137,20 @@ for (j, i) in enumerate(images):
 
 with open("raw/images.raw", "wb") as raw:
     raw.write(b"".join(raws))
+
+with open("sprites.rom", "wb") as rom:
+    offset = 4 + len(rom_strips) * 4 + len(palettes) * 4
+    rom.write(struct.pack("<HH", len(rom_strips), len(palettes)))
+
+    for strip in rom_strips:
+        rom.write(struct.pack("<L", offset))
+        offset += len(strip)
+    for palette in palettes:
+        rom.write(struct.pack("<L", offset))
+        offset += len(palette)
+        
+    for strip in rom_strips:
+        rom.write(strip)
+
+    for palette in palettes:
+        rom.write(palette)
