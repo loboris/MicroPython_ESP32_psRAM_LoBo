@@ -480,7 +480,7 @@ build_MPyCross() {
         echo "=================="
         echo "Building mpy-cross"
         make clean > /dev/null 2>&1
-        make > /dev/null 2>&1
+        make #> /dev/null 2>&1
         if [ $? -eq 0 ]; then
             cp -f mpy-cross ../../micropython/mpy-cross > /dev/null 2>&1
             make clean > /dev/null 2>&1

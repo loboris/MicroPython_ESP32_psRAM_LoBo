@@ -9,7 +9,6 @@ from pyglet.window import key
 from struct import pack, unpack
 from deepspace import deepspace
 
-fps_display = pyglet.clock.ClockDisplay()
 
 
 sounds = {}
@@ -52,6 +51,7 @@ image_stripes = {
 spritedata = bytearray( b"\0\0\0\xff\xff" * 100)
 
 window = pyglet.window.Window(config=Config(double_buffer=True), fullscreen=config.FULLSCREEN)
+fps_display = pyglet.window.FPSDisplay(window)
 keys = key.KeyStateHandler()
 
 joysticks = pyglet.input.get_joysticks()

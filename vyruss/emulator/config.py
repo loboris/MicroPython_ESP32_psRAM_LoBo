@@ -1,5 +1,5 @@
 import sys
-FULLSCREEN=False
+FULLSCREEN=True
 
 
 USE_IP = True
