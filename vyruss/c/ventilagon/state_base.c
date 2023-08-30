@@ -1,7 +1,8 @@
-State* State::current_state;
+#include "ventilagon.h"
+State* current_state;
 
-void State::change_state (State* new_state) {
+void change_state (State* new_state) {
   //debugln(new_state->name());
-  State::current_state = new_state;
-  State::current_state->setup();
+  current_state = new_state;
+  current_state->setup();
 }

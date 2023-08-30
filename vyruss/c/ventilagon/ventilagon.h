@@ -34,14 +34,6 @@ void pattern_randomize();
 byte pattern_next_row();
 bool pattern_is_finished();
 
-/*
-void circularbuffer_CircularBuffer(CircularBuffer* cb);
-void circularbuffer_reset(CircularBuffer* cb);
-void circularbuffer_push_back(CircularBuffer* cb, byte row);
-void circularbuffer_push_front(CircularBuffer* cb, byte row);
-byte circularbuffer_get_row(CircularBuffer* cb, byte row_num);
-*/
-
 void ledbar_setPixelColor(int pixel, long color);
 bool ledbar_multicolored;
 void ledbar_init();
@@ -69,16 +61,26 @@ void display_tick(int64_t now);
 void display_calibrate(bool calibrating);
 bool display_ship_on(int current_pos);
 
-/*
+typedef const char* (*get_name_fn_t)(void);
+typedef void (*setup_fn_t)(void);
+typedef void (*loop_fn_t)(void);
+
 typedef struct {
-    virtual const char* name() = 0;
-    virtual void setup() = 0;
-    virtual void loop() {}
+		const char* name;
+		setup_fn_t setup;
+		loop_fn_t loop;
 } State;
 
 State* current_state;
 void change_state(State* new_state);
 
+extern State gameover_state;
+extern State win_state;
+extern State play_state;
+extern State resetting_state;
+extern State state_credits;
+
+/*
 struct GameoverState : public State {
   protected:
     bool keys_pressed;
@@ -111,13 +113,6 @@ struct CreditsState : public State {
 
 struct PlayState : public State {
   public:
-    int section;
-    unsigned long section_init_time;
-    unsigned long section_duration;
-    bool paused;
-    
-    void check_section(unsigned long now);
-    void advance_section(unsigned long now);
 
     const char* name() {
       return "RUNNING GAME";
@@ -131,7 +126,7 @@ struct PlayState : public State {
 
 struct ResettingState : public State {
   public:
-    long int last_step;
+    uint64_t last_step;
     byte counter;
     const char* name() {
       return "RESETTING";
@@ -174,17 +169,14 @@ void audio_reset();
 void audio_play_song(char song);
 
 extern Ship ship;
-/*
-extern GameoverState gameover_state;
-extern WinState win_state;
-extern PlayState play_state;
-extern ResettingState resetting_state;
-extern CreditsState state_credits;
-*/
 extern const byte transformations[];
 extern const Level* const levels[];
 extern const Level* current_level;
 extern byte new_level;
 extern int nave_calibrate;
+extern uint64_t last_step;
+extern bool boton_cw;
+extern bool boton_ccw;
+extern int nave_pos;
 
 #define elements_in(arrayname) (sizeof arrayname/sizeof *arrayname)

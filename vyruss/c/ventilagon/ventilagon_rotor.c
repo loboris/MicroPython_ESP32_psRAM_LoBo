@@ -1,6 +1,6 @@
 #include "ventilagon.h"
 
-unsigned long last_step = 0;
+uint64_t last_step = 0;
 
 void setup() {
   pinMode(HALL_SENSOR, INPUT_PULLUP);
