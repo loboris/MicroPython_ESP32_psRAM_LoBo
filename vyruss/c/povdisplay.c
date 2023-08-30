@@ -133,8 +133,8 @@ void hall_init(int gpio_hall) {
     }
 #endif
     gpio_set_direction(gpio_hall, GPIO_MODE_INPUT);
-    gpio_set_pull_mode(gpio_hall, GPIO_PULLUP_ONLY);
-    gpio_pullup_en(gpio_hall);
+    //gpio_set_pull_mode(gpio_hall, GPIO_PULLUP_ONLY);
+    //gpio_pullup_en(gpio_hall);
     gpio_set_intr_type(gpio_hall, GPIO_INTR_NEGEDGE);
     gpio_isr_handler_add(gpio_hall, hall_sensed, (void*) gpio_hall);
 }
@@ -148,7 +148,7 @@ void coreTask( void * pvParameters ){
     int64_t last_starfield_step = 0;
 
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
-    hall_init(GPIO_HALL);
+    //hall_init(GPIO_HALL);
     hall_init(GPIO_HALL_B);
 
     init_sprites();
