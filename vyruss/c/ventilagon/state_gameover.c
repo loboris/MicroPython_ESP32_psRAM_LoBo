@@ -1,18 +1,19 @@
-GameoverState gameover_state;
+#include "ventilagon.h"
+bool keys_pressed;
 
-void GameoverState::setup() {
-  display.calibrate(true);
-  audio.play_game_over();
+void setup() {
+  display_calibrate(true);
+  audio_play_game_over();
   keys_pressed = (boton_cw || boton_ccw);
 }
 
-void GameoverState::loop() {
+void loop() {
   if (boton_cw == false && boton_ccw == false) {
     keys_pressed = false;
   }
   if (keys_pressed == false) {
    if (boton_cw && boton_ccw) {
-     State::change_state(&resetting_state);
+     change_state(&resetting_state);
    } else {
      /* calibrate
      if (boton_cw) {
@@ -24,8 +25,9 @@ void GameoverState::loop() {
      */
    }
   }
-  unsigned long now = micros();
-  display.tick(now);
+  int64_t now = esp_timer_get_time();
+  display_tick(now);
 }
 
 
+State gameover_state = { "GAME OVER", setup, loop };

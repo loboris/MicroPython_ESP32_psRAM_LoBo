@@ -1,4 +1,6 @@
-const byte PROGMEM text_bitmap[] = {
+#include "ventilagon.h"
+
+const byte text_bitmap[] = {
   0b00000000,
   0b00000000,
   0b00000000,

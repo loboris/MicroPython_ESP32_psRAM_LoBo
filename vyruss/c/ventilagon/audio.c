@@ -17,40 +17,38 @@ o) triangle.wav
 p) wonderful.wav
 */
 
-Audio audio;
-
-void Audio::play_superventilagon() {
+void audio_play_superventilagon() {
   Serial.print("n");
 }
 
-void Audio::play_crash() {
+void audio_play_crash() {
   Serial.print("c");
 }
 
-void Audio::play_win() {
+void audio_play_win() {
   Serial.print("d");
 }
 
-void Audio::play_game_over() {
+void audio_play_game_over() {
   Serial.print("e");
 }
 
-void Audio::stop_song() {
+void audio_stop_song() {
   Serial.print("0");
 }
 
-void Audio::begin() {
+void audio_begin() {
   Serial.print("b");
 }
 
-void Audio::play_song(char song) {
+void audio_play_song(char song) {
   Serial.print(song);
 }
 
-void Audio::reset() {
+void audio_reset() {
   Serial.print("0R");
 }
 
-void Audio::stop_servo() {
+void audio_stop_servo() {
   Serial.print("r");
 }

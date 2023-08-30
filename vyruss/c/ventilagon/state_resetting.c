@@ -1,27 +1,31 @@
-ResettingState resetting_state;
+#include "ventilagon.h"
 
 const unsigned long reset_step_delay = (10L * 100 * 1000) / NUM_ROWS;
+uint64_t last_step;
+int counter;
 
-
-void ResettingState::setup() {
-  last_step = micros();
+void setup() {
+  last_step = esp_timer_get_time();
   counter = 0;
-  audio.reset();
+  audio_reset();
 }
 
-void ResettingState::loop() {
-  unsigned long now = micros();
-  display.tick(now);
+void loop() {
+  int64_t now = esp_timer_get_time();
+  display_tick(now);
   
   // tirar las lineas para afuera durante medio segundo
   if ((now - last_step) > reset_step_delay) {
-    board.step_back();
+    board_step_back();
     last_step = now;
     counter++;
   }
 
   // despues de medio segundo, arrancar el juego
   if (counter > NUM_ROWS) {
-    State::change_state(&play_state);
+    change_state(&play_state);
   }
 }
+
+State resetting_state = { "RESETTING", setup, loop };
+

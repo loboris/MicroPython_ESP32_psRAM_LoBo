@@ -112,4 +112,8 @@ void loop() {
   //colorizer.step();
 }
 
+void toggle_pause() {
+  paused = !paused;
+}
+
 State play_state = { "RUNNING GAME", setup, loop };

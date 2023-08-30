@@ -66,9 +66,9 @@ typedef void (*setup_fn_t)(void);
 typedef void (*loop_fn_t)(void);
 
 typedef struct {
-		const char* name;
-		setup_fn_t setup;
-		loop_fn_t loop;
+    const char* name;
+    setup_fn_t setup;
+    loop_fn_t loop;
 } State;
 
 State* current_state;
@@ -79,62 +79,6 @@ extern State win_state;
 extern State play_state;
 extern State resetting_state;
 extern State state_credits;
-
-/*
-struct GameoverState : public State {
-  protected:
-    bool keys_pressed;
-  public:
-    const char* name() {
-      return "GAME OVER";
-    }
-    void apagar_todo();
-    void setup();
-    void loop();
-};
-
-struct WinState : public State {
-  public:
-    const char* name() {
-      return "FOR THE WIN!";
-    }
-    void setup();
-    void loop();
-};
-
-struct CreditsState : public State {
-  public:
-    const char* name() {
-      return "Rolling Credits";
-    }
-    void setup();
-    void loop();
-};
-
-struct PlayState : public State {
-  public:
-
-    const char* name() {
-      return "RUNNING GAME";
-    }
-    void toggle_pause() {
-      paused = !paused;
-    }
-    void setup();
-    void loop();
-};
-
-struct ResettingState : public State {
-  public:
-    uint64_t last_step;
-    byte counter;
-    const char* name() {
-      return "RESETTING";
-    }
-    void setup();
-    void loop();
-};
-*/
 
 typedef struct {
     bool on;

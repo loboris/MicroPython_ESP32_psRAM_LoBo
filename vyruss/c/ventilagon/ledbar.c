@@ -5,11 +5,10 @@
 //#define TLC_GSCLK_PERIOD    1
 //
 
-#include <Tlc5940.h>
 
 Ledbar ledbar;
 
-void Ledbar::setPixelColor(int pixel, long color) {
+void ledbar_setPixelColor(int pixel, long color) {
   byte red = (color >> 16) & 0xff;
   byte green = (color >> 8) & 0xff;
   byte blue = (color >> 0) & 0xff;
@@ -19,23 +18,23 @@ void Ledbar::setPixelColor(int pixel, long color) {
   Tlc.set(base + 2, (red << 4));
 }
 
-void Ledbar::init() {
+void ledbar_init() {
   debugln("INIT LEDBAR");
   Tlc.init();
   clear();
 }
 
-void Ledbar::clear() {
+void ledbar_clear() {
   Tlc.clear();
 }
 
 const long RED = 0xff0000;
 
-void Ledbar::reset() {
+void ledbar_reset() {
   multicolored = false;
 }
 
-void Ledbar::set_win_state() {
+void ledbar_set_win_state() {
   multicolored = true;
 }
 
@@ -48,7 +47,7 @@ uint32_t colors[] = {
   0xff0000,
 };
 
-void Ledbar::draw(byte num_row, boolean value, boolean alt_column) {
+void ledbar_draw(byte num_row, boolean value, boolean alt_column) {
   long color;
   if (value) {
     if (!multicolored) {
@@ -65,6 +64,6 @@ void Ledbar::draw(byte num_row, boolean value, boolean alt_column) {
   setPixelColor(num_row, color);
 }
 
-void Ledbar::update() {
+void ledbar_update() {
   Tlc.update();
 }

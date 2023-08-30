@@ -1,35 +1,37 @@
-WinState win_state;
+#include "ventilagon.h"
 
 const long win_step_delay = 25;
-unsigned long win_last_step = 0;
-unsigned long win_started;
+int64_t win_last_step = 0;
+int64_t win_started;
 const long win_delay_1 = 45000 - 7000; // 45 seconds
-const long win_delay_2 = win_delay_1 + 7000; // un poquin mas para que se vaya todo
+const long win_delay_2 = 45000; // un poquin mas para que se vaya todo
 
-void WinState::setup() {
-  display.calibrate(true);
-  board.reset();
-  ledbar.set_win_state();
-  win_started = millis();
+void setup() {
+  display_calibrate(true);
+  board_reset();
+  ledbar_set_win_state();
+  int64_t now = esp_timer_get_time();
+  win_started = now / 1000;
 }
 
-void WinState::loop() {
-  unsigned long now_ms = millis();
+void loop() {
+  int64_t now = esp_timer_get_time();
+  int64_t now_ms = now / 1000;
   if ((now_ms - win_last_step) > win_step_delay) {
     win_last_step = now_ms;
     if ((now_ms - win_started) > win_delay_1) {
-      board.step_back();
+      board_step_back();
     } else {
-      board.win_step_back();
+      board_win_step_back();
     }
   }
 
   if ((now_ms - win_started) > win_delay_2) {
-    State::change_state(&gameover_state);
+    change_state(&gameover_state);
   }
-  unsigned long now = micros();
-  display.tick(now);
-  display.adjust_drift();
+  now = esp_timer_get_time();
+  display_tick(now);
+  display_adjust_drift();
 }
 
-
+State win_state = {"FOR THE WIN!", setup, loop};

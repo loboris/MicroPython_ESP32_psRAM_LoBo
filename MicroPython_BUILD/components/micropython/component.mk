@@ -184,6 +184,23 @@ SRC_C =  $(addprefix esp32/,\
 	pov/minispi.c \
 	pov/gpu.c \
 	pov/intensidades.c \
+	pov/ventilagon/board.c \
+	pov/ventilagon/display.c \
+	pov/ventilagon/levels.c \
+	pov/ventilagon/patterns.c \
+	pov/ventilagon/transformations.c \
+	pov/ventilagon/state_base.c \
+	pov/ventilagon/state_gameover.c \
+	pov/ventilagon/state_play.c \
+	pov/ventilagon/state_resetting.c \
+	pov/ventilagon/state_win.c \
+	pov/ventilagon/text_bitmap.c \
+	pov/ventilagon/ventilagon_rotor.c \
+	pov/ventilagon/ship.c \
+	pov/ventilagon/ledbar.c \
+	pov/ventilagon/audio.c \
+	pov/ventilagon/finetune.c \
+	pov/ventilagon/state_win_credits.c \
 	machine_hw_i2c.c \
 	machine_neopixel.c \
 	machine_dht.c \
