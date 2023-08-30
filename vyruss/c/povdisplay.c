@@ -9,6 +9,7 @@
 
 #include "minispi.h"
 #include "gpu.h"
+#include "ventilagon/ventilagon.h"
 
 #define GPIO_HALL     GPIO_NUM_26
 #define GPIO_HALL_B     GPIO_NUM_36
@@ -37,6 +38,7 @@ uint32_t* pixels0;
 uint32_t* pixels1;
 
 int buf_size;
+bool ventilagon_active = false;
 
 volatile int64_t last_turn = 0;
 volatile int64_t last_turn_duration = 355 * COLUMNS;
@@ -140,12 +142,30 @@ void hall_init(int gpio_hall) {
 }
 
 
+int last_column = 0;
+int64_t last_starfield_step = 0;
+void gpu_step() {
+    int64_t now = esp_timer_get_time();
+    uint32_t column = ((now - last_turn) * COLUMNS / last_turn_duration) % COLUMNS;
+    if (column != last_column) {
+	render((column + COLUMNS/2) % COLUMNS, extra_buf);
+	for(int n=0;n<54;n++) {
+	    pixels0[n] = extra_buf[53-n];
+	}
+	render(column, pixels1);
+	spi_write_HSPI();
+	last_column = column;
+    }
+
+    if (now > last_starfield_step + 20000) {
+	step_starfield();
+	last_starfield_step = now;
+    }
+}
  
 
 void coreTask( void * pvParameters ){
     printf("task running on core %d\n", xPortGetCoreID());
-    int last_column = 0;
-    int64_t last_starfield_step = 0;
 
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
     //hall_init(GPIO_HALL);
@@ -154,22 +174,11 @@ void coreTask( void * pvParameters ){
     init_sprites();
 
     while(true){
-            int64_t now = esp_timer_get_time();
-            uint32_t column = ((now - last_turn) * COLUMNS / last_turn_duration) % COLUMNS;
-            if (column != last_column) {
-                render((column + COLUMNS/2) % COLUMNS, extra_buf);
-                for(int n=0;n<54;n++) {
-                    pixels0[n] = extra_buf[53-n];
-                }
-                render(column, pixels1);
-                spi_write_HSPI();
-                last_column = column;
-            }
-
-            if (now > last_starfield_step + 20000) {
-                step_starfield();
-                last_starfield_step = now;
-            }
+	if (ventilagon_active) {
+	    ventilagon_loop();
+	} else {
+	    gpu_step();
+	}
     }
 }
 
@@ -177,6 +186,7 @@ STATIC mp_obj_t povdisplay_init(mp_obj_t num_pixels, mp_obj_t palette) {
     spi_init(mp_obj_get_int(num_pixels));
     palette_pal = (uint32_t *) mp_obj_str_get_str(palette);
     printf("creating task, running on core %d\n", xPortGetCoreID());
+    ventilagon_setup();
 
     xTaskCreatePinnedToCore(
             coreTask,   /* Function to implement the task */

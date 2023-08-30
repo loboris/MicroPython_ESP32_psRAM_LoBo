@@ -1,13 +1,13 @@
 #include "ventilagon.h"
 bool keys_pressed;
 
-void setup() {
+void gameover_setup() {
   display_calibrate(true);
   audio_play_game_over();
   keys_pressed = (boton_cw || boton_ccw);
 }
 
-void loop() {
+void gameover_loop() {
   if (boton_cw == false && boton_ccw == false) {
     keys_pressed = false;
   }
@@ -30,4 +30,4 @@ void loop() {
 }
 
 
-State gameover_state = { "GAME OVER", setup, loop };
+State gameover_state = { "GAME OVER", gameover_setup, gameover_loop };

@@ -6,7 +6,7 @@ int64_t win_started;
 const long win_delay_1 = 45000 - 7000; // 45 seconds
 const long win_delay_2 = 45000; // un poquin mas para que se vaya todo
 
-void setup() {
+void win_setup() {
   display_calibrate(true);
   board_reset();
   ledbar_set_win_state();
@@ -14,7 +14,7 @@ void setup() {
   win_started = now / 1000;
 }
 
-void loop() {
+void win_loop() {
   int64_t now = esp_timer_get_time();
   int64_t now_ms = now / 1000;
   if ((now_ms - win_last_step) > win_step_delay) {
@@ -34,4 +34,4 @@ void loop() {
   display_adjust_drift();
 }
 
-State win_state = {"FOR THE WIN!", setup, loop};
+State win_state = {"FOR THE WIN!", win_setup, win_loop};

@@ -4,13 +4,13 @@ const unsigned long reset_step_delay = (10L * 100 * 1000) / NUM_ROWS;
 uint64_t last_step;
 int counter;
 
-void setup() {
+void resetting_setup() {
   last_step = esp_timer_get_time();
   counter = 0;
   audio_reset();
 }
 
-void loop() {
+void resetting_loop() {
   int64_t now = esp_timer_get_time();
   display_tick(now);
   
@@ -27,5 +27,5 @@ void loop() {
   }
 }
 
-State resetting_state = { "RESETTING", setup, loop };
+State resetting_state = { "RESETTING", resetting_setup, resetting_loop };
 

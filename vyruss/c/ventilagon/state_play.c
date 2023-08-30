@@ -22,7 +22,7 @@ char section_sounds[] = {
   '-', 'g', 'o', 'l', 'j', 'f'
 };
 
-void setup() {
+void play_setup() {
   current_level = levels[new_level];
   paused = false;
   board_reset();
@@ -56,7 +56,7 @@ void check_section(int64_t now) {
   }
 }
 
-void loop() {
+void play_loop() {
   int64_t now = esp_timer_get_time();
 
   if (boton_cw != boton_ccw) {
@@ -116,4 +116,4 @@ void toggle_pause() {
   paused = !paused;
 }
 
-State play_state = { "RUNNING GAME", setup, loop };
+State play_state = { "RUNNING GAME", play_setup, play_loop };

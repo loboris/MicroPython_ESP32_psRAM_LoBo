@@ -56,7 +56,7 @@ void reset() {
   char_column = CHAR_WIDTH;
   cursor = 0;
 }
-void loop() {
+void text_loop() {
   if (last_turn != prev_turn) {
     prev_turn = last_turn;
     hall_sensed();
@@ -101,19 +101,19 @@ TextDisplay text;
 //  last_turn = this_turn;
 //}
 
-void setup() {
+void credits_setup() {
   int64_t now = esp_timer_get_time();
   credits_started = now / 1000;
   text.reset();
 }
 
-void loop() {
+void credits_loop() {
   int64_t now = esp_timer_get_time();
   int64_t now_ms = now / 1000;
   if ((now_ms - credits_started) > credits_duration) {
     change_state(&win_state);
   }
-  text.loop();
+  text_loop();
 }
 
-const State state_credits = { "Rolling Credits", setup, loop};
+const State state_credits = { "Rolling Credits", credits_setup, credits_loop};

@@ -18,15 +18,15 @@ typedef uint8_t byte;
 #define debugln(d)
 #endif
 
-const byte NUM_COLUMNS = 6;
+#define NUM_COLUMNS 6
 #define NUM_ROWS 32
-const byte HALL_SENSOR = 2;
+#define HALL_SENSOR 2
 
-const byte ROW_SHIP = 3;
-const byte ROW_COLISION = 7;
+#define ROW_SHIP 3
+#define ROW_COLISION 7
 
-const int SUBDEGREES = 8192;
-const int SUBDEGREES_MASK = 8191;
+#define SUBDEGREES 8192
+#define SUBDEGREES_MASK 8191
 
 void pattern_init();
 byte pattern_transform(byte b);
@@ -122,5 +122,8 @@ extern uint64_t last_step;
 extern bool boton_cw;
 extern bool boton_ccw;
 extern int nave_pos;
+
+void ventilagon_setup();
+void ventilagon_loop();
 
 #define elements_in(arrayname) (sizeof arrayname/sizeof *arrayname)

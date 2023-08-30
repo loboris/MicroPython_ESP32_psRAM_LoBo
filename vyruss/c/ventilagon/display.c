@@ -10,8 +10,9 @@ int nave_pos = 360;
 int nave_calibrate = -250; // ventilador velocidad maxima
 int half_ship_width = 50;
 
-volatile int64_t last_turn = 0;
-volatile int64_t last_turn_duration = 10L;
+// defined by Ventilastastion
+extern volatile int64_t last_turn;
+extern volatile int64_t last_turn_duration;
 
 void handle_interrupt() {
   int64_t this_turn = esp_timer_get_time();
