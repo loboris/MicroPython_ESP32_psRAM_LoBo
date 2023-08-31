@@ -52,6 +52,7 @@ void board_win_reset();
 void board_win_step_back();
 
 
+void display_init();
 void display_reset();
 void display_dump_debug();
 void display_adjust_drift();

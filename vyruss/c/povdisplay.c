@@ -42,7 +42,7 @@ int buf_size;
 bool ventilagon_active = true;
 
 volatile int64_t last_turn = 0;
-volatile int64_t last_turn_duration = 3000000000;
+volatile int64_t last_turn_duration = 3000000;
 
 extern void render(int n, uint32_t* pixels);
 extern void init_sprites();
@@ -57,14 +57,15 @@ inline uint32_t max(uint32_t a, uint32_t b) {
 
 char* init_buffers(int num_pixels) {
     spi_buf=heap_caps_malloc(buf_size, MALLOC_CAP_DMA);
-    memset(spi_buf, 0, buf_size);
+    memset(spi_buf, 0xff, buf_size);
     extra_buf=heap_caps_malloc(buf_size/2, MALLOC_CAP_DEFAULT);
-    memset(extra_buf, 0, buf_size/2);
+    memset(extra_buf, 0x01, buf_size/2);
+    ((uint32_t*)spi_buf)[0]=0;
     pixels0 = (uint32_t*)(spi_buf+4);
     pixels1 = (uint32_t*)(spi_buf+num_pixels*4);
     for(int n=0; n<num_pixels; n++) {
-        pixels0[n] = 0x000000Ff;
-        pixels1[n] = 0x000000Ff;
+        pixels0[n] = 0x010000Ff;
+        pixels1[n] = 0x000100Ff;
     }
     return spi_buf;
 }

@@ -427,12 +427,12 @@ int level_new_drift(int current_drift) {
   return current_level->drift_calculator(current_drift);
 }
 
-const Level level1 = {50000L, 4, 5, '1', 0x0000ffff, 0x000000, 0x000001ff, patterns_level1, elements_in(patterns_level1), &no_drift};
-const Level level2 = {45000L, 4, 6, '2', 0x00ff00ff, 0x000000, 0x000100ff, patterns_level2, elements_in(patterns_level2), &slow_drift};
-const Level level3 = {40000L, 4, 7, '3', 0xffff00ff, 0x000000, 0x010100ff, patterns_level3, elements_in(patterns_level3), &slow_drift};
-const Level level4 = {40000L, 4, 7, '1', 0x00ffffff, 0x000000, 0x000101ff, patterns_level4, elements_in(patterns_level4), &med_drift};
-const Level level5 = {40000L, 4, 7, '2', 0xff00ffff, 0x000000, 0x010001ff, patterns_level5, elements_in(patterns_level5), &high_drift};
-const Level level6 = {40000L, 4, 7, '3', 0xff0000ff, 0x000000, 0x010000ff, patterns_level6, elements_in(patterns_level6), &crazy_drift};
+const Level level1 = {50000L, 4, 5, '1', 0x0000ffff, 0x000000ff, 0x000001ff, patterns_level1, elements_in(patterns_level1), &no_drift};
+const Level level2 = {45000L, 4, 6, '2', 0x00ff00ff, 0x000000ff, 0x000100ff, patterns_level2, elements_in(patterns_level2), &slow_drift};
+const Level level3 = {40000L, 4, 7, '3', 0xffff00ff, 0x000000ff, 0x010100ff, patterns_level3, elements_in(patterns_level3), &slow_drift};
+const Level level4 = {40000L, 4, 7, '1', 0x00ffffff, 0x000000ff, 0x000101ff, patterns_level4, elements_in(patterns_level4), &med_drift};
+const Level level5 = {40000L, 4, 7, '2', 0xff00ffff, 0x000000ff, 0x010001ff, patterns_level5, elements_in(patterns_level5), &high_drift};
+const Level level6 = {40000L, 4, 7, '3', 0xff0000ff, 0x000000ff, 0x010000ff, patterns_level6, elements_in(patterns_level6), &crazy_drift};
 
 
 const Level* const levels[] = {

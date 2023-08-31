@@ -13,6 +13,7 @@ int half_ship_width = 50;
 // defined by Ventilastastion
 extern volatile int64_t last_turn;
 extern volatile int64_t last_turn_duration;
+uint32_t* draw_buffer;
 
 void handle_interrupt() {
   int64_t this_turn = esp_timer_get_time();
@@ -29,6 +30,7 @@ void display_init(){
    drift_pos = 0;
    drift_speed = 0;
    calibrating = false;
+   draw_buffer = extra_buf;
 }
 
 void display_reset() {
@@ -82,23 +84,28 @@ void display_tick(int64_t now) {
     //need_update = true;
   }
 
-  if (need_update || true) {
+  if (need_update) {
 
-    int opposed_column = (current_column + NUM_COLUMNS/2) % NUM_COLUMNS;
-    for (int j=0; j<54; j++) {
-      extra_buf[j] = 0x010000ff;
+    /*
+    for (int u=0; u<107; u++) {
+        pixels0[u] = 0x010101ff;
+    } */
+
+    unsigned int opposed_column = (current_column + (NUM_COLUMNS/2)) % NUM_COLUMNS;
+    for (int j=0; j<NUM_ROWS; j++) {
+      draw_buffer[j] = 0x010000ff;
     }
-    board_draw_column(current_column, extra_buf + 54-NUM_ROWS);
-    for(int n=0; n<54; n++) {
-	pixels0[n] = extra_buf[53-n];
+    board_draw_column(current_column, draw_buffer);
+    for(int k=0; k<NUM_ROWS; k++) {
+	pixels0[k] = draw_buffer[NUM_ROWS-k-1];
     }
 
-    for (int j=0; j<54; j++) {
-      extra_buf[j] = 0x000100ff;
+    for (int l=0; l<NUM_ROWS; l++) {
+      draw_buffer[l] = 0x000100ff;
     }
-    board_draw_column(current_column, extra_buf + 54-NUM_ROWS);
-    for(int n=0; n<54; n++) {
-	pixels1[n] = extra_buf[n];
+    board_draw_column(opposed_column, draw_buffer);
+    for(int m=0; m<NUM_ROWS; m++) {
+        pixels1[m + 54-NUM_ROWS] = draw_buffer[m];
     }
 
     //FIXME: draw_ship
