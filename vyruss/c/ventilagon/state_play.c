@@ -44,7 +44,9 @@ void advance_section(int64_t now) {
     // ganaste
     audio_play_win();
     audio_stop_servo();
-    change_state(&state_credits);
+    // FIXME: volver a poner los creditos
+    // change_state(&credits_state);
+    change_state(&win_state);
     return;
   }
   current_level = levels[section];
@@ -79,6 +81,9 @@ void play_loop() {
 
 
   if (now > (last_step + current_level->step_delay)) {
+    // FIXME
+    board_step();
+    /*
     if (!board_colision(nave_pos, ROW_SHIP)) {
       if (!paused) {
         board_step();
@@ -90,6 +95,7 @@ void play_loop() {
       audio_stop_song();
       change_state(&gameover_state);
     }
+    */
     last_step = now;
   }
 

@@ -19,7 +19,7 @@ typedef uint8_t byte;
 #endif
 
 #define NUM_COLUMNS 6
-#define NUM_ROWS 32
+#define NUM_ROWS 48
 #define HALL_SENSOR 2
 
 #define ROW_SHIP 3
@@ -34,14 +34,12 @@ void pattern_randomize();
 byte pattern_next_row();
 bool pattern_is_finished();
 
-void ledbar_setPixelColor(int pixel, long color);
+void ledbar_setPixelColor(uint32_t* buffer, int pixel, uint32_t color);
 bool ledbar_multicolored;
 void ledbar_init();
-void ledbar_clear();
 void ledbar_reset();
 void ledbar_set_win_state();
-void ledbar_draw(byte num_row, bool value, bool alt_column);
-void ledbar_update();
+void ledbar_draw(uint32_t* buffer, byte num_row, bool value, bool alt_column);
 
 void board_init();
 void board_reset();
@@ -49,7 +47,7 @@ void board_fill_patterns();
 bool board_colision(int pos, byte num_row);
 void board_step();
 void board_step_back();
-void board_draw_column(byte column);
+void board_draw_column(byte column, uint32_t* pixels);
 void board_win_reset();
 void board_win_step_back();
 
@@ -78,14 +76,9 @@ extern State gameover_state;
 extern State win_state;
 extern State play_state;
 extern State resetting_state;
-extern State state_credits;
+extern State credits_state;
 
-typedef struct {
-    bool on;
-} Ship;
-void ship_init();
-void ship_prender();
-void ship_apagar();
+void ship_draw();
 
 typedef int (*drift_fn_t)(int);
 
@@ -93,9 +86,9 @@ typedef struct Level_s {
     unsigned long step_delay;
     byte block_height;
     byte rotation_speed;
-    char song;
-    long color;
-    long bg1, bg2;
+    char* song;
+    uint32_t color;
+    uint32_t bg1, bg2;
     const byte* const* patterns;
     int num_patterns;
     drift_fn_t drift_calculator;
@@ -110,9 +103,8 @@ void audio_begin();
 void audio_stop_song();
 void audio_stop_servo();
 void audio_reset();
-void audio_play_song(char song);
+void audio_play_song(char* song);
 
-extern Ship ship;
 extern const byte transformations[];
 extern const Level* const levels[];
 extern const Level* current_level;
@@ -122,8 +114,14 @@ extern uint64_t last_step;
 extern bool boton_cw;
 extern bool boton_ccw;
 extern int nave_pos;
+extern void serial_send(char* line);
 
 void ventilagon_setup();
 void ventilagon_loop();
+
+extern uint32_t* extra_buf;
+extern uint32_t* pixels0;
+extern uint32_t* pixels1;
+void spi_write_HSPI();
 
 #define elements_in(arrayname) (sizeof arrayname/sizeof *arrayname)

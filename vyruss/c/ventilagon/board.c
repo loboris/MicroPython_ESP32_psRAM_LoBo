@@ -93,18 +93,16 @@ void board_win_step_back() {
   }
 }
 
-void board_draw_column(byte column) {
+void board_draw_column(byte column, uint32_t* pixels) {
   byte mask = 1 << column;
-  ledbar_clear();
   
   // always paint the innermost circle
-  ledbar_draw(0, true, true);
+  ledbar_draw(pixels, 0, true, true);
   
   for (byte n = 1; n < NUM_ROWS; n++) {
     byte row = circularbuffer_get_row(n);
     bool value = row & mask;
-    ledbar_draw(n, value, column & 1);
+    ledbar_draw(pixels, n, value, column & 1);
   }
-  ledbar_update();
 }
 

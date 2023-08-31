@@ -17,38 +17,52 @@ o) triangle.wav
 p) wonderful.wav
 */
 
+#include "ventilagon.h"
+
+void serial_send(char* text) {
+  // FIXME: actually send something somewhere
+}
+
+void audio_play(char* song) {
+  serial_send("sound ");
+  serial_send(song);
+  serial_send("\n");
+}
+
+void audio_play_song(char* song) {
+  serial_send("music ");
+  serial_send(song);
+  serial_send("\n");
+}
+
 void audio_play_superventilagon() {
-  Serial.print("n");
+  audio_play("n");
 }
 
 void audio_play_crash() {
-  Serial.print("c");
+  audio_play("c");
 }
 
 void audio_play_win() {
-  Serial.print("d");
+  audio_play("d");
 }
 
 void audio_play_game_over() {
-  Serial.print("e");
+  audio_play("e");
 }
 
 void audio_stop_song() {
-  Serial.print("0");
+  audio_play("0");
 }
 
 void audio_begin() {
-  Serial.print("b");
-}
-
-void audio_play_song(char song) {
-  Serial.print(song);
+  audio_play("b");
 }
 
 void audio_reset() {
-  Serial.print("0R");
+  serial_send("music off\n");
 }
 
 void audio_stop_servo() {
-  Serial.print("r");
+  serial_send("servo stop\n");
 }

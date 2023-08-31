@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "minispi.h"
 #include "gpu.h"
@@ -38,10 +39,10 @@ uint32_t* pixels0;
 uint32_t* pixels1;
 
 int buf_size;
-bool ventilagon_active = false;
+bool ventilagon_active = true;
 
 volatile int64_t last_turn = 0;
-volatile int64_t last_turn_duration = 355 * COLUMNS;
+volatile int64_t last_turn_duration = 3000000000;
 
 extern void render(int n, uint32_t* pixels);
 extern void init_sprites();
@@ -57,7 +58,7 @@ inline uint32_t max(uint32_t a, uint32_t b) {
 char* init_buffers(int num_pixels) {
     spi_buf=heap_caps_malloc(buf_size, MALLOC_CAP_DMA);
     memset(spi_buf, 0, buf_size);
-    extra_buf=heap_caps_malloc(buf_size/2, MALLOC_CAP_DMA);
+    extra_buf=heap_caps_malloc(buf_size/2, MALLOC_CAP_DEFAULT);
     memset(extra_buf, 0, buf_size/2);
     pixels0 = (uint32_t*)(spi_buf+4);
     pixels1 = (uint32_t*)(spi_buf+num_pixels*4);
@@ -97,13 +98,6 @@ void delay(int ms) {
     while (esp_timer_get_time() < end) {
     }
 }
-
-uint32_t colors[4] = {
-    0xff000011,
-    0xff001100,
-    0xff110000,
-    0xff000000,
-};
 
 int color = 0;
 uint32_t count = 0;
@@ -149,7 +143,7 @@ void gpu_step() {
     uint32_t column = ((now - last_turn) * COLUMNS / last_turn_duration) % COLUMNS;
     if (column != last_column) {
 	render((column + COLUMNS/2) % COLUMNS, extra_buf);
-	for(int n=0;n<54;n++) {
+	for(int n=0; n<54; n++) {
 	    pixels0[n] = extra_buf[53-n];
 	}
 	render(column, pixels1);
@@ -167,7 +161,7 @@ void gpu_step() {
 void coreTask( void * pvParameters ){
     printf("task running on core %d\n", xPortGetCoreID());
 
-    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
+    //gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
     //hall_init(GPIO_HALL);
     hall_init(GPIO_HALL_B);
 
@@ -187,6 +181,9 @@ STATIC mp_obj_t povdisplay_init(mp_obj_t num_pixels, mp_obj_t palette) {
     palette_pal = (uint32_t *) mp_obj_str_get_str(palette);
     printf("creating task, running on core %d\n", xPortGetCoreID());
     ventilagon_setup();
+    printf("pixels0: %p\n", pixels0);
+    printf("pixels1: %p\n", pixels1);
+    printf("extra_buf: %p\n", extra_buf);
 
     xTaskCreatePinnedToCore(
             coreTask,   /* Function to implement the task */

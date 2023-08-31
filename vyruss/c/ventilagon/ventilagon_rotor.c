@@ -11,7 +11,6 @@ void ventilagon_setup() {
   //randomSeed(83);
 
   ledbar_init();
-  ship_init();
   board_fill_patterns();
   new_level = 0;
 

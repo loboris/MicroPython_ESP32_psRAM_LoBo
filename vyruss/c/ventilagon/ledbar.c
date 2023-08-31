@@ -5,52 +5,38 @@
 //#define TLC_GSCLK_PERIOD    1
 //
 
+#include "ventilagon.h"
 
-Ledbar ledbar;
-
-void ledbar_setPixelColor(int pixel, long color) {
-  byte red = (color >> 16) & 0xff;
-  byte green = (color >> 8) & 0xff;
-  byte blue = (color >> 0) & 0xff;
-  byte base = pixel * 3;
-  Tlc.set(base + 0, (blue << 4));
-  Tlc.set(base + 1, (green << 4));
-  Tlc.set(base + 2, (red << 4));
+void ledbar_setPixelColor(uint32_t* buffer, int pixel, uint32_t color) {
+  buffer[pixel] = color;
 }
 
 void ledbar_init() {
-  debugln("INIT LEDBAR");
-  Tlc.init();
-  clear();
-}
-
-void ledbar_clear() {
-  Tlc.clear();
 }
 
 const long RED = 0xff0000;
 
 void ledbar_reset() {
-  multicolored = false;
+  ledbar_multicolored = false;
 }
 
 void ledbar_set_win_state() {
-  multicolored = true;
+  ledbar_multicolored = true;
 }
 
 uint32_t colors[] = {
-  0x0000ff,
-  0x00ff00,
-  0xffff00,
-  0x00ffff,
-  0xff00ff,
-  0xff0000,
+  0x0000ffff,
+  0x00ff00ff,
+  0xffff00ff,
+  0x00ffffff,
+  0xff00ffff,
+  0xff0000ff,
 };
 
-void ledbar_draw(byte num_row, boolean value, boolean alt_column) {
-  long color;
+void ledbar_draw(uint32_t* pixels, byte num_row, bool value, bool alt_column) {
+  uint32_t color;
   if (value) {
-    if (!multicolored) {
+    if (!ledbar_multicolored) {
       color = current_level->color;
     } else {
       color = colors[((num_row>>2)+(alt_column<<1))%6];
@@ -61,9 +47,5 @@ void ledbar_draw(byte num_row, boolean value, boolean alt_column) {
   if (num_row == ROW_SHIP && value) {
     //color = RED;
   }
-  setPixelColor(num_row, color);
-}
-
-void ledbar_update() {
-  Tlc.update();
+  ledbar_setPixelColor(pixels, num_row, color);
 }

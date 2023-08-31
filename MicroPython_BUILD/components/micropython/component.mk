@@ -196,15 +196,15 @@ SRC_C =  $(addprefix esp32/,\
 	pov/ventilagon/state_win.c \
 	pov/ventilagon/text_bitmap.c \
 	pov/ventilagon/ventilagon_rotor.c \
+	pov/ventilagon/audio.c \
+	pov/ventilagon/ledbar.c \
+	pov/ventilagon/ship.c \
 	machine_hw_i2c.c \
 	machine_neopixel.c \
 	machine_dht.c \
 	machine_ow.c \
 	)
 
-#	pov/ventilagon/ship.c \
-#	pov/ventilagon/ledbar.c \
-#	pov/ventilagon/audio.c \
 #	pov/ventilagon/finetune.c \
 #	pov/ventilagon/state_win_credits.c \
 
