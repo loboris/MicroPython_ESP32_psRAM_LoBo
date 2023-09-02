@@ -18,7 +18,7 @@ void ventilagon_setup() {
   ledbar_reset();
   audio_stop_song();
   audio_play_superventilagon();
-  change_state(&resetting_state);
+  change_state(&play_state);
 }
 
 bool boton_cw = false;
