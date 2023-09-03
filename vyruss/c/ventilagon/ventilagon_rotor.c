@@ -2,7 +2,15 @@
 
 uint64_t last_step = 0;
 
-void ventilagon_setup() {
+QueueHandle_t queue_receive;
+QueueHandle_t queue_send;
+
+void ventilagon_init() {
+  queue_receive = xQueueCreate(20, sizeof(char));
+  queue_send = xQueueCreate(20, sizeof(char*));
+}
+
+void ventilagon_enter() {
   //pinMode(HALL_SENSOR, INPUT_PULLUP);
   //attachInterrupt(0, handle_interrupt, FALLING);
   //Serial.begin(57600);

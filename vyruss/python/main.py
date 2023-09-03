@@ -30,8 +30,8 @@ class GamesMenu(menu.Menu):
             director.push(vong.VongGame())
             raise StopIteration()
         if option_pressed[0] == 'ventilagon':
-            import ventilagon
-            director.push(ventilagon.VentilagonGame())
+            import ventilagon_game
+            director.push(ventilagon_game.VentilagonGame())
             raise StopIteration()
 
     def step(self):

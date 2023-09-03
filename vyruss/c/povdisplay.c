@@ -181,7 +181,7 @@ STATIC mp_obj_t povdisplay_init(mp_obj_t num_pixels, mp_obj_t palette) {
     spi_init(mp_obj_get_int(num_pixels));
     palette_pal = (uint32_t *) mp_obj_str_get_str(palette);
     printf("creating task, running on core %d\n", xPortGetCoreID());
-    //ventilagon_setup();
+    ventilagon_init();
     printf("pixels0: %p\n", pixels0);
     printf("pixels1: %p\n", pixels1);
     printf("extra_buf: %p\n", extra_buf);
@@ -211,26 +211,10 @@ STATIC mp_obj_t povdisplay_getaddress(mp_obj_t sprite_num) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(povdisplay_getaddress_obj, povdisplay_getaddress);
 // ------------------------------
 
-STATIC mp_obj_t povdisplay_ventilagon_enter(void) {
-    ventilagon_setup();
-    ventilagon_active = true;
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(povdisplay_ventilagon_enter_obj, povdisplay_ventilagon_enter);
-
-STATIC mp_obj_t povdisplay_ventilagon_exit(void) {
-    ventilagon_active = false;
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(povdisplay_ventilagon_exit_obj, povdisplay_ventilagon_exit);
-// ------------------------------
-
 STATIC const mp_map_elem_t povdisplay_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_povdisplay) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_init), (mp_obj_t)&povdisplay_init_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_getaddress), (mp_obj_t)&povdisplay_getaddress_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_ventilagon_enter), (mp_obj_t)&povdisplay_ventilagon_enter_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_ventilagon_exit), (mp_obj_t)&povdisplay_ventilagon_exit_obj },
 };
 
 STATIC MP_DEFINE_CONST_DICT (
@@ -241,4 +225,36 @@ STATIC MP_DEFINE_CONST_DICT (
 const mp_obj_module_t mp_module_povdisplay = {
     .base = { &mp_type_module },
     .globals = (mp_obj_dict_t*)&mp_module_povdisplay_globals,
+};
+
+// ------------------------------
+
+STATIC mp_obj_t ventilagon_ventilagon_enter(void) {
+    ventilagon_enter();
+    ventilagon_active = true;
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(ventilagon_ventilagon_enter_obj, ventilagon_ventilagon_enter);
+
+STATIC mp_obj_t ventilagon_ventilagon_exit(void) {
+    ventilagon_active = false;
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(ventilagon_ventilagon_exit_obj, ventilagon_ventilagon_exit);
+// ------------------------------
+
+STATIC const mp_map_elem_t ventilagon_globals_table[] = {
+    { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_ventilagon) },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_enter), (mp_obj_t)&ventilagon_ventilagon_enter_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_exit), (mp_obj_t)&ventilagon_ventilagon_exit_obj },
+};
+
+STATIC MP_DEFINE_CONST_DICT (
+    mp_module_ventilagon_globals,
+    ventilagon_globals_table
+);
+
+const mp_obj_module_t mp_module_ventilagon = {
+    .base = { &mp_type_module },
+    .globals = (mp_obj_dict_t*)&mp_module_ventilagon_globals,
 };

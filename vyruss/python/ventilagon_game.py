@@ -1,14 +1,14 @@
-import povdisplay
+import ventilagon
 from director import director
 from scene import Scene
 
 
 class VentilagonGame(Scene):
     def on_enter(self):
-        povdisplay.ventilagon_enter()
+        ventilagon.enter()
 
     def on_exit(self):
-        povdisplay.ventilagon_exit()
+        ventilagon.exit()
 
     def step(self):
         if director.was_pressed(director.BUTTON_A):

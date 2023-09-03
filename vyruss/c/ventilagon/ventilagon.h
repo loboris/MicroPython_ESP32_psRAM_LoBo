@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <esp_timer.h>
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
 
 typedef uint8_t byte;
 
@@ -117,7 +119,11 @@ extern bool boton_ccw;
 extern int nave_pos;
 extern void serial_send(char* line);
 
-void ventilagon_setup();
+extern QueueHandle_t queue_receive;
+extern QueueHandle_t queue_send;
+
+void ventilagon_init();
+void ventilagon_enter();
 void ventilagon_loop();
 
 extern uint32_t* extra_buf;

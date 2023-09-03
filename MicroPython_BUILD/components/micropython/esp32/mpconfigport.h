@@ -282,6 +282,7 @@ extern const struct _mp_obj_module_t mp_module_machine;
 extern const struct _mp_obj_module_t mp_module_network;
 extern const struct _mp_obj_module_t mp_module_ymodem;
 extern const struct _mp_obj_module_t mp_module_povdisplay;
+extern const struct _mp_obj_module_t mp_module_ventilagon;
 extern const struct _mp_obj_module_t mp_module_sprites;
 
 #ifdef CONFIG_MICROPY_USE_REQUESTS
@@ -341,6 +342,7 @@ extern const struct _mp_obj_module_t mp_module_bluetooth;
     { MP_OBJ_NEW_QSTR(MP_QSTR_network),  (mp_obj_t)&mp_module_network }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR_ymodem),   (mp_obj_t)&mp_module_ymodem }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR_povdisplay), (mp_obj_t)&mp_module_povdisplay }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_ventilagon), (mp_obj_t)&mp_module_ventilagon }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR_sprites),  (mp_obj_t)&mp_module_sprites }, \
 	{ MP_OBJ_NEW_QSTR(MP_QSTR_uhashlib), (mp_obj_t)&mp_module_uhashlib }, \
 	BUILTIN_MODULE_DISPLAY \
