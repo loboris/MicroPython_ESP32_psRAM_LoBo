@@ -106,7 +106,7 @@ void audio_begin();
 void audio_stop_song();
 void audio_stop_servo();
 void audio_reset();
-void audio_play_song(char* song);
+void audio_play(const char* command);
 
 extern const byte transformations[];
 extern const Level* const levels[];
@@ -117,10 +117,10 @@ extern uint64_t last_step;
 extern bool boton_cw;
 extern bool boton_ccw;
 extern int nave_pos;
-extern void serial_send(char* line);
+extern void serial_send(const char* line);
 
-extern QueueHandle_t queue_receive;
-extern QueueHandle_t queue_send;
+extern QueueHandle_t queue_received;
+extern QueueHandle_t queue_sending;
 
 void ventilagon_init();
 void ventilagon_enter();

@@ -241,12 +241,30 @@ STATIC mp_obj_t ventilagon_ventilagon_exit(void) {
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(ventilagon_ventilagon_exit_obj, ventilagon_ventilagon_exit);
+
+STATIC mp_obj_t ventilagon_ventilagon_received(mp_obj_t mp_value) {
+    byte value = mp_obj_get_int(mp_value);
+    xQueueSend(queue_received, &value, 0);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(ventilagon_ventilagon_received_obj, ventilagon_ventilagon_received);
+
+STATIC mp_obj_t ventilagon_ventilagon_sending(void) {
+    char* buff;
+    if( xQueueReceive( queue_sending, &buff, 0 ) ) {
+	return mp_obj_new_str(buff, strlen(buff));
+    }
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(ventilagon_ventilagon_sending_obj, ventilagon_ventilagon_sending);
 // ------------------------------
 
 STATIC const mp_map_elem_t ventilagon_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_ventilagon) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_enter), (mp_obj_t)&ventilagon_ventilagon_enter_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_exit), (mp_obj_t)&ventilagon_ventilagon_exit_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_received), (mp_obj_t)&ventilagon_ventilagon_received_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_sending), (mp_obj_t)&ventilagon_ventilagon_sending_obj },
 };
 
 STATIC MP_DEFINE_CONST_DICT (

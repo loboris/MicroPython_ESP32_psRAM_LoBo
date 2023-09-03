@@ -18,8 +18,13 @@ int64_t section_durations[] = {
   ULONG_MAX
 };
 
-char section_sounds[] = {
-  '-', 'g', 'o', 'l', 'j', 'f'
+const char* section_sounds[] = {
+  "sound -",
+  "sound line",
+  "sound triangle",
+  "sound square",
+  "sound pentagon",
+  "sound hexagon"
 };
 
 void play_setup() {
@@ -29,7 +34,7 @@ void play_setup() {
   audio_begin();
   display_reset();
   display_calibrate(false);
-  audio_play_song(current_level->song);
+  audio_play(current_level->song);
   section = 0;
   section_init_time = esp_timer_get_time();
   section_duration = section_durations[section];
@@ -39,7 +44,7 @@ void advance_section(int64_t now) {
   section++;
   section_init_time = now;
   section_duration = section_durations[section];
-  audio_play_song(section_sounds[section]);
+  audio_play(section_sounds[section]);
   if (levels[section] == NULL) {
     // ganaste
     audio_play_win();

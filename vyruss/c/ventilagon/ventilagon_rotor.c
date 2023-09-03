@@ -2,12 +2,21 @@
 
 uint64_t last_step = 0;
 
-QueueHandle_t queue_receive;
-QueueHandle_t queue_send;
+#define JOY_LEFT 1
+#define JOY_RIGHT 2
+#define JOY_UP 4
+#define JOY_DOWN 8
+#define BUTTON_A 16
+#define BUTTON_B 32
+#define BUTTON_C 64
+#define BUTTON_D 128
+
+QueueHandle_t queue_received;
+QueueHandle_t queue_sending;
 
 void ventilagon_init() {
-  queue_receive = xQueueCreate(20, sizeof(char));
-  queue_send = xQueueCreate(20, sizeof(char*));
+  queue_received = xQueueCreate(20, sizeof(char));
+  queue_sending = xQueueCreate(20, sizeof(char*));
 }
 
 void ventilagon_enter() {
@@ -89,6 +98,18 @@ void selectLevel(byte level) {
   change_state(&resetting_state);
 }
 
+void ventilagon_process_received() {
+    byte in_byte;
+    if( xQueueReceive( queue_received, &in_byte, 0 ) ) {
+      boton_ccw = in_byte & JOY_LEFT ;
+      boton_cw = in_byte & JOY_RIGHT;
+    }
+}
+
 void ventilagon_loop() {
+  ventilagon_process_received();
   current_state->loop();
+}
+
+void ventilagon_received(char c) {
 }
