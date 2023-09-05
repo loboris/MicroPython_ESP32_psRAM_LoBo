@@ -67,9 +67,14 @@ int display_ship_rows(int current_pos) {
   return 0;
 }
 
+int64_t last_drift = 0;
+
 void display_tick(int64_t now) {
   // esto no hace falta calcularlo tan seguido. Una vez por vuelta deberia alcanzar
-  drift_pos = (drift_pos + drift_speed) & SUBDEGREES_MASK;
+  if (now > (last_drift + current_level->step_delay/32)) {
+    drift_pos = (drift_pos + drift_speed) & SUBDEGREES_MASK;
+    last_drift = now;
+  }
 
   bool need_update = true;
   int64_t drift = drift_pos * last_turn_duration / SUBDEGREES;
