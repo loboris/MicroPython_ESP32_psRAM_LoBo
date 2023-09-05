@@ -46,29 +46,31 @@ void display_adjust_drift() {
   }
 }
 
-bool display_ship_on(int current_pos) {
+int display_ship_rows(int current_pos) {
   if (calibrating) {
     return board_colision(current_pos, ROW_SHIP);
   }
 
   // NO HAY QUE ARREGLAR NADA ACA
 
-  if (abs(nave_pos - current_pos) < (half_ship_width)) {
-    return true;
+  int d1 = abs(nave_pos - current_pos);
+  int d2 = abs(((nave_pos + SUBDEGREES / 2) & SUBDEGREES_MASK) -
+           ((current_pos + SUBDEGREES / 2) & SUBDEGREES_MASK));
+  if (d1 < half_ship_width || d2 < half_ship_width) {
+    return 2;
   }
-  if (abs( ((nave_pos + SUBDEGREES / 2) & SUBDEGREES_MASK) -
-           ((current_pos + SUBDEGREES / 2) & SUBDEGREES_MASK))
-      < (half_ship_width)) {
-    return true;
+  if (d1 < (half_ship_width * 2.5) || d2 < (half_ship_width * 2.5)) {
+    return 1;
   }
-  return false;
+
+  return 0;
 }
 
 void display_tick(int64_t now) {
   // esto no hace falta calcularlo tan seguido. Una vez por vuelta deberia alcanzar
   drift_pos = (drift_pos + drift_speed) & SUBDEGREES_MASK;
 
-  bool need_update = false;
+  bool need_update = true;
   int64_t drift = 0; //drift_pos * last_turn_duration / SUBDEGREES;
   unsigned int current_pos = ((drift + now - last_turn) * SUBDEGREES / last_turn_duration) & SUBDEGREES_MASK;
   unsigned int current_column = ((drift + now - last_turn) * NUM_COLUMNS / last_turn_duration) % NUM_COLUMNS;
@@ -78,11 +80,6 @@ void display_tick(int64_t now) {
     last_column_drawn = current_column;
   }
 
-  // FIXME: mostrar nave
-  // y mostrar nave triangular
-  if (display_ship_on(current_pos)) {
-    //need_update = true;
-  }
 
   if (need_update) {
 
@@ -96,6 +93,12 @@ void display_tick(int64_t now) {
       draw_buffer[j] = 0x010000ff;
     }
     board_draw_column(current_column, draw_buffer);
+    // FIXME: mostrar nave
+    // y mostrar nave triangular
+    int ship_rows = display_ship_rows(current_pos);
+    for (int j=0; j<ship_rows; j++) {
+      draw_buffer[ROW_SHIP + j] = SHIP_COLOR;
+    }
     for(int k=0; k<NUM_ROWS; k++) {
 	pixels0[k] = draw_buffer[NUM_ROWS-k-1];
     }
@@ -104,6 +107,13 @@ void display_tick(int64_t now) {
       draw_buffer[l] = 0x000100ff;
     }
     board_draw_column(opposed_column, draw_buffer);
+
+    unsigned int infront_pos = (current_pos + (SUBDEGREES/2)) & SUBDEGREES_MASK;
+    ship_rows = display_ship_rows(infront_pos);
+    for (int j=0; j<ship_rows; j++) {
+      draw_buffer[ROW_SHIP + j] = SHIP_COLOR;
+    }
+
     for(int m=0; m<NUM_ROWS; m++) {
         pixels1[m + 54-NUM_ROWS] = draw_buffer[m];
     }

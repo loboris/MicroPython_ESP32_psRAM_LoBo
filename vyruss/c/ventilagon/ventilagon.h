@@ -27,6 +27,8 @@ typedef uint8_t byte;
 #define ROW_SHIP 3
 #define ROW_COLISION 7
 
+#define SHIP_COLOR 0xff0000ff
+
 #define SUBDEGREES 8192
 #define SUBDEGREES_MASK 8191
 
@@ -60,7 +62,6 @@ void display_dump_debug();
 void display_adjust_drift();
 void display_tick(int64_t now);
 void display_calibrate(bool calibrating);
-bool display_ship_on(int current_pos);
 
 typedef const char* (*get_name_fn_t)(void);
 typedef void (*setup_fn_t)(void);
@@ -114,6 +115,7 @@ extern const Level* current_level;
 extern byte new_level;
 extern int nave_calibrate;
 extern uint64_t last_step;
+extern uint64_t last_move;
 extern bool boton_cw;
 extern bool boton_ccw;
 extern int nave_pos;

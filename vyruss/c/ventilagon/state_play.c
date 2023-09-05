@@ -4,6 +4,7 @@
 int section;
 int64_t section_init_time;
 int64_t section_duration;
+uint64_t last_move;
 bool paused;
 
 #define CENTISECONDS (10UL * 1000UL) // in microseconds
@@ -66,22 +67,25 @@ void check_section(int64_t now) {
 void play_loop() {
   int64_t now = esp_timer_get_time();
 
-  if (boton_cw != boton_ccw) {
-    int new_pos = 0;
+  if (now > (last_move + current_level->step_delay/64)) {
+    if (boton_cw != boton_ccw) {
+      int new_pos = 0;
 
-    if (boton_cw) {
-      new_pos = nave_pos + current_level->rotation_speed;
-    }
-    if (boton_ccw) {
-      new_pos = nave_pos - current_level->rotation_speed;
-    }
+      if (boton_cw) {
+	new_pos = nave_pos + current_level->rotation_speed;
+      }
+      if (boton_ccw) {
+	new_pos = nave_pos - current_level->rotation_speed;
+      }
 
-    new_pos = (new_pos + SUBDEGREES) & SUBDEGREES_MASK;
+      new_pos = (new_pos + SUBDEGREES) & SUBDEGREES_MASK;
 
-    bool colision_futura = board_colision(new_pos, ROW_SHIP);
-    if (!colision_futura) {
-      nave_pos = new_pos;
+      bool colision_futura = board_colision(new_pos, ROW_SHIP);
+      if (!colision_futura) {
+	nave_pos = new_pos;
+      }
     }
+    last_move = now;
   }
 
 
