@@ -61,8 +61,7 @@ void board_fill_patterns() {
 }
 
 bool board_colision(int pos, byte num_row) {
-  // la nave esta enfrente
-  unsigned int real_pos = (pos + nave_calibrate + SUBDEGREES / 2) & SUBDEGREES_MASK;
+  unsigned int real_pos = (pos + nave_calibrate) & SUBDEGREES_MASK;
   byte ship_column = (real_pos * NUM_COLUMNS) / SUBDEGREES;
   byte row_ship = circularbuffer_get_row(num_row);
   byte mask = 1 << ship_column;

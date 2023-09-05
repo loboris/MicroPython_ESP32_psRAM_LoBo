@@ -7,7 +7,8 @@ bool calibrating;
 
 int nave_pos = 360;
 //int nave_calibrate = -478; // ventilador velocidad media
-int nave_calibrate = -250; // ventilador velocidad maxima
+//int nave_calibrate = -250; // ventilador velocidad maxima
+int nave_calibrate = 0; // ventilastation
 int half_ship_width = 50;
 
 // defined by Ventilastastion
