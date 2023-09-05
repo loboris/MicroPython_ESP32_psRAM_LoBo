@@ -72,7 +72,7 @@ void display_tick(int64_t now) {
   drift_pos = (drift_pos + drift_speed) & SUBDEGREES_MASK;
 
   bool need_update = true;
-  int64_t drift = 0; //drift_pos * last_turn_duration / SUBDEGREES;
+  int64_t drift = drift_pos * last_turn_duration / SUBDEGREES;
   unsigned int current_pos = ((drift + now - last_turn) * SUBDEGREES / last_turn_duration) & SUBDEGREES_MASK;
   unsigned int current_column = ((drift + now - last_turn) * NUM_COLUMNS / last_turn_duration) % NUM_COLUMNS;
 
@@ -94,8 +94,6 @@ void display_tick(int64_t now) {
       draw_buffer[j] = 0x010000ff;
     }
     board_draw_column(current_column, draw_buffer);
-    // FIXME: mostrar nave
-    // y mostrar nave triangular
     int ship_rows = display_ship_rows(current_pos);
     for (int j=0; j<ship_rows; j++) {
       draw_buffer[ROW_SHIP + j] = SHIP_COLOR;
@@ -119,8 +117,6 @@ void display_tick(int64_t now) {
         pixels1[m + 54-NUM_ROWS] = draw_buffer[m];
     }
 
-    //FIXME: draw_ship
-    //ship_draw();
     spi_write_HSPI();
   }
 }

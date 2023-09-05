@@ -103,6 +103,9 @@ void ventilagon_process_received() {
     if( xQueueReceive( queue_received, &in_byte, 0 ) ) {
       boton_ccw = in_byte & JOY_LEFT ;
       boton_cw = in_byte & JOY_RIGHT;
+      if (in_byte >= BUTTON_A) {
+          boton_cw = boton_ccw = true;
+      }
     }
 }
 

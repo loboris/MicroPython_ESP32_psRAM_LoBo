@@ -67,7 +67,7 @@ void check_section(int64_t now) {
 void play_loop() {
   int64_t now = esp_timer_get_time();
 
-  if (now > (last_move + current_level->step_delay/64)) {
+  if (now > (last_move + current_level->step_delay/156)) {
     if (boton_cw != boton_ccw) {
       int new_pos = 0;
 
@@ -92,7 +92,6 @@ void play_loop() {
   if (now > (last_step + current_level->step_delay)) {
     // FIXME
     board_step();
-    /*
     if (!board_colision(nave_pos, ROW_SHIP)) {
       if (!paused) {
         board_step();
@@ -104,7 +103,6 @@ void play_loop() {
       audio_stop_song();
       change_state(&gameover_state);
     }
-    */
     last_step = now;
   }
 
