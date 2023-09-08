@@ -24,6 +24,7 @@ void win_loop() {
     } else {
       board_win_step_back();
     }
+    display_adjust_drift();
   }
 
   if ((now_ms - win_started) > win_delay_2) {
@@ -31,7 +32,6 @@ void win_loop() {
   }
   now = esp_timer_get_time();
   display_tick(now);
-  display_adjust_drift();
 }
 
 State win_state = {"FOR THE WIN!", win_setup, win_loop};

@@ -17,6 +17,7 @@ QueueHandle_t queue_sending;
 void ventilagon_init() {
   queue_received = xQueueCreate(20, sizeof(char));
   queue_sending = xQueueCreate(20, sizeof(char*));
+  board_init();
 }
 
 void ventilagon_enter() {

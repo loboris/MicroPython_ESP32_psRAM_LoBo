@@ -1,4 +1,3 @@
-#include <freertos/portmacro.h>
 #include "ventilagon.h"
 
 static portMUX_TYPE buffer_mutex = portMUX_INITIALIZER_UNLOCKED;
@@ -37,6 +36,7 @@ byte circularbuffer_get_row(byte row_num) {
 }
 
 void board_init() {
+  pattern_init();
   board_reset();
 }
 
