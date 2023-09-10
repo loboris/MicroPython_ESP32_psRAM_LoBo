@@ -68,6 +68,8 @@ int display_ship_rows(int current_pos) {
 }
 
 int64_t last_drift = 0;
+int last_ship_rows = 0;
+int last_infront_ship_rows = 0;
 
 void display_tick(int64_t now) {
   // esto no hace falta calcularlo tan seguido. Una vez por vuelta deberia alcanzar
@@ -76,30 +78,32 @@ void display_tick(int64_t now) {
     last_drift = now;
   }
 
-  bool need_update = true;
+  bool need_update = false;
   int64_t drift = drift_pos * last_turn_duration / SUBDEGREES;
   unsigned int current_pos = ((drift + now - last_turn) * SUBDEGREES / last_turn_duration) & SUBDEGREES_MASK;
   unsigned int current_column = ((drift + now - last_turn) * NUM_COLUMNS / last_turn_duration) % NUM_COLUMNS;
+  int ship_rows = display_ship_rows(current_pos);
+  unsigned int infront_pos = (current_pos + (SUBDEGREES/2)) & SUBDEGREES_MASK;
+  int infront_ship_rows = display_ship_rows(infront_pos);
 
   if (current_column != last_column_drawn) {
     need_update = true;
     last_column_drawn = current_column;
   }
 
+  if (last_ship_rows != ship_rows || last_infront_ship_rows != infront_ship_rows) {
+    need_update = true;
+    last_ship_rows = ship_rows;
+    last_infront_ship_rows = infront_ship_rows;
+  }
 
   if (need_update) {
-
-    /*
-    for (int u=0; u<107; u++) {
-        pixels0[u] = 0x010101ff;
-    } */
 
     unsigned int opposed_column = (current_column + (NUM_COLUMNS/2)) % NUM_COLUMNS;
     for (int j=0; j<NUM_ROWS; j++) {
       draw_buffer[j] = 0x010000ff;
     }
     board_draw_column(current_column, draw_buffer);
-    int ship_rows = display_ship_rows(current_pos);
     for (int j=0; j<ship_rows; j++) {
       draw_buffer[ROW_SHIP + j] = SHIP_COLOR;
     }
@@ -112,9 +116,7 @@ void display_tick(int64_t now) {
     }
     board_draw_column(opposed_column, draw_buffer);
 
-    unsigned int infront_pos = (current_pos + (SUBDEGREES/2)) & SUBDEGREES_MASK;
-    ship_rows = display_ship_rows(infront_pos);
-    for (int j=0; j<ship_rows; j++) {
+    for (int j=0; j<infront_ship_rows; j++) {
       draw_buffer[ROW_SHIP + j] = SHIP_COLOR;
     }
 
