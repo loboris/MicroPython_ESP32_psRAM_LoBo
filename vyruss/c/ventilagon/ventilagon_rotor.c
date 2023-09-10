@@ -34,9 +34,9 @@ void ventilagon_enter() {
   new_level = 0;
 
   ledbar_reset();
-  audio_stop_song();
+  //audio_stop_song();
   audio_play_superventilagon();
-  change_state(&play_state);
+  change_state(&resetting_state);
   // DEBUG
   // change_state(&win_state);
 }
