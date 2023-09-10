@@ -194,6 +194,7 @@ SRC_C =  $(addprefix esp32/,\
 	pov/ventilagon/state_play.c \
 	pov/ventilagon/state_resetting.c \
 	pov/ventilagon/state_win.c \
+	pov/ventilagon/state_win_credits.c \
 	pov/ventilagon/text_bitmap.c \
 	pov/ventilagon/ventilagon_rotor.c \
 	pov/ventilagon/audio.c \
@@ -206,7 +207,6 @@ SRC_C =  $(addprefix esp32/,\
 	)
 
 #	pov/ventilagon/finetune.c \
-#	pov/ventilagon/state_win_credits.c \
 
 ifdef CONFIG_MICROPY_USE_DISPLAY
 SRC_C += esp32/moddisplay.c

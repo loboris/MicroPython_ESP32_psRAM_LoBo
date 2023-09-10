@@ -124,6 +124,8 @@ extern void serial_send(const char* line);
 extern QueueHandle_t queue_received;
 extern QueueHandle_t queue_sending;
 
+extern uint32_t colors[];
+
 void ventilagon_init();
 void ventilagon_enter();
 void ventilagon_loop();

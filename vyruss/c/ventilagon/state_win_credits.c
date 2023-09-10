@@ -1,98 +1,85 @@
 #include "ventilagon.h"
-const long credits_duration = 19000; // 18 seconds
+const uint64_t credits_duration = 19000; // 19 seconds
 
 extern const byte text_bitmap[];
 uint64_t credits_started;
 
-//uint32_t colors[] = {
-//  0x0000ff,
-//  0x00ff00,
-//  0xffff00,
-//  0x00ffff,
-//  0xff00ff,
-//  0xff0000,
-//};
+// defined by Ventilastastion
+extern volatile int64_t last_turn;
+extern volatile int64_t last_turn_duration;
+uint32_t* draw_buffer;
 
 //const byte HALL_SENSOR = 2;
-const byte DISPLAY_LEN = 16;
 const byte CHAR_WIDTH = 6;
 const byte NUM_COLORS = 6;
 
-
-const char texto2[] = "SUPER VENTILAGON";
-const char texto[] = "                SUPER VENTILAGON - Bits: alecu - Volts: Jorge - Waves: Cris - (C) 2015 Club de Jaqueo                          ";
-const int size_texto = sizeof(texto) - DISPLAY_LEN;
-const long step_delay = 175;
-
-//volatile unsigned long last_turn = 0;
-//volatile unsigned long last_turn_duration = 10L;
-
-unsigned long prev_turn = 0;
-
-
-volatile int current_char = 0;
-volatile int char_column = 0;
-const byte baseline = 16;
-unsigned long last_step = 0;
-int cursor;
-
-void setPixelColor(int pixel, long color) {
-  byte red = (color >> 16) & 0xff;
-  byte green = (color >> 8) & 0xff;
-  byte blue = (color >> 0) & 0xff;
-  byte base = pixel * 3;
-  Tlc.set(base + 0, (blue << 4));
-  Tlc.set(base + 1, (green << 4));
-  Tlc.set(base + 2, (red << 4));
+uint64_t millis() {
+  return esp_timer_get_time() / 1000;
 }
 
-void hall_sensed() {
-  current_char = 0;
-  char_column = CHAR_WIDTH;
-}
-void reset() {
-  Tlc.clear();
-  current_char = 0;
-  char_column = CHAR_WIDTH;
-  cursor = 0;
-}
-void text_loop() {
-  if (last_turn != prev_turn) {
-    prev_turn = last_turn;
-    hall_sensed();
-  }
-  static char letra;
-  if (char_column >= CHAR_WIDTH) {
-    letra = pgm_read_byte(texto + cursor + current_char++);
-    char_column = 0;
-    if ((millis() - last_step) > step_delay) {
-      last_step = millis();
-      cursor = (cursor + 1) % size_texto;
-    }
-  }
-  if (current_char >= DISPLAY_LEN) {
-    letra = ' ';
-  }
-  if (letra == 0) {
-    return;
-  }
-  byte v = pgm_read_byte(text_bitmap + letra * CHAR_WIDTH + char_column);
+const char texto[] = "                     SUPER VENTILAGON - Bits: alecu - Volts: Jorge - Waves: Cris - (C) 2015 Club de Jaqueo                          ";
+const uint64_t step_delay = 29167;
+uint64_t last_step;
+int step_position;
 
-  Tlc.clear();
-  uint32_t color = colors[(current_char + cursor) % NUM_COLORS];
+void credits_reset(uint64_t now) {
+  step_position = 0;
+  last_step = now;
+}
+
+void credits_draw_column(int visible_column) {
+  int x = visible_column + step_position;
+  int cursor = x / CHAR_WIDTH;
+  int columna_letra = x % CHAR_WIDTH;
+  char letra = texto[cursor];
+  byte v = text_bitmap[letra * CHAR_WIDTH + columna_letra];
+
+  uint32_t color = colors[cursor % NUM_COLORS];
+
   for (int n = 0; n < 8; n++) {
     if (v & (1 << n)) {
-      setPixelColor(n * 2 + baseline, color);
-      setPixelColor(n * 2 + baseline + 1, color);
+      draw_buffer[n * 2] = color;
+      draw_buffer[n * 2 + 1] = color;
     }
   }
-  Tlc.update();
+}
 
-  char_column++;
-  delayMicroseconds(200);
-};
+void text_loop2(int64_t now) {
+  static int last_column_drawn = 0;
+  int current_column = ((now - last_turn) * 256 / last_turn_duration) % 256;
 
-TextDisplay text;
+  // only draw the upper half
+  if (current_column != last_column_drawn) {
+
+    for (int j=0; j<54; j++) {
+      pixels0[j] = 0x000000ff;
+      pixels1[j] = 0x000000ff;
+      draw_buffer[j] = 0x000000ff;
+    }
+
+    if (current_column >= 64 && current_column < 192) {
+      int visible_column = current_column - 64;
+      credits_draw_column(visible_column);
+      for(int k=0; k<16; k++) {
+	  pixels1[54 - 16 + k] = draw_buffer[k];
+      }
+    } else {
+      int visible_column = (current_column + 64) % 256;
+      credits_draw_column(visible_column);
+      for(int m=0; m<16; m++) {
+	  pixels0[15-m] = draw_buffer[m];
+      }
+    }
+
+    spi_write_HSPI();
+    last_column_drawn = current_column;
+  }
+
+  if ((now - last_step) > step_delay) {
+    step_position++;
+    last_step = now;
+  }
+}
 
 //void handle_interrupt() {
 //  unsigned long this_turn = micros();
@@ -104,7 +91,7 @@ TextDisplay text;
 void credits_setup() {
   int64_t now = esp_timer_get_time();
   credits_started = now / 1000;
-  text.reset();
+  credits_reset(now);
 }
 
 void credits_loop() {
@@ -113,7 +100,7 @@ void credits_loop() {
   if ((now_ms - credits_started) > credits_duration) {
     change_state(&win_state);
   }
-  text_loop();
+  text_loop2(now);
 }
 
-const State state_credits = { "Rolling Credits", credits_setup, credits_loop};
+State credits_state = { "Rolling Credits", credits_setup, credits_loop};
