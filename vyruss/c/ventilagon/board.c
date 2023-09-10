@@ -19,7 +19,7 @@ void circularbuffer_init() {
 void circularbuffer_push_front(byte row) {
   portENTER_CRITICAL(&buffer_mutex);
   buffer[first_row] = row;
-  first_row = (first_row - 1) % NUM_ROWS;
+  first_row = (first_row - 1 + NUM_ROWS) % NUM_ROWS;
   portEXIT_CRITICAL(&buffer_mutex);
 }
 

@@ -23,6 +23,8 @@ void win_loop() {
       board_step_back();
     } else {
       board_win_step_back();
+      // DEBUG
+      // board_step();
     }
     display_adjust_drift();
   }

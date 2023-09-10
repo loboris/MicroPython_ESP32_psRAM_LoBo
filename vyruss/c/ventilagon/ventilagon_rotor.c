@@ -37,6 +37,8 @@ void ventilagon_enter() {
   audio_stop_song();
   audio_play_superventilagon();
   change_state(&play_state);
+  // DEBUG
+  // change_state(&win_state);
 }
 
 bool boton_cw = false;
