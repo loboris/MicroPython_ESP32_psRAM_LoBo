@@ -58,7 +58,7 @@ void check_section(int64_t now) {
 void play_loop() {
   int64_t now = esp_timer_get_time();
 
-  if (now > (last_move + current_level->step_delay/128)) {
+  if (now > (last_move + current_level->step_delay/100)) {
     if (boton_cw != boton_ccw) {
       int new_pos = 0;
 
