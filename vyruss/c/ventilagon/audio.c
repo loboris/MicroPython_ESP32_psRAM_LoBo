@@ -21,6 +21,8 @@ p) wonderful.wav
 
 void serial_send(const char* text) {
   xQueueSend(queue_sending, &text, 0);
+  printf("serial sending... (%p) ", text);
+  printf("%s\n", text);
 }
 
 void audio_play(const char* command) {
@@ -36,7 +38,7 @@ void audio_play_crash() {
 }
 
 void audio_play_win() {
-  audio_play("sound excellent");
+  audio_play("sound wonderful");
 }
 
 void audio_play_game_over() {

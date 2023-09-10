@@ -16,7 +16,7 @@ int64_t section_durations[] = {
   1325 * CENTISECONDS,
   1325 * 2 * CENTISECONDS,
   1325 * 3 * CENTISECONDS,
-  ULONG_MAX
+  UINT64_MAX
 };
 
 const char* section_sounds[] = {
@@ -25,7 +25,8 @@ const char* section_sounds[] = {
   "sound triangle",
   "sound square",
   "sound pentagon",
-  "sound hexagon"
+  "sound hexagon",
+  "sound -"
 };
 
 void play_setup() {
