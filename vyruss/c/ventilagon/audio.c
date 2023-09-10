@@ -15,6 +15,26 @@ m) start.wav
 n) superhexagon.wav
 o) triangle.wav
 p) wonderful.wav
+
+buenisimo.wav
+cuadrado.wav
+daleeee.wav
+dale.wav
+empeza.wav
+excelente.wav
+hexagono.wav
+impecable.wav
+increible.wav
+linea.wav
+maravilloso no lo puedo creer.wav
+pentagono.wav
+perdiste.wav
+sonaste.wav
+super ventilagon.wav
+tas chavo.wav
+triangulo.wav
+vamos.wav
+ventilagono.wav
 */
 
 #include "ventilagon.h"
@@ -30,7 +50,7 @@ void audio_play(const char* command) {
 }
 
 void audio_play_superventilagon() {
-  audio_play("sound superhexagon");
+  audio_play("sound es/super ventilagon");
 }
 
 void audio_play_crash() {
@@ -38,11 +58,11 @@ void audio_play_crash() {
 }
 
 void audio_play_win() {
-  audio_play("sound wonderful");
+  audio_play("sound es/buenisimo");
 }
 
 void audio_play_game_over() {
-  audio_play("sound gameover");
+  audio_play("sound es/perdiste");
 }
 
 void audio_stop_song() {
@@ -50,7 +70,7 @@ void audio_stop_song() {
 }
 
 void audio_begin() {
-  serial_send("sound begin");
+  serial_send("sound es/empeza");
 }
 
 void audio_reset() {
@@ -60,3 +80,14 @@ void audio_reset() {
 void audio_stop_servo() {
   serial_send("servo stop");
 }
+
+const char* section_sounds[] = {
+  "sound -",
+  "sound es/linea",
+  "sound es/triangulo",
+  "sound es/cuadrado",
+  "sound es/pentagono",
+  "sound es/ventilagono",
+  "sound -"
+};
+

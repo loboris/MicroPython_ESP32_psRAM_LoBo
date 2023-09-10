@@ -27,5 +27,5 @@ class VentilagonGame(Scene):
 
         sending = ventilagon.sending()
         while sending:
-            comms.send(sending + "\n")
+            comms.send(sending)
             sending = ventilagon.sending()

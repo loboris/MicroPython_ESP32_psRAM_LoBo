@@ -108,6 +108,7 @@ void audio_stop_song();
 void audio_stop_servo();
 void audio_reset();
 void audio_play(const char* command);
+extern const char* section_sounds[];
 
 extern const byte transformations[];
 extern const Level* const levels[];

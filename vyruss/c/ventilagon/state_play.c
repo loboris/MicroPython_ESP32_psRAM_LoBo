@@ -19,16 +19,6 @@ int64_t section_durations[] = {
   UINT64_MAX
 };
 
-const char* section_sounds[] = {
-  "sound -",
-  "sound line",
-  "sound triangle",
-  "sound square",
-  "sound pentagon",
-  "sound hexagon",
-  "sound -"
-};
-
 void play_setup() {
   current_level = levels[new_level];
   paused = false;
