@@ -46,7 +46,9 @@ void serial_send(const char* text) {
 }
 
 void audio_play(const char* command) {
-  serial_send(command);
+  if (command != NULL) {
+    serial_send(command);
+  }
 }
 
 void audio_play_superventilagon() {
@@ -82,12 +84,12 @@ void audio_stop_servo() {
 }
 
 const char* section_sounds[] = {
-  "sound -",
+  NULL,
   "sound es/linea",
   "sound es/triangulo",
   "sound es/cuadrado",
   "sound es/pentagono",
   "sound es/ventilagono",
-  "sound -"
+  NULL
 };
 

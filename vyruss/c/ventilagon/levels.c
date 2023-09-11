@@ -436,12 +436,12 @@ int level_new_drift(int current_drift) {
 30000L
 */
 
-const Level level1 = {37500, 6, 2, "music 1", 0x000066ff, 0x000000ff, 0x000004ff, patterns_level1, elements_in(patterns_level1), &no_drift};
-const Level level2 = {33750, 6, 3, "music 2", 0x006600ff, 0x000000ff, 0x000400ff, patterns_level2, elements_in(patterns_level2), &slow_drift};
-const Level level3 = {30000, 6, 4, "music 3", 0x444400ff, 0x000000ff, 0x040400ff, patterns_level3, elements_in(patterns_level3), &slow_drift};
-const Level level4 = {30000, 6, 4, "music 1", 0x004444ff, 0x000000ff, 0x000404ff, patterns_level4, elements_in(patterns_level4), &med_drift};
-const Level level5 = {30000, 6, 4, "music 2", 0x440044ff, 0x000000ff, 0x040004ff, patterns_level5, elements_in(patterns_level5), &high_drift};
-const Level level6 = {30000, 6, 4, "music 3", 0x660000ff, 0x000000ff, 0x040000ff, patterns_level6, elements_in(patterns_level6), &crazy_drift};
+const Level level1 = {37500, 6, 5, "music 1", 0x000066ff, 0x000000ff, 0x000004ff, patterns_level1, elements_in(patterns_level1), &no_drift};
+const Level level2 = {33750, 6, 6, "music 2", 0x006600ff, 0x000000ff, 0x000400ff, patterns_level2, elements_in(patterns_level2), &slow_drift};
+const Level level3 = {30000, 6, 7, "music 3", 0x444400ff, 0x000000ff, 0x040400ff, patterns_level3, elements_in(patterns_level3), &slow_drift};
+const Level level4 = {29000, 6, 7, "music 1", 0x004444ff, 0x000000ff, 0x000404ff, patterns_level4, elements_in(patterns_level4), &med_drift};
+const Level level5 = {28000, 6, 7, "music 2", 0x440044ff, 0x000000ff, 0x040004ff, patterns_level5, elements_in(patterns_level5), &high_drift};
+const Level level6 = {27000, 6, 7, "music 3", 0x660000ff, 0x000000ff, 0x040000ff, patterns_level6, elements_in(patterns_level6), &crazy_drift};
 
 
 const Level* const levels[] = {
