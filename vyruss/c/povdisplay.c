@@ -6,9 +6,11 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "minispi.h"
 #include "gpu.h"
+#include "ventilagon/ventilagon.h"
 
 #define GPIO_HALL     GPIO_NUM_26
 #define GPIO_HALL_B     GPIO_NUM_36
@@ -37,9 +39,10 @@ uint32_t* pixels0;
 uint32_t* pixels1;
 
 int buf_size;
+bool ventilagon_active = false;
 
 volatile int64_t last_turn = 0;
-volatile int64_t last_turn_duration = 355 * COLUMNS;
+volatile int64_t last_turn_duration = 3000000;
 
 extern void render(int n, uint32_t* pixels);
 extern void init_sprites();
@@ -54,14 +57,15 @@ inline uint32_t max(uint32_t a, uint32_t b) {
 
 char* init_buffers(int num_pixels) {
     spi_buf=heap_caps_malloc(buf_size, MALLOC_CAP_DMA);
-    memset(spi_buf, 0, buf_size);
-    extra_buf=heap_caps_malloc(buf_size/2, MALLOC_CAP_DMA);
-    memset(extra_buf, 0, buf_size/2);
+    memset(spi_buf, 0xff, buf_size);
+    extra_buf=heap_caps_malloc(buf_size/2, MALLOC_CAP_DEFAULT);
+    memset(extra_buf, 0x01, buf_size/2);
+    ((uint32_t*)spi_buf)[0]=0;
     pixels0 = (uint32_t*)(spi_buf+4);
     pixels1 = (uint32_t*)(spi_buf+num_pixels*4);
     for(int n=0; n<num_pixels; n++) {
-        pixels0[n] = 0x000000Ff;
-        pixels1[n] = 0x000000Ff;
+        pixels0[n] = 0x010000Ff;
+        pixels1[n] = 0x000100Ff;
     }
     return spi_buf;
 }
@@ -96,13 +100,6 @@ void delay(int ms) {
     }
 }
 
-uint32_t colors[4] = {
-    0xff000011,
-    0xff001100,
-    0xff110000,
-    0xff000000,
-};
-
 int color = 0;
 uint32_t count = 0;
 
@@ -133,43 +130,50 @@ void hall_init(int gpio_hall) {
     }
 #endif
     gpio_set_direction(gpio_hall, GPIO_MODE_INPUT);
-    gpio_set_pull_mode(gpio_hall, GPIO_PULLUP_ONLY);
-    gpio_pullup_en(gpio_hall);
+    //gpio_set_pull_mode(gpio_hall, GPIO_PULLUP_ONLY);
+    //gpio_pullup_en(gpio_hall);
     gpio_set_intr_type(gpio_hall, GPIO_INTR_NEGEDGE);
     gpio_isr_handler_add(gpio_hall, hall_sensed, (void*) gpio_hall);
 }
 
 
+int last_column = 0;
+int64_t last_starfield_step = 0;
+void gpu_step() {
+    int64_t now = esp_timer_get_time();
+    uint32_t column = ((now - last_turn) * COLUMNS / last_turn_duration) % COLUMNS;
+    if (column != last_column) {
+	render((column + COLUMNS/2) % COLUMNS, extra_buf);
+	for(int n=0; n<54; n++) {
+	    pixels0[n] = extra_buf[53-n];
+	}
+	render(column, pixels1);
+	spi_write_HSPI();
+	last_column = column;
+    }
+
+    if (now > last_starfield_step + 20000) {
+	step_starfield();
+	last_starfield_step = now;
+    }
+}
  
 
 void coreTask( void * pvParameters ){
     printf("task running on core %d\n", xPortGetCoreID());
-    int last_column = 0;
-    int64_t last_starfield_step = 0;
 
-    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
-    hall_init(GPIO_HALL);
+    //gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
+    //hall_init(GPIO_HALL);
     hall_init(GPIO_HALL_B);
 
     init_sprites();
 
     while(true){
-            int64_t now = esp_timer_get_time();
-            uint32_t column = ((now - last_turn) * COLUMNS / last_turn_duration) % COLUMNS;
-            if (column != last_column) {
-                render((column + COLUMNS/2) % COLUMNS, extra_buf);
-                for(int n=0;n<54;n++) {
-                    pixels0[n] = extra_buf[53-n];
-                }
-                render(column, pixels1);
-                spi_write_HSPI();
-                last_column = column;
-            }
-
-            if (now > last_starfield_step + 20000) {
-                step_starfield();
-                last_starfield_step = now;
-            }
+	if (ventilagon_active) {
+	    ventilagon_loop();
+	} else {
+	    gpu_step();
+	}
     }
 }
 
@@ -177,6 +181,10 @@ STATIC mp_obj_t povdisplay_init(mp_obj_t num_pixels, mp_obj_t palette) {
     spi_init(mp_obj_get_int(num_pixels));
     palette_pal = (uint32_t *) mp_obj_str_get_str(palette);
     printf("creating task, running on core %d\n", xPortGetCoreID());
+    ventilagon_init();
+    printf("pixels0: %p\n", pixels0);
+    printf("pixels1: %p\n", pixels1);
+    printf("extra_buf: %p\n", extra_buf);
 
     xTaskCreatePinnedToCore(
             coreTask,   /* Function to implement the task */
@@ -217,4 +225,54 @@ STATIC MP_DEFINE_CONST_DICT (
 const mp_obj_module_t mp_module_povdisplay = {
     .base = { &mp_type_module },
     .globals = (mp_obj_dict_t*)&mp_module_povdisplay_globals,
+};
+
+// ------------------------------
+
+STATIC mp_obj_t ventilagon_ventilagon_enter(void) {
+    ventilagon_enter();
+    ventilagon_active = true;
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(ventilagon_ventilagon_enter_obj, ventilagon_ventilagon_enter);
+
+STATIC mp_obj_t ventilagon_ventilagon_exit(void) {
+    ventilagon_active = false;
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(ventilagon_ventilagon_exit_obj, ventilagon_ventilagon_exit);
+
+STATIC mp_obj_t ventilagon_ventilagon_received(mp_obj_t mp_value) {
+    byte value = mp_obj_get_int(mp_value);
+    xQueueSend(queue_received, &value, 0);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(ventilagon_ventilagon_received_obj, ventilagon_ventilagon_received);
+
+STATIC mp_obj_t ventilagon_ventilagon_sending(void) {
+    char* buff;
+    if( xQueueReceive( queue_sending, &buff, 0 ) ) {
+	return mp_obj_new_str(buff, strlen(buff));
+    }
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(ventilagon_ventilagon_sending_obj, ventilagon_ventilagon_sending);
+// ------------------------------
+
+STATIC const mp_map_elem_t ventilagon_globals_table[] = {
+    { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_ventilagon) },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_enter), (mp_obj_t)&ventilagon_ventilagon_enter_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_exit), (mp_obj_t)&ventilagon_ventilagon_exit_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_received), (mp_obj_t)&ventilagon_ventilagon_received_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_sending), (mp_obj_t)&ventilagon_ventilagon_sending_obj },
+};
+
+STATIC MP_DEFINE_CONST_DICT (
+    mp_module_ventilagon_globals,
+    ventilagon_globals_table
+);
+
+const mp_obj_module_t mp_module_ventilagon = {
+    .base = { &mp_type_module },
+    .globals = (mp_obj_dict_t*)&mp_module_ventilagon_globals,
 };
