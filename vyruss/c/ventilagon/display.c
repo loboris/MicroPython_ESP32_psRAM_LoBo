@@ -41,7 +41,7 @@ void display_reset() {
 
 void display_adjust_drift() {
   static int n = 0;
-  n = (n+1) & 0xF;
+  n = (n+1) & 0x3FF;
   if (n == 0) {
     drift_speed = level_new_drift(drift_speed);
   }
@@ -70,6 +70,7 @@ int display_ship_rows(int current_pos) {
 int64_t last_drift = 0;
 int last_ship_rows = 0;
 int last_infront_ship_rows = 0;
+int queued_steps = 0;
 
 void display_tick(int64_t now) {
   // esto no hace falta calcularlo tan seguido. Una vez por vuelta deberia alcanzar
@@ -89,6 +90,10 @@ void display_tick(int64_t now) {
   if (current_column != last_column_drawn) {
     need_update = true;
     last_column_drawn = current_column;
+    for (int n = 0; n < queued_steps ; n++) {
+      board_step();
+    }
+    queued_steps = 0;
   }
 
   if (last_ship_rows != ship_rows || last_infront_ship_rows != infront_ship_rows) {

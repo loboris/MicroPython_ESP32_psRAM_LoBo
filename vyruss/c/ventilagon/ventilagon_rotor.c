@@ -38,6 +38,7 @@ void ventilagon_enter() {
   audio_play_superventilagon();
   change_state(&resetting_state);
   // DEBUG
+  // change_state(&credits_state);
   // change_state(&win_state);
 }
 

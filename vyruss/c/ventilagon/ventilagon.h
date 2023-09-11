@@ -121,6 +121,7 @@ extern bool boton_cw;
 extern bool boton_ccw;
 extern int nave_pos;
 extern void serial_send(const char* line);
+extern int queued_steps;
 
 extern QueueHandle_t queue_received;
 extern QueueHandle_t queue_sending;

@@ -30,6 +30,7 @@ void play_setup() {
   section = 0;
   section_init_time = esp_timer_get_time();
   section_duration = section_durations[section];
+  queued_steps = 0;
 }
 
 void advance_section(int64_t now) {
@@ -41,9 +42,7 @@ void advance_section(int64_t now) {
     // ganaste
     audio_play_win();
     audio_stop_servo();
-    // FIXME: volver a poner los creditos
-    // change_state(&credits_state);
-    change_state(&win_state);
+    change_state(&credits_state);
     return;
   }
   current_level = levels[section];
@@ -58,7 +57,7 @@ void check_section(int64_t now) {
 void play_loop() {
   int64_t now = esp_timer_get_time();
 
-  if (now > (last_move + current_level->step_delay/100)) {
+  if (now > (last_move + current_level->step_delay/64)) {
     if (boton_cw != boton_ccw) {
       int new_pos = 0;
 
@@ -81,11 +80,9 @@ void play_loop() {
 
 
   if (now > (last_step + current_level->step_delay)) {
-    // FIXME
-    board_step();
     if (!board_colision(nave_pos, ROW_SHIP)) {
       if (!paused) {
-        board_step();
+        queued_steps++;
       }
     } else {
       // crash boom bang
