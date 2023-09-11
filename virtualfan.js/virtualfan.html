@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - raw shader</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+	</head>
+	<body>
+
+		<div id="container"></div>
+		<div id="info"><a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - raw shader demo</div>
+
+		<script id="vertexShader" type="x-shader/x-vertex">#version 300 es
+			uniform int numLeds;
+			uniform int time;
+			uniform int numArxels;
+			uniform vec2 resolution;
+			in vec4 arxelColors;
+			out vec4 v_color;
+
+			#define PI radians(180.0)
+
+			const int vertexesPerArxel = 6;
+
+			void main() {
+
+			// POSITION
+			  int triVertexId = gl_VertexID % 6;
+
+			  float x = float(gl_VertexID % 2);
+			  float y = float(triVertexId > 3 ? 0 : triVertexId < 1 ? 0 : 1);
+
+			  int arxel = gl_VertexID / vertexesPerArxel % numArxels;
+			  int led = gl_VertexID / vertexesPerArxel / numArxels;
+
+			  float u = float(arxel) / float(numArxels) + 1.0/float(numArxels) * x;  // goes from 0 to 1
+			  float angle = -(u + 0.25) * PI * 2.0;     // goes from 0 to 2PI
+			  float radius = .90 * float(led) / float(numLeds) + .01 * y;
+
+			  vec2 pos = vec2(cos(angle), sin(angle)) * radius;
+
+			  float aspect = resolution.y / resolution.x;
+			  vec2 scale = vec2(aspect, 1);
+			  scale = vec2(1,1);
+
+			  gl_Position = vec4((pos ) * scale, 0, 1);
+
+			// COLOR
+			  int sliceId = gl_VertexID / 3;
+			  float blue = 1.0-float(led)/float(numLeds);
+			  blue = float(sliceId%2);
+			  v_color = vec4(1.0-blue, 1.0-u, blue, 1.0);
+			  //v_color = vec4(1.0-blue, 1.0-u, blue, step(1.0, float(1 - gl_VertexID / 6 % time)));
+			  //v_color = vec4(1.0, 0.0, 1.0, 1.0);
+			  v_color = arxelColors;
+			}
+
+		</script>
+
+		<script id="fragmentShader" type="x-shader/x-fragment">#version 300 es
+			precision highp float;
+
+			in vec4 v_color;
+			out vec4 outColor;
+
+			void main() {
+			  outColor = v_color;
+			}
+
+		</script>
+
+		<!-- Import maps polyfill -->
+		<!-- Remove this when import maps will be widely supported -->
+		<script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js"
+				}
+			}
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+
+			import Stats from './jsm/libs/stats.module.js';
+			import { GUI } from './jsm/libs/lil-gui.module.min.js';
+			import { EffectComposer } from './jsm/postprocessing/EffectComposer.js';
+			import { RenderPass } from './jsm/postprocessing/RenderPass.js';
+			import { UnrealBloomPass } from './jsm/postprocessing/UnrealBloomPass.js';
+			import { FileLoader } from '/src/loaders/FileLoader.js';
+
+
+			let container, stats;
+
+			let camera, scene, renderer, composer, clock, mixer;	
+			let arxelColors, spriteRom, displayRegisters;
+			const geometry = new THREE.BufferGeometry();
+
+		    const numLeds = 54; const numArxels = 256;
+			const params = {
+				exposure: 1,
+				bloomStrength: 0.345,
+				bloomThreshold: 0,
+				bloomRadius: 0.69
+			};
+			const deepspace = [54, 54, 54, 54, 54, 54, 54, 54, 54, 54, 54, 54, 54, 54, 54, 54, 53, 52, 52, 51, 50, 49, 49, 48, 47, 46, 46, 45, 44, 44, 43, 42, 42, 41, 40, 40, 39, 38, 38, 37, 36, 36, 35, 35, 34, 34, 33, 32, 32, 31, 31, 30, 30, 29, 29, 28, 28, 27, 27, 26, 26, 25, 25, 24, 24, 23, 23, 23, 22, 22, 21, 21, 21, 20, 20, 19, 19, 19, 18, 18, 17, 17, 17, 16, 16, 16, 15, 15, 15, 14, 14, 14, 14, 13, 13, 13, 12, 12, 12, 12, 11, 11, 11, 11, 10, 10, 10, 10, 9, 9, 9, 9, 8, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+			var upalette;
+
+			const TRANSPARENT = 255;
+
+			init();
+			animate();
+
+
+			function initPalette() {
+                var rom = new DataView(spriteRom);
+			    var total_strips = rom.getUint16(0, true);
+			    var total_palettes = rom.getUint16(2, true);
+				upalette = new Uint32Array(256);
+				for (var palette_number=0; palette_number<total_palettes; palette_number++) {
+					var palette_start = rom.getUint32(4 + total_strips * 4 + palette_number, true);
+					for(var index = 0; index < 256; index++) { 
+						var color = rom.getUint32(palette_start + index*4, false); // | 0xff000000;
+						upalette[index] = color;
+					}
+				}
+			}
+
+			function init() {
+				//const numLeds = 7; const numArxels = 16;
+				arxelColors = new Uint32Array(numLeds * numArxels * 6);
+				arxelColors.fill(0);
+				displayRegisters = new ArrayBuffer(6 * 100);
+
+				container = document.getElementById( 'container' );
+
+				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 10 );
+				camera.position.z = 2;
+
+				scene = new THREE.Scene();
+				// scene.background = new THREE.Color( 0x101010 );
+
+				// geometry
+				// nr of triangles with 3 vertices per triangle
+				const vertexCount = 6 * numLeds * numArxels;
+
+				const positionAttribute = new THREE.Float32BufferAttribute( new Int8Array(vertexCount * 3), 3 );
+				geometry.setAttribute( 'position', positionAttribute );
+				//geometry.addAttribute( 'displacement', new THREE.BufferAttribute( displacement, 1 ) );
+
+ 
+				const loader = new FileLoader();
+				loader.setResponseType("arraybuffer");
+				loader.load('sprites.rom', function(data) {
+					spriteRom = data;
+					initPalette();
+				});
+
+				// material
+
+				const material = new THREE.RawShaderMaterial( {
+
+					uniforms: {
+						time: { value: 1.0 },
+						numLeds: { value: numLeds },
+						numArxels: { value: numArxels }
+					},
+					vertexShader: document.getElementById( 'vertexShader' ).textContent,
+					fragmentShader: document.getElementById( 'fragmentShader' ).textContent,
+					side: THREE.DoubleSide,
+					transparent: true
+
+				} );
+
+				const mesh = new THREE.Mesh( geometry, material );
+				scene.add( mesh );
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+				const gui = new GUI();
+
+				gui.add( params, 'exposure', 0.1, 2 ).onChange( function ( value ) {
+
+					renderer.toneMappingExposure = Math.pow( value, 4.0 );
+
+				} );
+
+				gui.add( params, 'bloomThreshold', 0.0, 1.0 ).onChange( function ( value ) {
+
+					bloomPass.threshold = Number( value );
+
+				} );
+
+				gui.add( params, 'bloomStrength', 0.0, 3.0 ).onChange( function ( value ) {
+
+					bloomPass.strength = Number( value );
+
+				} );
+
+				gui.add( params, 'bloomRadius', 0.0, 1.0 ).step( 0.01 ).onChange( function ( value ) {
+
+					bloomPass.radius = Number( value );
+
+				} );
+
+
+				const renderScene = new RenderPass( scene, camera );
+
+				const bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
+				bloomPass.threshold = params.bloomThreshold;
+				bloomPass.strength = params.bloomStrength;
+				bloomPass.radius = params.bloomRadius;
+
+				composer = new EffectComposer( renderer );
+				composer.addPass( renderScene );
+				composer.addPass( bloomPass );
+
+
+				window.addEventListener( 'resize', onWindowResize );
+
+				var reg = new DataView(displayRegisters);
+				reg.setUint8(5, 3);
+				reg.setUint8(2, 23);
+				reg.setUint8(1, 255);
+				reg.setUint8(0, 0);
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			//
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				render();
+				stats.update();
+
+			}
+
+            function getVisibleColumn(sprite_x, sprite_width, render_column) {
+				var sprite_column = (render_column - sprite_x + numArxels) % numArxels;
+                if (0<= sprite_column && sprite_column < sprite_width) {
+					return sprite_column;
+				} else {
+					return -1;
+				}
+			}
+    			
+			function displayRender() {
+				if (!spriteRom) {
+					arxelColors.fill(0x00000000);
+					return;
+				}
+				// AABBGGRR
+			    arxelColors.fill(0x00);
+				var reg = new DataView(displayRegisters);
+                var rom = new DataView(spriteRom);
+                //var vram = new DataView(arxelColors);
+			    var total_strips = rom.getUint16(0, true);
+			    var total_palettes = rom.getUint16(2, true);
+
+				for (var c = 0; c < 256; c++) {
+					// el sprite 0 se dibuja arriba de todos los otros
+					for (var n=2; n>-1; n--) {
+						var x = reg.getUint8(n*6);
+						var y = reg.getUint8(n*6+1);
+						var strip_number = reg.getInt16(n*6+2, true) % total_strips;
+						var frame = reg.getUint8(n*6+4);
+						var render_mode = reg.getUint8(n*6+5);
+						var strip_start = rom.getUint32(4 + 4*strip_number, true);
+						var w = rom.getUint8(strip_start + 16);
+						if (w == 255) { w = 256; }
+						var h = rom.getUint8(strip_start + 17);
+						var total_frames = rom.getUint8(strip_start + 18);
+						var palette_number = rom.getUint8(strip_start + 19) % total_palettes;
+						strip_start += 20;
+						var palette_start = rom.getUint32(4 + total_strips * 4 + palette_number, true);
+						frame %= total_frames
+						var visible_column = getVisibleColumn(x, w, c);
+						if (visible_column != -1) {
+							var base = visible_column * h + (frame * w * h);
+							if (render_mode == 1 || render_mode == 2) {
+								var desde = Math.max(y, 0);
+								var hasta = Math.min(y + h, numArxels - 1);
+								var comienzo = Math.max(-y, 0);
+								var src =  base + comienzo;
+								for (var yy = desde; yy<hasta; yy++) {
+									var index = rom.getUint8(strip_start + src);
+									src += 1;
+									if (index != TRANSPARENT) {
+										var color = upalette[index];
+										if (render_mode == 1) {
+											y = deepspace[y];
+										} else {
+											y = numLeds - 1 - yy;
+										}
+										var px = (c + numArxels * y) * 6;
+										arxelColors.fill(color, px, px + 6);
+									}
+								}
+							
+							
+							} 
+							if (render_mode == 3) {
+								var zleds = deepspace[255-y];
+								for (var led = 0; led<zleds; led++) {
+									var src = led * numLeds / zleds;
+									if (src >= h) {
+										break;
+									}
+									var index = rom.getUint8(strip_start + base + h - 1 - src);
+									if (index != TRANSPARENT) {
+										var color = upalette[index];
+										var px = (c + numArxels * led) * 6;
+										arxelColors.fill(color, px, px + 6);
+									}
+								}
+							}
+					   }
+
+					}
+                }
+				geometry.setAttribute( 'arxelColors', new THREE.BufferAttribute(new Uint8Array(arxelColors.buffer), 4, true) );
+			}
+
+			function render() {
+				displayRender();
+
+				const time = performance.now();
+
+				const object = scene.children[ 0 ];
+
+				object.rotation.y = time * 0.0005;
+				object.material.uniforms.time.value = time * 0.05;
+
+				//renderer.render( scene, camera );
+				composer.render();
+
+			}
+
+		</script>
+
+	</body>
+</html>
