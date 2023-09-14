@@ -1,5 +1,5 @@
 #include "ventilagon.h"
-const uint64_t credits_duration = 19000; // 19 seconds
+const uint64_t credits_duration = 19750; // 19.75 seconds
 
 extern const byte text_bitmap[];
 uint64_t credits_started;
@@ -17,12 +17,13 @@ uint64_t millis() {
   return esp_timer_get_time() / 1000;
 }
 
-const char texto[] = "                     SUPER VENTILAGON - Bits: alecu - Volts: Jorge - Waves: Cris - (C) 2015 Club de Jaqueo                          ";
-const uint64_t step_delay = 29167;
+const char texto[] = "                     SUPER VENTILAGON - Bits: alecu - Volts: Jorge - Waves: Cris - Voces: Nessita - (C) 2015 Club de Jaqueo                          ";
+uint64_t step_delay;
 uint64_t last_step;
 int step_position;
 
 void credits_reset(uint64_t now) {
+  step_delay = credits_duration * 1000 / (elements_in(texto) * CHAR_WIDTH);
   step_position = 0;
   last_step = now;
 }
@@ -31,6 +32,10 @@ void credits_draw_column(int visible_column) {
   int x = visible_column + step_position;
   int cursor = x / CHAR_WIDTH;
   int columna_letra = x % CHAR_WIDTH;
+
+  if (cursor >= elements_in(texto)) {
+    cursor = 0;
+  }
   char letra = texto[cursor];
   byte v = text_bitmap[letra * CHAR_WIDTH + columna_letra];
 
