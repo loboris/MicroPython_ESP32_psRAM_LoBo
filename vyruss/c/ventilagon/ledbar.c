@@ -25,12 +25,12 @@ void ledbar_set_win_state() {
 }
 
 uint32_t colors[] = {
-  0x000088ff,
-  0x008800ff,
-  0x888800ff,
-  0x008888ff,
-  0x880088ff,
-  0x880000ff,
+  0x000066ff,
+  0x006600ff,
+  0x444400ff,
+  0x004444ff,
+  0x440044ff,
+  0x660000ff,
 };
 
 void ledbar_draw(uint32_t* pixels, byte num_row, bool value, bool alt_column) {
