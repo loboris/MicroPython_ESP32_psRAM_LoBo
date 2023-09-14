@@ -42,6 +42,10 @@ void ventilagon_enter() {
   // change_state(&win_state);
 }
 
+void ventilagon_exit() {
+  serial_send("arduino stop");
+}
+
 bool boton_cw = false;
 bool boton_ccw = false;
 

@@ -12,8 +12,15 @@ class VentilagonGame(Scene):
         ventilagon.enter()
         self.last_buttons = None
 
+    def sending_loop(self):
+        sending = ventilagon.sending()
+        while sending:
+            comms.send(sending)
+            sending = ventilagon.sending()
+
     def on_exit(self):
         ventilagon.exit()
+	self.sending_loop()
 
     def step(self):
         buttons = director.buttons
@@ -25,7 +32,4 @@ class VentilagonGame(Scene):
             director.pop()
             raise StopIteration()
 
-        sending = ventilagon.sending()
-        while sending:
-            comms.send(sending)
-            sending = ventilagon.sending()
+	self.sending_loop()

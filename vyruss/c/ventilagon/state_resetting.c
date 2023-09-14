@@ -8,6 +8,8 @@ void resetting_setup() {
   last_step = esp_timer_get_time();
   counter = 0;
   audio_reset();
+  serial_send("arduino reset");
+  serial_send("arduino stop");
 }
 
 void resetting_loop() {

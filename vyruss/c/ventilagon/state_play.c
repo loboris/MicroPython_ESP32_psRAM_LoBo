@@ -27,6 +27,7 @@ void play_setup() {
   display_reset();
   display_calibrate(false);
   audio_play(current_level->song);
+  serial_send("arduino start");
   section = 0;
   section_init_time = esp_timer_get_time();
   section_duration = section_durations[section];

@@ -237,6 +237,7 @@ STATIC mp_obj_t ventilagon_ventilagon_enter(void) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(ventilagon_ventilagon_enter_obj, ventilagon_ventilagon_enter);
 
 STATIC mp_obj_t ventilagon_ventilagon_exit(void) {
+    ventilagon_exit();
     ventilagon_active = false;
     return mp_const_none;
 }

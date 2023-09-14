@@ -131,6 +131,7 @@ extern uint32_t colors[];
 void ventilagon_init();
 void ventilagon_enter();
 void ventilagon_loop();
+void ventilagon_exit();
 
 extern uint32_t* extra_buf;
 extern uint32_t* pixels0;

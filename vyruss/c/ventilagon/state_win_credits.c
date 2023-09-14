@@ -92,6 +92,7 @@ void credits_setup() {
   int64_t now = esp_timer_get_time();
   credits_started = now / 1000;
   credits_reset(now);
+  serial_send("arduino stop");
 }
 
 void credits_loop() {
