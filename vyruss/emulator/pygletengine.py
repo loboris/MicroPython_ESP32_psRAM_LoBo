@@ -47,6 +47,8 @@ image_stripes = {
     "16": imagenes.tecno_estructuras_flat_png,
     "17": imagenes.menatwork_flat_png,
     "18": imagenes.yourgame_flat_png,
+    "19": imagenes.letters_png,
+    "20": imagenes.vga_cp437_png,
 }
 spritedata = bytearray( b"\0\0\0\xff\xff" * 100)
 

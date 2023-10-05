@@ -36,9 +36,12 @@ attributes = {
   "marte_flat.png": (255, 25, 1, 0),
   "jupiter_flat.png": (255, 25, 1, 0),
   "saturno_flat.png": (255, 50, 1, 0),
+  "letters.png": (20, 20, 120, 0),
+  "vga_cp437.png": (9, 16, 255, 0),
 
   "tecno_estructuras_flat.png": (255, 54, 1, 0),
   "ventilastation_flat.png": (255, 54, 1, 0),
+  "doom_flat.png": (255, 54, 1, 0),
   "sves_flat.png": (255, 54, 1, 0),
   "yourgame_flat.png": (255, 54, 1, 0),
   "menatwork_flat.png": (255, 40, 1, 0),
