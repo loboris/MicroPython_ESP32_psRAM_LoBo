@@ -225,12 +225,12 @@ def mqtt_loop():
     loop.run_until_complete(main())
 
 def shutdown():
-    STOP.set()
+    #STOP.set()
     global looping
     looping = False
     if sock:
         sock.close()
 
-mqtt_thread = threading.Thread(target=mqtt_loop)
-mqtt_thread.daemon = True
-mqtt_thread.start()
+#mqtt_thread = threading.Thread(target=mqtt_loop)
+#mqtt_thread.daemon = True
+#mqtt_thread.start()

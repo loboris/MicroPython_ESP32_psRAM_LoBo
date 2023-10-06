@@ -8,10 +8,10 @@ def update_over_the_air():
 
 class GamesMenu(menu.Menu):
     OPTIONS = [
-        ('vyruss', 7, 3, 64),
-        ('vong', 7, 1, 64),
-        ('credits', 7, 0, 64),
-        ('ventilagon', 7, 2, 64),
+        ('vyruss', 7, 0, 64),
+        ('vong', 7, 2, 64),
+        ('credits', 7, 3, 64),
+        ('ventilagon', 7, 1, 64),
     ]
 
     def on_option_pressed(self, option_index):
@@ -61,6 +61,11 @@ def main():
     director.register_strip(16, imagenes.tecno_estructuras_flat_png)
     director.register_strip(17, imagenes.menatwork_flat_png)
     director.register_strip(18, imagenes.yourgame_flat_png)
+    #director.register_strip(19, imagenes.doom_flat_png)
+    director.register_strip(19, imagenes.vga_cp437_png)
+    director.register_strip(20, imagenes.vga_cp437_png)
+    director.register_strip(21, imagenes.vlad_farting_flat_png)
+    director.register_strip(22, imagenes.farty_lion_flat_png)
 
     director.push(GamesMenu())
     director.run()

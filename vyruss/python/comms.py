@@ -58,7 +58,7 @@ def receive(bufsize):
     return retval
 
 def send(line, data=b""):
-    print("sending:", line, end="")
+    #print("sending:", line, end="")
     global conn
     if conn:
         try:

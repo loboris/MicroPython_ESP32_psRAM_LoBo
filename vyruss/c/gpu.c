@@ -71,7 +71,7 @@ void step_starfield() {
 }
 
 int inline get_visible_column(int sprite_x, int sprite_width, int render_column) {
-    int sprite_column = (render_column - sprite_x + COLUMNS) % COLUMNS;
+    int sprite_column = sprite_width - 1 - (render_column - sprite_x + COLUMNS) % COLUMNS;
     if (0 <= sprite_column && sprite_column < sprite_width) {
         return sprite_column;
     } else {
