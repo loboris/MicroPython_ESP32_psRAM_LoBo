@@ -39,6 +39,8 @@ attributes = {
   "saturno_flat.png": (255, 50, 1, 0),
   "letters.png": (20, 20, 120, 0),
   "vga_cp437.png": (9, 16, 255, 0),
+  "ready.png": (48, 8, 2, 0),
+  "copyright.png": (128, 8, 1, 0),
 
   "tecno_estructuras_flat.png": (255, 54, 1, 0),
   "ventilastation_flat.png": (255, 54, 1, 0),
@@ -48,6 +50,9 @@ attributes = {
   "menatwork_flat.png": (255, 40, 1, 0),
   "vlad_farting_flat.png": (255, 54, 1, 0),
   "farty_lion_flat.png": (255, 54, 1, 0),
+  "bg64_flat.png": (255, 54, 1, 0),
+  "bgspeccy_flat.png": (255, 54, 1, 0),
+  "reset.png": (128, 53, 5, 0),
 
   "menu.png": (64, 30, 4, 0),
   "credits.png": (64, 16, 32, 0),
