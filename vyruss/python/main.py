@@ -61,8 +61,7 @@ def main():
     director.register_strip(16, imagenes.tecno_estructuras_flat_png)
     director.register_strip(17, imagenes.menatwork_flat_png)
     director.register_strip(18, imagenes.yourgame_flat_png)
-    #director.register_strip(19, imagenes.doom_flat_png)
-    director.register_strip(19, imagenes.vga_cp437_png)
+    director.register_strip(19, imagenes.vga_pc734_png)
     director.register_strip(20, imagenes.vga_cp437_png)
     director.register_strip(21, imagenes.vlad_farting_flat_png)
     director.register_strip(22, imagenes.farty_lion_flat_png)
@@ -71,6 +70,7 @@ def main():
     director.register_strip(25, imagenes.copyright_png)
     director.register_strip(26, imagenes.bgspeccy_flat_png)
     director.register_strip(27, imagenes.reset_png)
+    #director.register_strip(19, imagenes.doom_flat_png)
 
     director.push(GamesMenu())
     director.run()

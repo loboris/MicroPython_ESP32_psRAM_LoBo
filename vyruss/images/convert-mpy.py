@@ -39,6 +39,7 @@ attributes = {
   "saturno_flat.png": (255, 50, 1, 0),
   "letters.png": (20, 20, 120, 0),
   "vga_cp437.png": (9, 16, 255, 0),
+  "vga_pc734.png": (9, 16, 255, 0),
   "ready.png": (48, 8, 2, 0),
   "copyright.png": (128, 8, 1, 0),
 

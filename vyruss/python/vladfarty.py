@@ -4,14 +4,6 @@ from scene import Scene
 from sprites import Sprite, reset_sprites
 from urandom import randrange
 
-friends = """
-Club de Jaqueo
-Tecnoestructuras
-Videogamo
-Cybercirujas
-PVM
-Python Arg
-"""
 
 phrase_A = """[TBD Group] welcomes you to Vlad Farty, arguably the first demo for PoV displays. A big ass fan + 107 LEDs + one ESP32 & open sourced, build your own to enjoy games AND demos."""
 
@@ -19,10 +11,26 @@ phrase_B = """We have a beautiful world BUT it's quickly turning to the RIGHT! D
 
 phrase_C = """What do you plan to do? Drop the memes, get off your soma, build our own future."""
 
+credits = """
+[TBD Group]
+alecu
+krakatoa
+mer
+chame
+
+and friends:
+Club de Jaqueo
+Python Arg
+Tecnoestructuras
+Videogamo
+Cybercirujas
+PVM
+Flashparty
+""".strip().split("\n")
+
 phrase = phrase_A
 
 RESET_SPEED = 2
-global_n = 0
 
 def make_me_a_planet(n):
     planet = Sprite()
@@ -49,12 +57,12 @@ class Letter(Sprite):
   def hide(self):
     self.disable()
 
-  def step(self):
+  def step(self, n):
     x = self.x()
     self.set_x(x + 1)
     y = self.y()
     #expected = vibratto[x % tablelen] - 4
-    expected = vibratto[global_n % tablelen] - 4
+    expected = vibratto[n % tablelen] - 4
     if 100 < x < 140:
         y -= 1
     elif y < expected:
@@ -95,7 +103,6 @@ class VladFarty(Scene):
 
     def next_scene(self):
         new_scene_class, duration = scenes[self.farty_step]
-        print("changing scene: ", new_scene_class, duration)
         director.push(new_scene_class(duration))
         if duration:
             self.farty_step += 1
@@ -129,7 +136,7 @@ class Ready(TimedScene):
         self.cursor.set_perspective(2)
         self.cursor.set_x(256-22)
         self.cursor.set_y(0)
-        self.cursor.show = True
+        self.cursor_show = True
 
         self.background = make_me_a_planet(24)
         self.background.set_y(255)
@@ -170,50 +177,31 @@ class Ready(TimedScene):
 
 
     def blink(self):
-        self.cursor.set_frame(1 if self.cursor.show else -1)
-        self.cursor.show = not self.cursor.show
+        self.cursor.set_frame(1 if self.cursor_show else -1)
+        self.cursor_show = not self.cursor_show
         self.call_later(333, self.blink)
         
 
 
-class Welcome(TimedScene):
+class Scroller(TimedScene):
     def on_enter(self):
         self.start = utime.ticks_ms()
         self.unused_letters = [Letter() for letter in range(25)]
         self.visible_letters = []
- #       for e, l in enumerate(phrase):
- #         letter = Letter(l)
- #         letter.set_x(94 - 9 - e*9)
- #       self.visible_letters.append(letter)
-
-        self.vlad_farty = make_me_a_planet(21)
-        self.farty_lion = make_me_a_planet(22)
-        self.planet = self.farty_lion
-        self.planet.set_y(100)
-        self.planet.set_frame(0)
         self.n = 0
 
     def step(self):
-        global global_n
-        new_y = self.planet.y() + 1
-        if new_y < 256:
-            #self.planet.set_y(new_y)
-            pass
-        self.planet.set_x(vibratto[self.n % tablelen]-24)
-
-        
-        if self.n % 9 == 0 and self.n // 9 < len(phrase):
-            char = phrase[self.n // 9]
+        if self.n % 9 == 0 and self.n // 9 < len(self.phrase):
+            char = self.phrase[self.n // 9]
             l = self.unused_letters.pop()
             l.set_char(char)
             self.visible_letters.append(l)
             #l.set_y(randrange(16,32))
 
         self.n = self.n + 1
-        global_n = self.n
 
         for l in self.visible_letters:
-            l.step()
+            self.step_letter(l)
             if l.done():
                 l.hide()
                 self.visible_letters.remove(l)
@@ -230,13 +218,65 @@ class Welcome(TimedScene):
               " duration (ms): ", utime.ticks_diff(utime.ticks_ms(), self.start))
         director.pop()
 
-class WorldRight(TimedScene):
+
+class Welcome(Scroller):
+    phrase = phrase_A
+
+    def step_letter(self, letter):
+        letter.step(self.n)
+
+
+class BuildFuture(Scroller):
+    phrase = phrase_C
+
+    def step_letter(self, letter):
+        letter.step(letter.x())
+
+
+class DancingLions(TimedScene):
+
     def on_enter(self):
+        self.vlad_farty = make_me_a_planet(21)
+        self.farty_lion = make_me_a_planet(22)
+        self.farty_lion.set_y(100)
+        self.farty_lion.set_frame(0)
+        self.n = 0
+
+    def step(self):
+        new_y = self.farty_lion.y() + 1
+        if new_y < 256:
+            self.farty_lion.set_y(new_y)
+        self.farty_lion.set_x(vibratto[self.n % tablelen]-24)
+        self.n += 1
+
+
+class ChamePic(TimedScene):
+
+    def on_enter(self):
+        self.chame_pic = make_me_a_planet(21)
+        self.chame_pic.set_y(255)
+        self.chame_pic.set_frame(0)
+        self.n = 0
+
+    def step(self):
+        #self.chame_pic.set_x(vibratto[self.n % tablelen]-24)
+        self.n += 1
+
+
+class WorldRight(Scroller):
+    phrase = phrase_B
+
+    def step_letter(self, letter):
+        letter.step(letter.x())
+
+    def on_enter(self):
+        super().on_enter()
         self.earth = make_me_a_planet(10)
         self.earth.set_y(50)
         self.earth.set_frame(0)
 
     def step(self):
+        super().step()
         earth_y = self.earth.y()
         if earth_y < 255:
             self.earth.set_y(min(earth_y + 1, 255))
@@ -295,14 +335,104 @@ class Copyright(TimedScene):
         self.copyright.set_y(y)
         
 
+class KudoLine:
+    def __init__(self, strip, xcenter, invert):
+        self.xcenter = xcenter
+        self.invert = invert
+        self.letters = [Sprite() for n in range(16)]
+        for l in self.letters:
+            l.set_strip(strip)
+            l.set_perspective(1)
+            l.set_y(255)
+        self.status = -1
+        self.counter = 255
+    
+    def set_word(self, word):
+        for l in self.letters:
+            l.disable()
+
+        charw = 9
+        spacer = charw if self.invert else -charw
+        start = self.xcenter - len(word) * spacer // 2
+        if not self.invert:
+            start -= charw
+        for n, char in enumerate(word[:16]):
+            l = self.letters[n]
+            if self.invert:
+                frame = 255 - ord(char)
+                l.set_frame(frame)
+            else:
+                l.set_frame(ord(char))
+            l.set_x(start + n * spacer + 256)
+            l.set_y(255)
+        self.status = 0
+        self.counter = 255
+
+    def step(self):
+        if self.status == 0:
+            self.counter -= 5
+            if self.counter < 17:
+                self.counter = 17
+                self.status = 1
+            for l in self.letters:
+                l.set_y(self.counter)
+        elif self.status == 1:
+            self.counter += 1
+            if self.counter > 70:
+                self.status = 2
+                self.counter = 17
+        elif self.status == 2:
+            self.counter += 3
+            for l in self.letters:
+                l.set_y(self.counter)
+            if self.counter > 250:
+                self.status = 3
+
+    def done(self):
+        return self.status >= 1 and self.counter > 50
+
+
+class Kudowz(TimedScene):
+    def on_enter(self):
+        self.kudolines = [KudoLine(19, 128, invert=True), KudoLine(20, 0, invert=False)]
+        self.line = 0
+        self.advance_line()
+
+        self.background = make_me_a_planet(24)
+        self.background.set_y(255)
+        self.background.set_frame(-1)
+    
+    def advance_line(self):
+        if self.line >= len(credits):
+            director.pop()
+            raise StopIteration()
+
+        kl = self.kudolines[self.line % 2]
+        kl.set_word(credits[self.line])
+        self.line += 1
+
+    def step(self):
+        advance = False
+        for kl in self.kudolines:
+            kl.step()
+
+        if self.kudolines[(self.line + 1) % 2].done():
+            self.advance_line()
+
+
+scenes = [
+    (Kudowz, 60000),
+    (Copyright, 0),
+]
+
 scenes = [
     (Ready, 6000),
     (Welcome, 60000),
-    (WorldRight, 20000),
-#    (DancingLions, 10000),
-#    (BuildFuture, 20000),
-#    (ChameScreen, 10000),
-#    (Kudowz, 20000),
+    (WorldRight, 50206),
+    (DancingLions, 25000),
+    (BuildFuture, 60000),
+    (ChamePic, 25000),
+    (Kudowz, 60000),
     (Copyright, 0),
 ]
     

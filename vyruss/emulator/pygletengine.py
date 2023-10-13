@@ -47,7 +47,7 @@ image_stripes = {
     "16": imagenes.tecno_estructuras_flat_png,
     "17": imagenes.menatwork_flat_png,
     "18": imagenes.yourgame_flat_png,
-    "19": imagenes.letters_png,
+    "19": imagenes.vga_pc734_png,
     "20": imagenes.vga_cp437_png,
     "21": imagenes.vlad_farting_flat_png,
     "22": imagenes.farty_lion_flat_png,
@@ -211,8 +211,8 @@ class PygletEngine():
 
             # el sprite 0 se dibuja arriba de todos los otros
             for n in range(99, -1, -1):
-                x, y, image, frame, perspective = unpack("BBBbb", spritedata[n*5:n*5+5])
-                if frame == -1:
+                x, y, image, frame, perspective = unpack("BBBBb", spritedata[n*5:n*5+5])
+                if frame == 255:
                     continue
 
                 strip = image_stripes["%d" % image]
