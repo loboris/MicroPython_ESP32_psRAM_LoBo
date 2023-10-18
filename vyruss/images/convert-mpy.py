@@ -51,6 +51,7 @@ attributes = {
   "menatwork_flat.png": (255, 40, 1, 0),
   "vlad_farting_flat.png": (255, 54, 1, 0),
   "farty_lion_flat.png": (255, 54, 1, 0),
+  "farty_lionhead_flat.png": (255, 54, 1, 0),
   "bg64_flat.png": (255, 54, 1, 0),
   "bgspeccy_flat.png": (255, 54, 1, 0),
   "reset.png": (128, 53, 5, 0),

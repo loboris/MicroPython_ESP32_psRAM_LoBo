@@ -5,9 +5,9 @@ from sprites import Sprite, reset_sprites
 from urandom import randrange
 
 
-phrase_A = """[TBD Group] welcomes you to Vlad Farty, arguably the first demo for PoV displays. A big ass fan + 107 LEDs + one ESP32 & open sourced, build your own to enjoy games AND demos."""
+phrase_A = """[TBD Group] welcomes you to Vlad Farty, arguably the first demo for PoV displays.  A big ass fan + 107 LEDs + one ESP32 & open sourced, build your own to enjoy games AND demos."""
 
-phrase_B = """We have a beautiful world BUT it's quickly turning to the RIGHT! Dictators and racists and orange clowns. Hate and selfishness. Even down here we copy the worst..."""
+phrase_B = """We have a beautiful world BUT it's quickly turning to the RIGHT!  Dictators and racists and orange clowns. Hate and selfishness. Even down here we copy the worst..."""
 
 phrase_C = """What do you plan to do? Drop the memes, get off your soma, build our own future."""
 
@@ -102,28 +102,47 @@ class VladFarty(Scene):
             raise StopIteration()
 
     def next_scene(self):
-        new_scene_class, duration = scenes[self.farty_step]
-        director.push(new_scene_class(duration))
-        if duration:
+        new_scene_class = scenes[self.farty_step]
+        if new_scene_class:
+            director.push(new_scene_class())
             self.farty_step += 1
+        else:
+            director.pop()
+            raise StopIteration()
 
 class TimedScene(Scene):
-    def __init__(self, duration):
+    keep_music = True
+
+    def __init__(self):
         super().__init__()
-        if duration:
-            self.call_later(duration, self.finish_scene)
+        self.scene_start = utime.ticks_ms()
+        if self.duration:
+            print("Scene starting: ", self.__class__.__name__,
+              " starts (ms): ", self.scene_start,
+              " will end: ", utime.ticks_add(self.scene_start, self.duration))
+            self.call_later(self.duration, self.finish_scene)
+
+    def on_exit(self):
+        print("Scene finished: ", self.__class__.__name__,
+              " duration (ms): ", utime.ticks_diff(utime.ticks_ms(), self.scene_start),
+              " current time: ", utime.ticks_ms())
 
     def scene_step(self):
+        super().scene_step()
+        if director.was_pressed(director.BUTTON_A):
+            director.pop()
         if director.was_pressed(director.BUTTON_D):
             director.pop()
             raise StopIteration()
-        super().scene_step()
 
     def finish_scene(self):
+        print("Later called to finish scene, current time: ", utime.ticks_ms())
         director.pop()
 
 
 class Ready(TimedScene):
+    duration = 6000
+
     def on_enter(self):
         self.ready = Sprite()
         self.ready.set_strip(23)
@@ -151,7 +170,7 @@ class Ready(TimedScene):
         self.blink()
         self.call_later(2000, self.start_scrolling)
         self.call_later(4000, self.start_hiding)
-
+        director.music_play(b"demo/vladfarty/intro")
 
     def start_scrolling(self):
         self.scrolling = True
@@ -185,7 +204,6 @@ class Ready(TimedScene):
 
 class Scroller(TimedScene):
     def on_enter(self):
-        self.start = utime.ticks_ms()
         self.unused_letters = [Letter() for letter in range(25)]
         self.visible_letters = []
         self.n = 0
@@ -208,18 +226,15 @@ class Scroller(TimedScene):
                 self.unused_letters.append(l)
 
         if not self.visible_letters:
-            self.finish()
+            director.pop()
 
         if director.is_pressed(director.JOY_DOWN) and director.is_pressed(director.JOY_LEFT) and director.was_pressed(director.BUTTON_A):
             self.planet.set_strip(19)
 
-    def finish(self):
-        print("Scene finished: ", self,
-              " duration (ms): ", utime.ticks_diff(utime.ticks_ms(), self.start))
-        director.pop()
 
 
 class Welcome(Scroller):
+    duration = 60000
     phrase = phrase_A
 
     def step_letter(self, letter):
@@ -227,30 +242,49 @@ class Welcome(Scroller):
 
 
 class BuildFuture(Scroller):
+    duration = 60000
     phrase = phrase_C
+
+    def on_enter(self):
+        super().on_enter()
 
     def step_letter(self, letter):
         letter.step(letter.x())
 
 
 class DancingLions(TimedScene):
+    #duration = 23920
+    duration = 10000
 
     def on_enter(self):
-        self.vlad_farty = make_me_a_planet(21)
+        self.farty_lionhead = make_me_a_planet(28)
+        self.farty_lionhead.set_y(0)
+        self.farty_lionhead.disable()
         self.farty_lion = make_me_a_planet(22)
         self.farty_lion.set_y(100)
         self.farty_lion.set_frame(0)
         self.n = 0
+        self.call_later(self.duration - 1500, self.start_lionhead)
+        director.music_play(b"demo/vladfarty/farty-lion")
+        self.increment = 1
+
+    def start_lionhead(self):
+        self.increment = -5
+        self.farty_lionhead.set_y(200)
+        self.farty_lionhead.set_frame(0)
+        director.music_off()
+        director.sound_play(b"demo/vladfarty/hit")
 
     def step(self):
-        new_y = self.farty_lion.y() + 1
-        if new_y < 256:
+        new_y = self.farty_lion.y() + self.increment
+        if 0 < new_y < 256:
             self.farty_lion.set_y(new_y)
         self.farty_lion.set_x(vibratto[self.n % tablelen]-24)
         self.n += 1
 
 
 class ChamePic(TimedScene):
+    duration = 25000
 
     def on_enter(self):
         self.chame_pic = make_me_a_planet(21)
@@ -263,7 +297,15 @@ class ChamePic(TimedScene):
         self.n += 1
 
 
+class OrchestraHit(TimedScene):
+    duration = 1500
+
+    def on_enter(self):
+        director.sound_play(b"demo/vladfarty/hit")
+        director.music_off()
+
 class WorldRight(Scroller):
+    duration = 50206
     phrase = phrase_B
 
     def step_letter(self, letter):
@@ -274,6 +316,7 @@ class WorldRight(Scroller):
         self.earth = make_me_a_planet(10)
         self.earth.set_y(50)
         self.earth.set_frame(0)
+        director.music_play(b"demo/vladfarty/part2")
 
     def step(self):
         super().step()
@@ -285,6 +328,8 @@ class WorldRight(Scroller):
 
 
 class Copyright(TimedScene):
+    duration = 60000
+
     def on_enter(self):
         self.copyright = Sprite()
         self.copyright.disable()
@@ -311,8 +356,13 @@ class Copyright(TimedScene):
         self.background.set_frame(0)
         self.reset.set_frame(4)
         self.reset_step = 0
+        director.music_off()
 
     def step(self):
+        if director.was_pressed(director.BUTTON_A):
+            director.pop()
+            raise StopIteration()
+
         if self.reset_step < (9 * RESET_SPEED):
             frame = abs(self.reset_step // RESET_SPEED - 4)
             self.reset.set_frame(frame)
@@ -393,6 +443,8 @@ class KudoLine:
 
 
 class Kudowz(TimedScene):
+    duration = 60000
+
     def on_enter(self):
         self.kudolines = [KudoLine(19, 128, invert=True), KudoLine(20, 0, invert=False)]
         self.line = 0
@@ -401,6 +453,7 @@ class Kudowz(TimedScene):
         self.background = make_me_a_planet(24)
         self.background.set_y(255)
         self.background.set_frame(-1)
+        director.music_play(b"demo/vladfarty/credits")
     
     def advance_line(self):
         if self.line >= len(credits):
@@ -421,18 +474,22 @@ class Kudowz(TimedScene):
 
 
 scenes = [
-    (Kudowz, 60000),
-    (Copyright, 0),
+    Kudowz,
+    Copyright,
 ]
 
 scenes = [
-    (Ready, 6000),
-    (Welcome, 60000),
-    (WorldRight, 50206),
-    (DancingLions, 25000),
-    (BuildFuture, 60000),
-    (ChamePic, 25000),
-    (Kudowz, 60000),
-    (Copyright, 0),
+    Ready,
+    Welcome,
+    OrchestraHit,
+    WorldRight,
+    OrchestraHit,
+    DancingLions,
+    BuildFuture,
+    ChamePic,
+    OrchestraHit,
+    Kudowz,
+    Copyright,
+    None,
 ]
     

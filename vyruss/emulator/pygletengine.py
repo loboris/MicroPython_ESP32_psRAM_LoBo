@@ -12,10 +12,12 @@ from deepspace import deepspace
 
 
 sounds = {}
-for sn in ["shoot1", "explosion2", "explosion3", "shoot3"]:
+for sn in ["shoot1", "explosion2", "explosion3", "shoot3", "demo/vladfarty/hit"]:
     sounds[bytes(sn, "latin1")] = pyglet.media.load("sounds/%s.wav" % sn, streaming=False)
 
-for mn in ["credits", "vy-gameover", "vy-main", "vy-3warps"]:
+for mn in ["credits", "vy-gameover", "vy-main", "vy-3warps",
+           "demo/vladfarty/intro", "demo/vladfarty/part2",
+           "demo/vladfarty/farty-lion", "demo/vladfarty/credits"]:
     sounds[bytes(mn, "latin1")] = pyglet.media.load("sounds/%s.wav" % mn, streaming=False)
 
 sound_queue = []
@@ -56,6 +58,7 @@ image_stripes = {
     "25": imagenes.copyright_png,
     "26": imagenes.bgspeccy_flat_png,
     "27": imagenes.reset_png,
+    "28": imagenes.farty_lionhead_flat_png,
 }
 spritedata = bytearray( b"\0\0\0\xff\xff" * 100)
 
@@ -64,6 +67,7 @@ fps_display = pyglet.window.FPSDisplay(window)
 keys = key.KeyStateHandler()
 
 joysticks = pyglet.input.get_joysticks()
+print(joysticks)
 if joysticks:
     joystick = joysticks[0]
     joystick.open()

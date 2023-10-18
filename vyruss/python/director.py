@@ -57,7 +57,8 @@ class Director:
     def pop(self):
         scene = self.scene_stack.pop()
         scene.on_exit()
-        self.music_off()
+        if not scene.keep_music:
+            self.music_off()
         sprites.reset_sprites()
         if self.scene_stack:
             self.scene_stack[-1].on_enter()
