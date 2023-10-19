@@ -17,7 +17,8 @@ for sn in ["shoot1", "explosion2", "explosion3", "shoot3", "demo/vladfarty/hit"]
 
 for mn in ["credits", "vy-gameover", "vy-main", "vy-3warps",
            "demo/vladfarty/intro", "demo/vladfarty/part2",
-           "demo/vladfarty/farty-lion", "demo/vladfarty/credits"]:
+           "demo/vladfarty/farty-lion", "demo/vladfarty/credits",
+           "demo/vladfarty/happy-place"]:
     sounds[bytes(mn, "latin1")] = pyglet.media.load("sounds/%s.wav" % mn, streaming=False)
 
 sound_queue = []

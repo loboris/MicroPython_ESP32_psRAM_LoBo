@@ -247,6 +247,7 @@ class BuildFuture(Scroller):
 
     def on_enter(self):
         super().on_enter()
+        director.music_play(b"demo/vladfarty/happy-place")
 
     def step_letter(self, letter):
         letter.step(letter.x())
@@ -254,7 +255,7 @@ class BuildFuture(Scroller):
 
 class DancingLions(TimedScene):
     #duration = 23920
-    duration = 10000
+    duration = 15000
 
     def on_enter(self):
         self.farty_lionhead = make_me_a_planet(28)
@@ -284,7 +285,7 @@ class DancingLions(TimedScene):
 
 
 class ChamePic(TimedScene):
-    duration = 25000
+    duration = 15000
 
     def on_enter(self):
         self.chame_pic = make_me_a_planet(21)
