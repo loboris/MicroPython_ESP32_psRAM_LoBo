@@ -68,10 +68,12 @@ def receive_loop():
     while looping:
         try:
             l = sockfile.readline()
-            command, *args = l.split()
 
-            if not command:
+            l = l.strip()
+            if not l:
                 continue
+
+            command, *args = l.split()
 
             if command == b"sprites":
                 spritedata[:] = sockfile.read(5*100)
@@ -80,10 +82,13 @@ def receive_loop():
                 palette[:] = sockfile.read(1024)
 
             if command == b"sound":
-                playsound(args[0])
+                playsound(b" ".join(args))
+
+            if command == b"arduino":
+                arduino_send(b" ".join(args))
 
             if command == b"music":
-                playmusic(args[0])
+                playmusic(b" ".join(args))
 
             if command == b"musicstop":
                 playmusic("off")
@@ -234,3 +239,26 @@ def shutdown():
 #mqtt_thread = threading.Thread(target=mqtt_loop)
 #mqtt_thread.daemon = True
 #mqtt_thread.start()
+
+try:
+    import serial
+    ARDUINO_DEVICE = "/dev/ttyAMA0"
+    arduino = serial.Serial(ARDUINO_DEVICE, 57600)
+
+    arduino_commands = {
+        b"start": b"S",
+        b"stop": b"r",
+        b"reset": b"R",
+        b"attract": b"s"
+    }
+
+    def arduino_send(command):
+        print("arduino, sending", command)
+        arduino.write(arduino_commands.get(command, b" "))
+
+except Exception as e:
+    print(e)
+
+    def arduino_send(_):
+        pass
+

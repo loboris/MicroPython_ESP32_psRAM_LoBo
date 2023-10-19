@@ -12,10 +12,14 @@ from deepspace import deepspace
 
 
 sounds = {}
-for sn in ["shoot1", "explosion2", "explosion3", "shoot3", "demo/vladfarty/hit"]:
+for sn in ["shoot1", "explosion2", "explosion3", "shoot3", "demo/vladfarty/hit",
+    "line", "triangle", "square", "pentagon", "superhexagon", "begin", "awesome", "die", "excellent", "gameover",
+    "menuchoose", "menuselect", "rankup", "start", "wonderful", "hexagon",
+    "es/super ventilagon", "es/buenisimo", "es/perdiste", "es/empeza", "es/linea",
+    "es/triangulo", "es/cuadrado", "es/pentagono", "es/ventilagono"]:
     sounds[bytes(sn, "latin1")] = pyglet.media.load("sounds/%s.wav" % sn, streaming=False)
 
-for mn in ["credits", "vy-gameover", "vy-main", "vy-3warps",
+for mn in ["credits", "vy-gameover", "vy-main", "vy-3warps", "1",
            "demo/vladfarty/intro", "demo/vladfarty/part2",
            "demo/vladfarty/farty-lion", "demo/vladfarty/credits",
            "demo/vladfarty/happy-place"]:
@@ -157,15 +161,23 @@ class PygletEngine():
         def send_keys():
             reset = keys[key.P]
             try:
-                left = joystick.x < -0.5
-                right = joystick.x > 0.5
-                up = joystick.y < -0.5
-                down = joystick.y > 0.5
+                left = joystick.x < -0.5 or joystick.hat_x < -0.5 or joystick.buttons[4]
+                right = joystick.x > 0.5 or joystick.hat_x > 0.5 or joystick.buttons[5]
+                up = joystick.y < -0.5 or joystick.hat_y > 0.5
+                down = joystick.y > 0.5 or joystick.hat_y < -0.5
 
-                boton = joystick.buttons[0] | joystick.buttons[1] | joystick.buttons[2] | joystick.buttons[3]
+
+                boton = joystick.buttons[0] or joystick.buttons[1] or joystick.buttons[2] or joystick.buttons[3] # or joystick.buttons[4] or joystick.buttons[5] or joystick.buttons[6]
+
                 accel = joystick.rz > 0
                 decel = joystick.z > 0
-                reset = joystick.buttons[8]
+                try:
+                    reset = joystick.buttons[8]
+                except:
+                    reset = joystick.buttons[7]
+                left = left or keys[key.LEFT]
+                right = right or keys[key.RIGHT]
+
             except Exception:
                 left = keys[key.LEFT]
                 right = keys[key.RIGHT]
